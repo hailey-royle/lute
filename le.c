@@ -8,6 +8,8 @@
 
 #define START_ALT_SCREEN "\x1b[?1049h"
 #define END_ALT_SCREEN "\x1b[?1049l"
+#define ERASE_SCREEN "\x1b[2J"
+#define CURSOR_HOME "\x1b[1;1H"
 
 #define LINE_ALLOC_STEP 256
 #define TEXT_ALLOC_STEP 1024
@@ -152,7 +154,7 @@ void DrawLine(char* dst, ssize_t max, ssize_t lineNumber) {
 }
 
 void DrawFrame() {
-        char cursorMove[45] = {0};
+        char cursorMove[45] = {'\0'};
         for (ssize_t i = 0; i < l.s.rowCount * l.s.colCount; ++i) {
                 l.s.text[i] = ' ';
         }
@@ -160,8 +162,10 @@ void DrawFrame() {
                 DrawLine(&l.s.text[l.s.colCount * i], l.s.colCount, i + GetLineNumber() - (l.s.rowCount / 2));
         }
         sprintf(cursorMove, "\x1b[%ld;%ldH", (l.s.rowCount / 2) + 1, l.d.index - l.d.line[GetLineNumber()].start + 1); 
+        write(STDOUT_FILENO, ERASE_SCREEN, sizeof(ERASE_SCREEN));
+        write(STDOUT_FILENO, CURSOR_HOME, sizeof(CURSOR_HOME));
         write(STDOUT_FILENO, l.s.text, l.s.colCount * l.s.rowCount * sizeof(*l.s.text));
-        write(STDOUT_FILENO, cursorMove, sizeof(cursorMove));
+        write(STDOUT_FILENO, cursorMove, strlen(cursorMove));
 }
 
 void InsertChar(char insert) {
