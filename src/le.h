@@ -45,9 +45,10 @@ void DeleteChars(char** dst, int *dstLen, int index, int count) {
 
 int PrevCharIndex(char** text, int textLen, int index, int count) {
         assert(text != NULL);
-        assert(count >= 0);
-        assert(index >= 0);
+        assert(textLen >= 0);
         assert(textLen > index);
+        assert(index >= 0);
+        assert(count >= 0);
         if (count == 0) return 0;
         if (count > index) return 0 - index;
         return ~(count - 1);
@@ -55,20 +56,22 @@ int PrevCharIndex(char** text, int textLen, int index, int count) {
 
 int NextCharIndex(char** text, int textLen, int index, int count) {
         assert(text != NULL);
-        assert(count >= 0);
-        assert(index >= 0);
+        assert(textLen >= 0);
         assert(textLen > index);
+        assert(index >= 0);
+        assert(count >= 0);
         if (count == 0) return 0;
         if (count + index >= textLen - 1) return textLen - 1 - index;
         return count;
 }
 
 int PrevWordIndex(char** text, int textLen, int index, int count) {
-        assert(text != NULL);
         int ret = 0;
-        assert(count >= 0);
-        assert(index >= 0);
+        assert(text != NULL);
+        assert(textLen >= 0);
         assert(textLen > index);
+        assert(index >= 0);
+        assert(count >= 0);
         while (count > 0) {
                 if (index + ret <= 0) {
                         break;
@@ -82,11 +85,12 @@ int PrevWordIndex(char** text, int textLen, int index, int count) {
 }
 
 int NextWordIndex(char** text, int textLen, int index, int count) {
-        assert(text != NULL);
         int ret = 0;
-        assert(count >= 0);
-        assert(index >= 0);
+        assert(text != NULL);
+        assert(textLen >= 0);
         assert(textLen > index);
+        assert(index >= 0);
+        assert(count >= 0);
         while (count > 0) {
                 if (index + ret >= textLen - 1) {
                         break;
@@ -100,11 +104,12 @@ int NextWordIndex(char** text, int textLen, int index, int count) {
 }
 
 int PrevLineIndex(char** text, int textLen, int index, int count) {
-        assert(text != NULL);
         int ret = 0;
-        assert(count >= 0);
-        assert(index >= 0);
+        assert(text != NULL);
+        assert(textLen >= 0);
         assert(textLen > index);
+        assert(index >= 0);
+        assert(count >= 0);
         while (count > 0) {
                 if (index + ret <= 0) {
                         break;
@@ -125,11 +130,12 @@ int PrevLineIndex(char** text, int textLen, int index, int count) {
 }
 
 int NextLineIndex(char** text, int textLen, int index, int count) {
-        assert(text != NULL);
         int ret = 0;
-        assert(count >= 0);
-        assert(index >= 0);
+        assert(text != NULL);
+        assert(textLen >= 0);
         assert(textLen > index);
+        assert(index >= 0);
+        assert(count >= 0);
         while (count > 0) {
                 if (index + ret >= textLen - 1) {
                         break;
@@ -146,11 +152,12 @@ int NextLineIndex(char** text, int textLen, int index, int count) {
 }
 
 int PrevParaIndex(char** text, int textLen, int index, int count) {
-        assert(text != NULL);
         int ret = 0;
-        assert(count >= 0);
-        assert(index >= 0);
+        assert(text != NULL);
+        assert(textLen >= 0);
         assert(textLen > index);
+        assert(index >= 0);
+        assert(count >= 0);
         while (count > 0) {
                 if (index + ret <= 0) {
                         break;
@@ -171,11 +178,12 @@ int PrevParaIndex(char** text, int textLen, int index, int count) {
 }
 
 int NextParaIndex(char** text, int textLen, int index, int count) {
-        assert(text != NULL);
         int ret = 0;
-        assert(count >= 0);
-        assert(index >= 0);
+        assert(text != NULL);
+        assert(textLen >= 0);
         assert(textLen > index);
+        assert(index >= 0);
+        assert(count >= 0);
         while (count > 0) {
                 if (index + ret >= textLen - 1) {
                         break;
@@ -195,10 +203,11 @@ int NextParaIndex(char** text, int textLen, int index, int count) {
 }
 
 int StartLineIndex(char** text, int textLen, int index) {
-        assert(text != NULL);
         int ret = 0;
-        assert(index >= 0);
+        assert(text != NULL);
+        assert(textLen >= 0);
         assert(textLen > index);
+        assert(index >= 0);
         while (index + ret > 0) {
                 --ret;
                 if (*(*text + index + ret) == '\n') {
@@ -210,10 +219,11 @@ int StartLineIndex(char** text, int textLen, int index) {
 }
 
 int EndLineIndex(char** text, int textLen, int index) {
-        assert(text != NULL);
         int ret = 0;
-        assert(index >= 0);
+        assert(text != NULL);
+        assert(textLen >= 0);
         assert(textLen > index);
+        assert(index >= 0);
         while (index + ret < textLen) {
                 if (*(*text + index + ret) == '\n') {
                         break;
@@ -225,24 +235,27 @@ int EndLineIndex(char** text, int textLen, int index) {
 
 int StartFileIndex(char** text, int textLen, int index) {
         assert(text != NULL);
-        assert(index >= 0);
+        assert(textLen >= 0);
         assert(textLen > index);
+        assert(index >= 0);
         return 0 - index;
 }
 
 int EndFileIndex(char** text, int textLen, int index) {
         assert(text != NULL);
-        assert(index >= 0);
+        assert(textLen >= 0);
         assert(textLen > index);
+        assert(index >= 0);
         return textLen - 1 - index;
 }
 
 int LineIndex(char** text, int textLen, int index, int line) {
         int ret = 0;
         assert(text != NULL);
-        assert(line >= 0);
+        assert(textLen >= 0);
         assert(index >= 0);
         assert(index < textLen);
+        assert(line >= 0);
         if (line == 0) {
                 return 0 - index;
         }
@@ -261,18 +274,38 @@ int LineIndex(char** text, int textLen, int index, int line) {
 int LineAbsolute(char** text, int textLen, int line) {
         int ret = 0;
         assert(text != NULL);
+        assert(textLen >= 0);
         assert(line >= 0);
         if (line == 0) {
                 return 0;
         }
         while (line > 0) {
                 if (ret >= textLen - 1) {
-                        break;
+                        return -1;
                 }
                 if (*(*text + ret) == '\n') {
                         --line;
                 }
                 ++ret;
+        }
+        return ret;
+}
+
+int LineNumber(char** text, int textLen, int index) {
+        int ret = 0;
+        int i = 0;
+        assert(text != NULL);
+        assert(textLen >= 0);
+        assert(index >= 0);
+        assert(index < textLen);
+        while (index > 0) {
+                if (ret >= textLen - 1) {
+                        break;
+                }
+                --index;
+                if (*(*text + index) == '\n') {
+                        ++ret;
+                }
         }
         return ret;
 }

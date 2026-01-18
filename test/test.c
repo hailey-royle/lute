@@ -286,8 +286,17 @@ void LineAbsolute_Test() {
         Test(LineAbsolute(&testString, strlen(testString), 2) == 14, "LineAbsolute blank line");
         Test(LineAbsolute(&testString, strlen(testString), 3) == 15, "LineAbsolute after blank line");
         Test(LineAbsolute(&testString, strlen(testString), 6) == 67, "LineAbsolute last line");
-        Test(LineAbsolute(&testString, strlen(testString), 7) == 76, "LineAbsolute last line + 1");
-        Test(LineAbsolute(&testString, strlen(testString), 100) == 76, "LineAbsolute line overflow");
+        Test(LineAbsolute(&testString, strlen(testString), 7) == -1, "LineAbsolute last line + 1");
+        Test(LineAbsolute(&testString, strlen(testString), 100) == -1, "LineAbsolute line overflow");
+}
+
+void LineNumber_Test() {
+        Test(LineNumber(&testString, strlen(testString), 0) == 0, "LineNumber index 0");
+        Test(LineNumber(&testString, strlen(testString), 1) == 1, "LineNumber middle line start of line");
+        Test(LineNumber(&testString, strlen(testString), 3) == 1, "LineNumber middle line middle of line");
+        Test(LineNumber(&testString, strlen(testString), 13) == 1, "LineNumber middle line start of line");
+        Test(LineNumber(&testString, strlen(testString), 75) == 6, "LineNumber last line");
+        Test(LineNumber(&testString, strlen(testString), 76) == 6, "LineNumber last line last index");
 }
 
 void TestResult() {
@@ -315,5 +324,6 @@ int main() {
         EndFileIndex_Test();
         LineIndex_Test();
         LineAbsolute_Test();
+        LineNumber_Test();
         TestResult();
 }
