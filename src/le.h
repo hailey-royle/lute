@@ -312,7 +312,6 @@ int LineAbsolute(char** text, int textLen, int line) {
 
 int LineNumber(char** text, int textLen, int index) {
         int ret = 0;
-        int i = 0;
         assert(text != NULL);
         assert(textLen >= 0);
         assert(index >= 0);
