@@ -164,7 +164,7 @@ void GetInput() {
                 } else if (le.command == YEET) {
                 }
                 le.command = MOVE;
-                le.count = 1;
+                le.count = 0;
         }
 }
 
