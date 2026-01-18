@@ -1,6 +1,25 @@
 #ifndef LEH
 #define LEH
 
+void InsertChars(char** dst, int *dstLen, int index, char* src, int count);
+void DeleteChars(char** dst, int *dstLen, int index, int count);
+int PrevCharIndex(char** text, int textLen, int index, int count);
+int NextCharIndex(char** text, int textLen, int index, int count);
+int PrevWordIndex(char** text, int textLen, int index, int count);
+int NextWordIndex(char** text, int textLen, int index, int count);
+int PrevLineIndex(char** text, int textLen, int index, int count);
+int NextLineIndex(char** text, int textLen, int index, int count);
+int PrevParaIndex(char** text, int textLen, int index, int count);
+int NextParaIndex(char** text, int textLen, int index, int count);
+int StartLineIndex(char** text, int textLen, int index);
+int EndLineIndex(char** text, int textLen, int index);
+int StartFileIndex(char** text, int textLen, int index);
+int EndFileIndex(char** text, int textLen, int index);
+int LineIndex(char** text, int textLen, int index, int line);
+int LineAbsolute(char** text, int textLen, int line);
+int LineNumber(char** text, int textLen, int index);
+//int FindStringIndex(char** text, int textLen, int count);
+
 void InsertChars(char** dst, int *dstLen, int index, char* src, int count) {
         assert(dst != NULL);
         assert(*dst != NULL);
