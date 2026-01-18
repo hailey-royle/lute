@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include "../src/le.h"
+#include "le.h"
 
 char* testString = "\nHello World!\n\nThis is my test string\nI hope it's good!\nExtra Line\nLast Line\n";
 char* testPara = "one\n\nthree\nfour\n\nsix\nseven\n\neight\nnine\n\nten\n";

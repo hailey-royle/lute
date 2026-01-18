@@ -6,6 +6,8 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 
+
+
 #include "le.h"
 
 #define START_ALT_SCREEN "\x1b[?1049h"
