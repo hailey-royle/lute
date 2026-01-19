@@ -99,6 +99,12 @@ void WriteFile() {
         fclose(file);
 }
 
+void DrawLine(char* dst, char* src, int max) {
+        while (max > 0 && *src != '\n') {
+                *dst++ = *src++;
+        }
+}
+
 void DrawFrame() {
         int frameLen = le.screenCols * le.screenRows + 1;
         int cursorRow = le.screenRows / 2;
@@ -109,7 +115,7 @@ void DrawFrame() {
         }
         for (int i = 0; i < le.screenRows; ++i) {
                 if (i == cursorRow) {
-                        frame[le.screenCols * i] = le.text[0];
+                        DrawLine(&frame[le.screenCols * i], &le.text[startLineIndex], le.screenCols);
                 } else {
                         frame[le.screenCols * i] = '~';
                 }
