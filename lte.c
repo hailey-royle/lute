@@ -6,7 +6,7 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 
-#include "le.h"
+#include "lte.h"
 
 #define START_ALT_SCREEN "\x1b[?1049h"
 #define END_ALT_SCREEN "\x1b[?1049l"
