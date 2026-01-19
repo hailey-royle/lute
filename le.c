@@ -168,6 +168,9 @@ void GetInput() {
                         WriteFile();
                 } else if (key == 'i') {
                         le.mode = EDIT;
+                } else if (key == 'a') {
+                        move = NextCharIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
+                        le.mode = EDIT;
                 } else if (key == 'h') {
                         move = PrevCharIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
                 } else if (key == 'l') {

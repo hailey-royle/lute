@@ -20,6 +20,7 @@ Some actions fall outside of this system, such as quit and write
 - q - quit
 - w - write
 - i - insert mode
+- a - append
 - h - char left
 - l - char right 
 - b - word left 
@@ -39,7 +40,6 @@ Some actions fall outside of this system, such as quit and write
 - ? - repeat last command
 - f - find "string"
 - s - subsitute "string" for "string"
-- a - append
 - o - open
 - d - delete
 - c - change
