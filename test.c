@@ -169,19 +169,19 @@ void DeleteChars_Test() {
 
 void PrevCharIndex_Test() {
         Test(PrevCharIndex(&testString, strlen(testString), 0, 0) == 0, "PrevCharIndex count 0");
-        Test(PrevCharIndex(&testString, strlen(testString), 1, 1) == -1, "PrevCharIndex count 1");
-        Test(PrevCharIndex(&testString, strlen(testString), 10, 10) == -10, "PrevCharIndex count 10");
+        Test(PrevCharIndex(&testString, strlen(testString), 1, 1) == 0, "PrevCharIndex count 1");
+        Test(PrevCharIndex(&testString, strlen(testString), 10, 10) == -9, "PrevCharIndex count 10");
         Test(PrevCharIndex(&testString, strlen(testString), 0, 1) == 0, "PrevCharIndex count overflow");
-        Test(PrevCharIndex(&testString, strlen(testString), 1, 2) == -1, "PrevCharIndex count + index overflow");
+        Test(PrevCharIndex(&testString, strlen(testString), 2, 2) == -1, "PrevCharIndex count + index overflow");
         Test(PrevCharIndex(&testString, strlen(testString), strlen(testString) - 1, 1) == -1, "PrevCharIndex index max");
 }
 
 void NextCharIndex_Test() {
         Test(NextCharIndex(&testString, strlen(testString), 0, 0) == 0, "NextCharIndex count 0");
-        Test(NextCharIndex(&testString, strlen(testString), 0, 1) == 1, "NextCharIndex count 1");
-        Test(NextCharIndex(&testString, strlen(testString), 0, 10) == 10, "NextCharIndex count 10");
-        Test(NextCharIndex(&testString, strlen(testString), 0, 1000) == strlen(testString) - 1, "NextCharIndex count overflow");
-        Test(NextCharIndex(&testString, strlen(testString), 40, 40) == strlen(testString) - 1 - 40, "NextCharIndex count + index overflow");
+        Test(NextCharIndex(&testString, strlen(testString), 1, 1) == 1, "NextCharIndex count 1");
+        Test(NextCharIndex(&testString, strlen(testString), 1, 10) == 10, "NextCharIndex count 10");
+        Test(NextCharIndex(&testString, strlen(testString), 1, 1000) == 12, "NextCharIndex count overflow");
+        Test(NextCharIndex(&testString, strlen(testString), 40, 40) == 15, "NextCharIndex count + index overflow");
         Test(NextCharIndex(&testString, strlen(testString), strlen(testString) - 1, 1) == 0, "NextCharIndex index max");
 }
 
@@ -310,8 +310,8 @@ void LineNumber_Test() {
 void TestResult() {
         printf("\x1b[31m [ FAILED : %d ] \x1b[32m[ PASSED : %d ]\x1b[0m\n", testFailed, testPassed);
         if (testFailed > 0) {
-                for (int i = 0; i < strlen(testPara); ++i) printf("%d:%c\n", i, testPara[i]);
-                printf(testPara);
+                for (int i = 0; i < strlen(testString); ++i) printf("%d:%c\n", i, testString[i]);
+                printf(testString);
         }
 }
 

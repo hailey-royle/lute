@@ -63,25 +63,44 @@ void DeleteChars(char** dst, int *dstLen, int index, int count) {
 }
 
 int PrevCharIndex(char** text, int textLen, int index, int count) {
+        int ret = 0;
         assert(text != NULL);
         assert(textLen >= 0);
         assert(textLen > index);
         assert(index >= 0);
         assert(count >= 0);
-        if (count == 0) return 0;
-        if (count > index) return 0 - index;
-        return ~(count - 1);
+        while (count > 0) {
+                if (index - ret <= 0) {
+                        break;
+                }
+                --ret;
+                --count;
+                if (*(*text + index + ret) == '\n') {
+                        ++ret;
+                        break;
+                }
+        }
+        return ret;
 }
 
 int NextCharIndex(char** text, int textLen, int index, int count) {
+        int ret = 0;
         assert(text != NULL);
         assert(textLen >= 0);
         assert(textLen > index);
         assert(index >= 0);
         assert(count >= 0);
-        if (count == 0) return 0;
-        if (count + index >= textLen - 1) return textLen - 1 - index;
-        return count;
+        while (count > 0) {
+                if (index + ret >= textLen - 1) {
+                        break;
+                }
+                if (*(*text + index + ret) == '\n') {
+                        break;
+                }
+                ++ret;
+                --count;
+        }
+        return ret;
 }
 
 int PrevWordIndex(char** text, int textLen, int index, int count) {
@@ -91,6 +110,17 @@ int PrevWordIndex(char** text, int textLen, int index, int count) {
         assert(textLen > index);
         assert(index >= 0);
         assert(count >= 0);
+/*
+        while (count > 0) {
+                if (index + ret <= 0) {
+                        break;
+                }
+                --ret;
+                if (*(*text + index + ret) != ' ' && *(*text + index + ret) != '\n') {
+                        break;
+                }
+        }
+*/
         while (count > 0) {
                 if (index + ret <= 0) {
                         break;
@@ -110,6 +140,17 @@ int NextWordIndex(char** text, int textLen, int index, int count) {
         assert(textLen > index);
         assert(index >= 0);
         assert(count >= 0);
+/*
+        while (count > 0) {
+                if (index + ret >= textLen - 1) {
+                        break;
+                }
+                ++ret;
+                if (*(*text + index + ret) != ' ' && *(*text + index + ret) != '\n') {
+                        break;
+                }
+        }
+*/
         while (count > 0) {
                 if (index + ret >= textLen - 1) {
                         break;
