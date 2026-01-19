@@ -112,6 +112,9 @@ void DrawFrame() {
         int startLineIndex = le.index + StartLineIndex(&le.text, le.textLen, le.index);
         int lineNumber = LineNumber(&le.text, le.textLen, le.index);
         char frame[frameLen];
+        char cursorMove[27] = { 0 };
+        char print[frameLen + sizeof(ERASE_SCREEN) + sizeof(CURSOR_HOME) + sizeof(cursorMove)];
+        print[0] = '\0';
         for (int i = 0; i < frameLen; ++i) {
                 frame[i] = ' ';
         }
@@ -127,12 +130,12 @@ void DrawFrame() {
                 }
         }
         frame[frameLen - 1] = '\0';
-        char cursorMove[27] = { 0 };
         sprintf(cursorMove, "\x1b[%d;%dH", cursorRow + 1, le.index - startLineIndex + 1);
-        write(STDOUT_FILENO, ERASE_SCREEN, sizeof(ERASE_SCREEN));
-        write(STDOUT_FILENO, CURSOR_HOME, sizeof(CURSOR_HOME));
-        write(STDOUT_FILENO, frame, frameLen);
-        write(STDOUT_FILENO, cursorMove, sizeof(cursorMove));
+        strcat(print, CURSOR_HOME);
+        strcat(print, ERASE_SCREEN);
+        strcat(print, frame);
+        strcat(print, cursorMove);
+        write(STDOUT_FILENO, print, strlen(print));
 }
 
 void GetInput() {
