@@ -150,9 +150,13 @@ void GetInput() {
                 if (key == ESCAPE_KEY) {
                         le.mode = COMMAND;
                 } else if (key == DELETE_KEY) {
-                        DeleteChars(&le.text, &le.textLen, le.index, 1);
+                        le.command = MOVE;
+                        le.count = 0;
                         --le.index;
+                        DeleteChars(&le.text, &le.textLen, le.index, 1);
                 } else if (key == NEWLINE_KEY || (key >= SPACE_KEY && key < DELETE_KEY)) {
+                        le.command = MOVE;
+                        le.count = 0;
                         InsertChars(&le.text, &le.textLen, le.index, &key, 1);
                         ++le.index;
                 }
@@ -203,6 +207,10 @@ void GetInput() {
                 if (le.command == MOVE) {
                         le.index += move;
                 } else if (le.command == DELETE) {
+                        if (move < 0) {
+                                le.index += move;
+                        }
+                        DeleteChars(&le.text, &le.textLen, le.index, abs(move));
                 } else if (le.command == CHANGE) {
                 } else if (le.command == YEET) {
                 }

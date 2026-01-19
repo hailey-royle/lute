@@ -47,14 +47,14 @@ void DeleteChars(char** dst, int *dstLen, int index, int count) {
         assert(*dstLen >= 0);
         assert(index >= 0);
         assert(count >= 0);
-        if (count > index) {
-                count = index;
+        if (count + index >= *dstLen) {
+                count = *dstLen - index - 1;
         }
-        if (count < 0) {
+        if (count <= 0) {
                 return;
         }
         char* tmp = *dst;
-        memmove(&tmp[index - count], &tmp[index], *dstLen - index);
+        memmove(&tmp[index], &tmp[index + count], *dstLen - count - index);
         tmp = realloc(*dst, *dstLen - count);
         assert(tmp != NULL);
         tmp[*dstLen - count - 1] = '\0';

@@ -117,7 +117,7 @@ void DeleteChars_Test() {
                 dst[1] = '1';
                 dst[2] = '2';
                 dst[3] = '\0';
-                DeleteChars(&dst, &dstLen, 3, 1);
+                DeleteChars(&dst, &dstLen, 2, 1);
                 Test(strcmp(dst, "01") == 0, "DeleteChars end");
                 free(dst);
         }{
@@ -128,7 +128,7 @@ void DeleteChars_Test() {
                 dst[1] = '1';
                 dst[2] = '2';
                 dst[3] = '\0';
-                DeleteChars(&dst, &dstLen, 2, 1);
+                DeleteChars(&dst, &dstLen, 1, 1);
                 Test(strcmp(dst, "02") == 0, "DeleteChars middle");
                 free(dst);
         }{
@@ -139,7 +139,7 @@ void DeleteChars_Test() {
                 dst[1] = '1';
                 dst[2] = '2';
                 dst[3] = '\0';
-                DeleteChars(&dst, &dstLen, 1, 1);
+                DeleteChars(&dst, &dstLen, 0, 1);
                 Test(strcmp(dst, "12") == 0, "DeleteChars start");
                 free(dst);
         }{
@@ -150,7 +150,7 @@ void DeleteChars_Test() {
                 dst[1] = '1';
                 dst[2] = '2';
                 dst[3] = '\0';
-                DeleteChars(&dst, &dstLen, 3, 2);
+                DeleteChars(&dst, &dstLen, 1, 2);
                 Test(strcmp(dst, "0") == 0, "DeleteChars count 2");
                 free(dst);
         }{
@@ -161,7 +161,7 @@ void DeleteChars_Test() {
                 dst[1] = '1';
                 dst[2] = '2';
                 dst[3] = '\0';
-                DeleteChars(&dst, &dstLen, 3, 3);
+                DeleteChars(&dst, &dstLen, 0, 3);
                 Test(strcmp(dst, "") == 0, "DeleteChars all");
                 free(dst);
         }

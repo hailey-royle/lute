@@ -21,6 +21,7 @@ Some actions fall outside of this system, such as quit and write
 - w - write
 - i - [mode] = edit // ignores other parameters
 - a - [mode] = edit, [motion] = char right // ignores other parameters
+- d - [command] = delete
 - h - [motion] = char left
 - l - [motion] = char right
 - b - [motion] = word left
@@ -41,7 +42,6 @@ Some actions fall outside of this system, such as quit and write
 - f - find "string"
 - s - subsitute "string" for "string"
 - o - open
-- d - delete
 - c - change
 - y - yeet
 - p - paste
