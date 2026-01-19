@@ -180,6 +180,10 @@ void GetInput() {
                         move = PrevLineIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
                 } else if (key == 'j') {
                         move = NextLineIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
+                } else if (key == 'n') {
+                        move = PrevParaIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
+                } else if (key == 'm') {
+                        move = NextParaIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
                 }
         }
         if (move != 0) {
