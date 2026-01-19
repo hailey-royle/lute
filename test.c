@@ -217,10 +217,11 @@ void PrevLineIndex_Test() {
 }
 
 void NextLineIndex_Test() {
-        Test(NextLineIndex(&testString, strlen(testString), 0, 0) == 1, "NextLineIndex count 0");
+        Test(NextLineIndex(&testString, strlen(testString), 0, 0) == 0, "NextLineIndex count 0");
         Test(NextLineIndex(&testString, strlen(testString), 30, 1) == 8, "NextLineIndex count 1");
         Test(NextLineIndex(&testString, strlen(testString), 30, 2) == 26, "NextLineIndex count 2");
         Test(NextLineIndex(&testString, strlen(testString), 30, 3) == 37, "NextLineIndex count 3");
+        Test(NextLineIndex(&testString, strlen(testString), 55, 1) == 1, "NextLineIndex index on newline");
         Test(NextLineIndex(&testString, strlen(testString), 0, 1000) == strlen(testString) - 1, "NextLineIndex count overflow");
         Test(NextLineIndex(&testString, strlen(testString), strlen(testString) - 2, 1) == 1, "NextLineIndex count + index overflow");
 }
