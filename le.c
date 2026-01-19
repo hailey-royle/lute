@@ -109,18 +109,20 @@ void DrawFrame() {
         int frameLen = le.screenCols * le.screenRows + 1;
         int cursorRow = le.screenRows / 2;
         int startLineIndex = le.index + StartLineIndex(&le.text, le.textLen, le.index);
+        int lineNumber = LineNumber(&le.text, le.textLen, le.index);
         char frame[frameLen];
         for (int i = 0; i < frameLen; ++i) {
                 frame[i] = ' ';
         }
         for (int i = 0; i < le.screenRows; ++i) {
                 if (i == cursorRow) {
-                        DrawLine(&frame[le.screenCols * i], &le.text[startLineIndex], le.screenCols);
+                        DrawLine(&frame[le.screenCols * cursorRow], &le.text[startLineIndex], le.screenCols);
                 } else if (i > cursorRow) {
                         int index = NextLineIndex(&le.text, le.textLen, le.index, i - cursorRow);
                         DrawLine(&frame[le.screenCols * i], &le.text[le.index + index], le.screenCols);
-                } else {
-                        frame[le.screenCols * i] = '~';
+                } else if (i < cursorRow && ~(i - cursorRow) + 1 <= lineNumber) {
+                        int index = PrevLineIndex(&le.text, le.textLen, le.index, ~(i - cursorRow) + 1);
+                        DrawLine(&frame[le.screenCols * i], &le.text[le.index + index], le.screenCols);
                 }
         }
         frame[frameLen - 1] = '\0';
