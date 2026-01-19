@@ -108,7 +108,11 @@ void DrawFrame() {
                 frame[i] = ' ';
         }
         for (int i = 0; i < le.screenRows; ++i) {
-                frame[le.screenCols * i] = '~';
+                if (i == cursorRow) {
+                        frame[le.screenCols * i] = le.text[0];
+                } else {
+                        frame[le.screenCols * i] = '~';
+                }
         }
         frame[frameLen - 1] = '\0';
         char cursorMove[27] = { 0 };
