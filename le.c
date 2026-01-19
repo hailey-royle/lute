@@ -188,6 +188,10 @@ void GetInput() {
                         move = StartLineIndex(&le.text, le.textLen, le.index);
                 } else if (key == 'x') {
                         move = EndLineIndex(&le.text, le.textLen, le.index);
+                } else if (key == 't') {
+                        move = StartFileIndex(&le.text, le.textLen, le.index);
+                } else if (key == 'v') {
+                        move = EndFileIndex(&le.text, le.textLen, le.index);
                 }
         }
         if (move != 0) {
