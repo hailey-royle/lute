@@ -116,6 +116,9 @@ void DrawFrame() {
         for (int i = 0; i < le.screenRows; ++i) {
                 if (i == cursorRow) {
                         DrawLine(&frame[le.screenCols * i], &le.text[startLineIndex], le.screenCols);
+                } else if (i == cursorRow + 1) {
+                        int index = NextLineIndex(&le.text, le.textLen, le.index, 1);
+                        DrawLine(&frame[le.screenCols * i], &le.text[le.index + index], le.screenCols);
                 } else {
                         frame[le.screenCols * i] = '~';
                 }
