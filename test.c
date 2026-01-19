@@ -190,18 +190,18 @@ void PrevWordIndex_Test() {
         Test(PrevWordIndex(&testString, strlen(testString), 52, 1) == -3, "PrevWordIndex count 1");
         Test(PrevWordIndex(&testString, strlen(testString), 52, 2) == -8, "PrevWordIndex count 2");
         Test(PrevWordIndex(&testString, strlen(testString), 52, 3) == -13, "PrevWordIndex count 3");
-        Test(PrevWordIndex(&testString, strlen(testString), 15, 3) == -9, "PrevWordIndex count 3 space and newline");
+        Test(PrevWordIndex(&testString, strlen(testString), 20, 3) == -5, "PrevWordIndex count 3 space and newline");
         Test(PrevWordIndex(&testString, strlen(testString), 13, 1) == -7, "PrevWordIndex index on newline");
         Test(PrevWordIndex(&testString, strlen(testString), 0, 1) == 0, "PrevWordIndex count overflow");
-        Test(PrevWordIndex(&testString, strlen(testString), 1, 1) == -1, "PrevWordIndex count + index overflow");
+        Test(PrevWordIndex(&testString, strlen(testString), 2, 1) == -1, "PrevWordIndex count + index overflow");
         Test(PrevWordIndex(&testString, strlen(testString), strlen(testString) - 1, 1) == -5, "PrevWordIndex index max");
 }
 
 void NextWordIndex_Test() {
         Test(NextWordIndex(&testString, strlen(testString), 0, 0) == 0, "NextWordIndex count 0");
         Test(NextWordIndex(&testString, strlen(testString), 52, 1) == 3, "NextWordIndex count 1");
-        Test(NextWordIndex(&testString, strlen(testString), 52, 2) == 9, "NextWordIndex count 2");
-        Test(NextWordIndex(&testString, strlen(testString), 52, 3) == 14, "NextWordIndex count 3");
+        Test(NextWordIndex(&testString, strlen(testString), 40, 2) == 9, "NextWordIndex count 2");
+        Test(NextWordIndex(&testString, strlen(testString), 40, 3) == 15, "NextWordIndex count 3");
         Test(NextWordIndex(&testString, strlen(testString), 15, 3) == 10, "NextWordIndex count 3 space and newline");
         Test(NextWordIndex(&testString, strlen(testString), 19, 1) == 3, "NextWordIndex index on space");
         Test(NextWordIndex(&testString, strlen(testString), strlen(testString) - 1, 1) == 0, "NextWordIndex count overflow");

@@ -110,25 +110,45 @@ int PrevWordIndex(char** text, int textLen, int index, int count) {
         assert(textLen > index);
         assert(index >= 0);
         assert(count >= 0);
-/*
         while (count > 0) {
                 if (index + ret <= 0) {
                         break;
                 }
                 --ret;
-                if (*(*text + index + ret) != ' ' && *(*text + index + ret) != '\n') {
+                if (*(*text + index + ret) == '\n') {
+                        ++ret;
                         break;
                 }
-        }
-*/
-        while (count > 0) {
-                if (index + ret <= 0) {
-                        break;
+                if (*(*text + index + ret) == ' ') {
+                        while (*(*text + index + ret) == ' ') {
+                                if (index + ret <= 0) {
+                                        break;
+                                }
+                                if (*(*text + index + ret) == '\n') {
+                                        break;
+                                }
+                                --ret;
+                                if (*(*text + index + ret) != ' ') {
+                                        ++ret;
+                                        break;
+                                }
+                        }
+                } else {
+                        while (true) {
+                                if (*(*text + index + ret) == '\n') {
+                                        ++ret;
+                                        break;
+                                }
+                                if (index + ret <= 0) {
+                                        break;
+                                }
+                                if (*(*text + index + ret) == ' ') {
+                                        break;
+                                }
+                                --ret;
+                        }
                 }
-                --ret;
-                if (*(*text + index + ret) == ' ' || *(*text + index + ret) == '\n') {
-                        --count;
-                }
+                --count;
         }
         return ret;
 }
@@ -140,25 +160,43 @@ int NextWordIndex(char** text, int textLen, int index, int count) {
         assert(textLen > index);
         assert(index >= 0);
         assert(count >= 0);
-/*
         while (count > 0) {
                 if (index + ret >= textLen - 1) {
                         break;
                 }
-                ++ret;
-                if (*(*text + index + ret) != ' ' && *(*text + index + ret) != '\n') {
-                        break;
-                }
-        }
-*/
-        while (count > 0) {
-                if (index + ret >= textLen - 1) {
+                if (*(*text + index + ret) == '\n') {
                         break;
                 }
                 ++ret;
-                if (*(*text + index + ret) == ' ' || *(*text + index + ret) == '\n') {
-                        --count;
+                if (*(*text + index + ret) == ' ') {
+                        while (*(*text + index + ret) == ' ') {
+                                if (index + ret >= textLen - 1) {
+                                        break;
+                                }
+                                if (*(*text + index + ret) == '\n') {
+                                        break;
+                                }
+                                ++ret;
+                                if (*(*text + index + ret) != ' ') {
+                                        --ret;
+                                        break;
+                                }
+                        }
+                } else {
+                        while (true) {
+                                if (index + ret >= textLen - 1) {
+                                        break;
+                                }
+                                if (*(*text + index + ret) == '\n') {
+                                        break;
+                                }
+                                if (*(*text + index + ret) == ' ') {
+                                        break;
+                                }
+                                ++ret;
+                        }
                 }
+                --count;
         }
         return ret;
 }

@@ -172,6 +172,10 @@ void GetInput() {
                         move = PrevCharIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
                 } else if (key == 'l') {
                         move = NextCharIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
+                } else if (key == 'b') {
+                        move = PrevWordIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
+                } else if (key == 'e') {
+                        move = NextWordIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
                 } else if (key == 'k') {
                         move = PrevLineIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
                 } else if (key == 'j') {
