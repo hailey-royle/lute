@@ -20,8 +20,8 @@
 #define DELETE_KEY 127
 
 enum mode {
-        NORMAL,
-        INSERT,
+        COMMAND,
+        EDIT,
 };
 
 enum command {
@@ -90,7 +90,7 @@ void LoadFile() {
 void LoadCommand() {
         le.command = MOVE;
         le.count = 0;
-        le.mode = NORMAL;
+        le.mode = COMMAND;
 }
 
 void WriteFile() {
@@ -142,9 +142,9 @@ void GetInput() {
         if (key == LINEFEED_KEY) {
                 key = NEWLINE_KEY;
         }
-        if (le.mode == INSERT) {
+        if (le.mode == EDIT) {
                 if (key == ESCAPE_KEY) {
-                        le.mode = NORMAL;
+                        le.mode = COMMAND;
                 } else if (key == DELETE_KEY) {
                         DeleteChars(&le.text, &le.textLen, le.index, 1);
                         --le.index;
@@ -152,7 +152,7 @@ void GetInput() {
                         InsertChars(&le.text, &le.textLen, le.index, &key, 1);
                         ++le.index;
                 }
-        } else if (le.mode == NORMAL) {
+        } else if (le.mode == COMMAND) {
                 if        (key >= '0' && key <= '9') {
                         le.count *= 10;
                         le.count += key & 0xf;
@@ -167,7 +167,7 @@ void GetInput() {
                 } else if (key == 'w') {
                         WriteFile();
                 } else if (key == 'i') {
-                        le.mode = INSERT;
+                        le.mode = EDIT;
                 } else if (key == 'h') {
                         move = PrevCharIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
                 } else if (key == 'l') {
