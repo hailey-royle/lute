@@ -107,7 +107,6 @@ void DrawFrame() {
         for (int i = 0; i < frameLen; ++i) {
                 frame[i] = ' ';
         }
-        frame[frameLen - 1] = '\0';
         for (int i = 0; i < le.screenRows; ++i) {
                 frame[le.screenCols * i] = '~';
         }
