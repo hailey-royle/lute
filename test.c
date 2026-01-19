@@ -276,16 +276,16 @@ void EndFileIndex_Test() {
 
 void LineIndex_Test() {
         Test(LineIndex(&testString, strlen(testString), 0, 0) == 0, "LineIndex index 0 line 0");
-        Test(LineIndex(&testString, strlen(testString), 0, 1) == 1, "LineIndex index 0 line 1");
-        Test(LineIndex(&testString, strlen(testString), 0, 6) == 67, "LineIndex index 0 line last");
-        Test(LineIndex(&testString, strlen(testString), 0, 7) == 76, "LineIndex index 0 line last + 1");
+        Test(LineIndex(&testString, strlen(testString), 0, 1) == 0, "LineIndex index 0 line 1");
+        Test(LineIndex(&testString, strlen(testString), 0, 7) == 67, "LineIndex index 0 line last");
+        Test(LineIndex(&testString, strlen(testString), 0, 8) == 76, "LineIndex index 0 line last + 1");
         Test(LineIndex(&testString, strlen(testString), 0, 100) == 76, "LineIndex index 0 line overflow");
         Test(LineIndex(&testString, strlen(testString), 10, 0) == -10, "LineIndex line 0");
-        Test(LineIndex(&testString, strlen(testString), 10, 1) == -9, "LineIndex line 1");
-        Test(LineIndex(&testString, strlen(testString), 10, 6) == 57, "LineIndex line last");
-        Test(LineIndex(&testString, strlen(testString), 10, 7) == 66, "LineIndex line last + 1");
+        Test(LineIndex(&testString, strlen(testString), 10, 1) == -10, "LineIndex line 1");
+        Test(LineIndex(&testString, strlen(testString), 10, 7) == 57, "LineIndex line last");
+        Test(LineIndex(&testString, strlen(testString), 10, 8) == 66, "LineIndex line last + 1");
         Test(LineIndex(&testString, strlen(testString), 10, 100) == 66, "LineIndex line overflow");
-        Test(LineIndex(&testString, strlen(testString), 1, 1) == 0, "LineIndex index = result");
+        Test(LineIndex(&testString, strlen(testString), 1, 2) == 0, "LineIndex index = result");
 }
 
 void LineAbsolute_Test() {

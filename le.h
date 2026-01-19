@@ -352,10 +352,10 @@ int LineIndex(char** text, int textLen, int index, int line) {
         assert(index >= 0);
         assert(index < textLen);
         assert(line >= 0);
-        if (line == 0) {
+        if (line <= 1) {
                 return 0 - index;
         }
-        while (line > 0) {
+        while (line > 1) {
                 if (ret >= textLen - 1) {
                         break;
                 }

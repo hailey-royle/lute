@@ -192,6 +192,8 @@ void GetInput() {
                         move = StartFileIndex(&le.text, le.textLen, le.index);
                 } else if (key == 'v') {
                         move = EndFileIndex(&le.text, le.textLen, le.index);
+                } else if (key == 'g') {
+                        move = LineIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
                 }
         }
         if (move != 0) {
