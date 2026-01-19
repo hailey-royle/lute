@@ -191,6 +191,7 @@ void PrevWordIndex_Test() {
         Test(PrevWordIndex(&testString, strlen(testString), 52, 2) == -8, "PrevWordIndex count 2");
         Test(PrevWordIndex(&testString, strlen(testString), 52, 3) == -13, "PrevWordIndex count 3");
         Test(PrevWordIndex(&testString, strlen(testString), 15, 3) == -9, "PrevWordIndex count 3 space and newline");
+        Test(PrevWordIndex(&testString, strlen(testString), 13, 1) == -7, "PrevWordIndex index on newline");
         Test(PrevWordIndex(&testString, strlen(testString), 0, 1) == 0, "PrevWordIndex count overflow");
         Test(PrevWordIndex(&testString, strlen(testString), 1, 1) == -1, "PrevWordIndex count + index overflow");
         Test(PrevWordIndex(&testString, strlen(testString), strlen(testString) - 1, 1) == -5, "PrevWordIndex index max");
@@ -202,6 +203,7 @@ void NextWordIndex_Test() {
         Test(NextWordIndex(&testString, strlen(testString), 52, 2) == 9, "NextWordIndex count 2");
         Test(NextWordIndex(&testString, strlen(testString), 52, 3) == 14, "NextWordIndex count 3");
         Test(NextWordIndex(&testString, strlen(testString), 15, 3) == 10, "NextWordIndex count 3 space and newline");
+        Test(NextWordIndex(&testString, strlen(testString), 19, 1) == 3, "NextWordIndex index on space");
         Test(NextWordIndex(&testString, strlen(testString), strlen(testString) - 1, 1) == 0, "NextWordIndex count overflow");
         Test(NextWordIndex(&testString, strlen(testString), strlen(testString) - 2, 1) == 1, "NextWordIndex count + index overflow");
 }
@@ -211,6 +213,7 @@ void PrevLineIndex_Test() {
         Test(PrevLineIndex(&testString, strlen(testString), 52, 1) == -37, "PrevLineIndex count 1");
         Test(PrevLineIndex(&testString, strlen(testString), 52, 2) == -38, "PrevLineIndex count 2");
         Test(PrevLineIndex(&testString, strlen(testString), 52, 3) == -51, "PrevLineIndex count 3");
+        Test(PrevLineIndex(&testString, strlen(testString), 66, 1) == -28, "PrevLineIndex index on newline");
         Test(PrevLineIndex(&testString, strlen(testString), 0, 1) == 0, "PrevLineIndex count overflow");
         Test(PrevLineIndex(&testString, strlen(testString), 1, 1) == -1, "PrevLineIndex count + index overflow");
         Test(PrevLineIndex(&testString, strlen(testString), strlen(testString) - 1, 1) == -20, "PrevLineIndex index max");
@@ -232,6 +235,8 @@ void PrevParaIndex_Test() {
         Test(PrevParaIndex(&testPara, strlen(testPara), 40, 2) == -13, "PrevParaIndex count 2");
         Test(PrevParaIndex(&testPara, strlen(testPara), 40, 3) == -24, "PrevParaIndex count 3");
         Test(PrevParaIndex(&testPara, strlen(testPara), 0, 1) == 0, "PrevParaIndex count overflow");
+        Test(PrevParaIndex(&testPara, strlen(testPara), 15, 1) == -11, "PrevParaIndex on first newline");
+        Test(PrevParaIndex(&testPara, strlen(testPara), 16, 1) == -12, "PrevParaIndex on second newline");
         Test(PrevParaIndex(&testPara, strlen(testPara), 40, 1000) == -40, "PrevParaIndex count + index overflow");
         Test(PrevParaIndex(&testPara, strlen(testPara), strlen(testPara) - 1, 1) == -4, "PrevParaIndex index max");
 }
@@ -241,6 +246,8 @@ void NextParaIndex_Test() {
         Test(NextParaIndex(&testPara, strlen(testPara), 0, 1) == 4, "NextParaIndex count 1");
         Test(NextParaIndex(&testPara, strlen(testPara), 0, 2) == 16, "NextParaIndex count 2");
         Test(NextParaIndex(&testPara, strlen(testPara), 0, 3) == 27, "NextParaIndex count 3");
+        Test(NextParaIndex(&testPara, strlen(testPara), 3, 1) == 1, "NextParaIndex on first newline");
+        Test(NextParaIndex(&testPara, strlen(testPara), 4, 1) == 12, "NextParaIndex on second newline");
         Test(NextParaIndex(&testPara, strlen(testPara), 0, 1000) == strlen(testPara) - 1, "NextParaIndex count overflow");
         Test(NextParaIndex(&testPara, strlen(testPara), strlen(testPara) - 2, 1) == 1, "NextParaIndex count + index overflow");
 }
@@ -303,8 +310,8 @@ void LineNumber_Test() {
 void TestResult() {
         printf("\x1b[31m [ FAILED : %d ] \x1b[32m[ PASSED : %d ]\x1b[0m\n", testFailed, testPassed);
         if (testFailed > 0) {
-                for (int i = 0; i < strlen(testString); ++i) printf("%d:%c\n", i, testString[i]);
-                printf(testString);
+                for (int i = 0; i < strlen(testPara); ++i) printf("%d:%c\n", i, testPara[i]);
+                printf(testPara);
         }
 }
 

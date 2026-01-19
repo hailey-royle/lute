@@ -204,15 +204,16 @@ int NextParaIndex(char** text, int textLen, int index, int count) {
                 if (index + ret >= textLen - 1) {
                         break;
                 }
-                ++ret;
                 if (*(*text + index + ret) == '\n') {
+                        ++ret;
                         if (index + ret >= textLen - 1) {
                                 break;
                         }
-                        ++ret;
                         if (*(*text + index + ret) == '\n') {
                                 --count;
                         }
+                } else {
+                        ++ret;
                 }
         }
         return ret;
