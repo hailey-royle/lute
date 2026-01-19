@@ -30,12 +30,10 @@ Some actions fall outside of this system, such as quit and write
 - m - paragraph down
 - z - line start
 - x - line end 
-- t - file start 
-- v - file end
+- g - goto line [count]
 
 ## planned keybindings
 
-- g - goto line [count]
 - u - undo
 - r - redo
 - ? - repeat last command
