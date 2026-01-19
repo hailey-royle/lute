@@ -13,7 +13,8 @@
 #define ERASE_SCREEN "\x1b[2J"
 #define CURSOR_HOME "\x1b[1;1H"
 
-#define NEWLINE_KEY 13
+#define NEWLINE_KEY 10
+#define LINEFEED_KEY 13
 #define ESCAPE_KEY 27
 #define SPACE_KEY 32
 #define DELETE_KEY 127
@@ -82,7 +83,7 @@ void LoadFile() {
         res = getdelim(&le.text, &size, '\0', file);
         assert(le.text != NULL);
         assert(res != -1);
-        le.textLen = res;
+        le.textLen = ++res;
         fclose(file);
 }
 
@@ -95,7 +96,7 @@ void LoadCommand() {
 void WriteFile() {
         FILE* file = fopen(le.fileName, "w");
         assert(file != NULL);
-        fwrite(le.text, sizeof(*le.text), le.textLen, file);
+        fwrite(le.text, sizeof(*le.text), le.textLen - 1, file);
         fclose(file);
 }
 
@@ -138,6 +139,9 @@ void GetInput() {
         char key = 0;
         int move = 0;
         read(STDIN_FILENO, &key, sizeof(char));
+        if (key == LINEFEED_KEY) {
+                key = NEWLINE_KEY;
+        }
         if (le.mode == INSERT) {
                 if (key == ESCAPE_KEY) {
                         le.mode = NORMAL;
