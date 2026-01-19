@@ -1,9 +1,9 @@
 le:
 	gcc -o le le.c -Og -Wall -Werror -Wextra -Wpedantic -fanalyzer -fsanitize=address
+run:
+	gcc -o le le.c -Og -Wall -Werror -Wextra -Wpedantic -fanalyzer -fsanitize=address
 	./le le.c
 	rm le
-build:
-	gcc -o le le.c -Og -Wall -Werror -Wextra -Wpedantic -fanalyzer -fsanitize=address
 test:
 	gcc -o test.out test.c -Og -Wall -Wextra -Wpedantic -fanalyzer -fsanitize=address
 	./test.out
