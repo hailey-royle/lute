@@ -108,6 +108,10 @@ void DrawFrame() {
                 frame[i] = ' ';
         }
         frame[frameLen - 1] = '\0';
+        for (int i = 0; i < le.screenRows; ++i) {
+                frame[le.screenCols * i] = '~';
+        }
+        frame[frameLen - 1] = '\0';
         char cursorMove[27] = { 0 };
         sprintf(cursorMove, "\x1b[%d;%dH", cursorRow + 1, le.index - startLineIndex + 1);
         write(STDOUT_FILENO, ERASE_SCREEN, sizeof(ERASE_SCREEN));
