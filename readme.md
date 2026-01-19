@@ -19,19 +19,19 @@ Some actions fall outside of this system, such as quit and write
 
 - q - quit
 - w - write
-- i - insert mode
-- a - append
-- h - char left
-- l - char right 
-- b - word left 
-- e - word right
-- k - line up
-- j - line down 
-- n - paragraph up 
-- m - paragraph down
-- z - line start
-- x - line end 
-- g - goto line [count]
+- i - [mode] = edit // ignores other paramiters
+- a - [mode] = edit, [motion] = char right
+- h - [motion] = char left
+- l - [motion] = char right
+- b - [motion] = word left
+- e - [motion] = word right
+- k - [motion] = line up
+- j - [motion] = line down
+- n - [motion] = paragraph up
+- m - [motion] = papargaph down
+- z - [motion] = line start
+- x - [motion] = line end
+- g - [motion] = goto line [count]
 
 ## planned keybindings
 
