@@ -103,6 +103,7 @@ void WriteFile() {
 void DrawLine(char* dst, char* src, int max) {
         while (max > 0 && *src != '\n' && *src != '\0') {
                 *dst++ = *src++;
+                --max;
         }
 }
 
