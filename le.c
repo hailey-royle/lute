@@ -184,6 +184,10 @@ void GetInput() {
                         move = PrevParaIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
                 } else if (key == 'm') {
                         move = NextParaIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
+                } else if (key == 'z') {
+                        move = StartLineIndex(&le.text, le.textLen, le.index);
+                } else if (key == 'x') {
+                        move = EndLineIndex(&le.text, le.textLen, le.index);
                 }
         }
         if (move != 0) {
