@@ -31,7 +31,7 @@ enum command {
         YEET,
 };
 
-struct le {
+struct lte {
         char* text;
         char* fileName;
         int textLen;
@@ -43,12 +43,12 @@ struct le {
         enum command command;
 };
 
-struct le le = { 0 };
+struct lte lte = { 0 };
 struct termios initTermios;
 
 void LoadArgs(int argc, char** argv) {
         assert(argc == 2);
-        le.fileName = argv[1];
+        lte.fileName = argv[1];
 }
 
 void DisableRawMode() {
@@ -70,33 +70,33 @@ void EnableRawMode() {
 void LoadScreen() {
         struct winsize winsize;
         ioctl(STDOUT_FILENO, TIOCGWINSZ, &winsize);
-        le.screenCols = winsize.ws_col;
-        le.screenRows = winsize.ws_row;
+        lte.screenCols = winsize.ws_col;
+        lte.screenRows = winsize.ws_row;
         EnableRawMode();
 }
 
 void LoadFile() {
         size_t size = 0;
         ssize_t res = 0;
-        FILE* file = fopen(le.fileName, "r");
+        FILE* file = fopen(lte.fileName, "r");
         assert(file != NULL);
-        res = getdelim(&le.text, &size, '\0', file);
-        assert(le.text != NULL);
+        res = getdelim(&lte.text, &size, '\0', file);
+        assert(lte.text != NULL);
         assert(res != -1);
-        le.textLen = ++res;
+        lte.textLen = ++res;
         fclose(file);
 }
 
 void LoadCommand() {
-        le.command = MOVE;
-        le.count = 0;
-        le.mode = COMMAND;
+        lte.command = MOVE;
+        lte.count = 0;
+        lte.mode = COMMAND;
 }
 
 void WriteFile() {
-        FILE* file = fopen(le.fileName, "w");
+        FILE* file = fopen(lte.fileName, "w");
         assert(file != NULL);
-        fwrite(le.text, sizeof(*le.text), le.textLen - 1, file);
+        fwrite(lte.text, sizeof(*lte.text), lte.textLen - 1, file);
         fclose(file);
 }
 
@@ -108,10 +108,10 @@ void DrawLine(char* dst, char* src, int max) {
 }
 
 void DrawFrame() {
-        int frameLen = le.screenCols * le.screenRows + 1;
-        int cursorRow = le.screenRows / 2;
-        int startLineIndex = le.index + StartLineIndex(&le.text, le.textLen, le.index);
-        int lineNumber = LineNumber(&le.text, le.textLen, le.index);
+        int frameLen = lte.screenCols * lte.screenRows + 1;
+        int cursorRow = lte.screenRows / 2;
+        int startLineIndex = lte.index + StartLineIndex(&lte.text, lte.textLen, lte.index);
+        int lineNumber = LineNumber(&lte.text, lte.textLen, lte.index);
         char frame[frameLen];
         char cursorMove[27] = { 0 };
         char print[frameLen + sizeof(ERASE_SCREEN) + sizeof(CURSOR_HOME) + sizeof(cursorMove)];
@@ -119,19 +119,19 @@ void DrawFrame() {
         for (int i = 0; i < frameLen; ++i) {
                 frame[i] = ' ';
         }
-        for (int i = 0; i < le.screenRows; ++i) {
+        for (int i = 0; i < lte.screenRows; ++i) {
                 if (i == cursorRow) {
-                        DrawLine(&frame[le.screenCols * cursorRow], &le.text[startLineIndex], le.screenCols);
+                        DrawLine(&frame[lte.screenCols * cursorRow], &lte.text[startLineIndex], lte.screenCols);
                 } else if (i > cursorRow) {
-                        int index = NextLineIndex(&le.text, le.textLen, le.index, i - cursorRow);
-                        DrawLine(&frame[le.screenCols * i], &le.text[le.index + index], le.screenCols);
+                        int index = NextLineIndex(&lte.text, lte.textLen, lte.index, i - cursorRow);
+                        DrawLine(&frame[lte.screenCols * i], &lte.text[lte.index + index], lte.screenCols);
                 } else if (i < cursorRow && ~(i - cursorRow) + 1 <= lineNumber) {
-                        int index = PrevLineIndex(&le.text, le.textLen, le.index, ~(i - cursorRow) + 1);
-                        DrawLine(&frame[le.screenCols * i], &le.text[le.index + index], le.screenCols);
+                        int index = PrevLineIndex(&lte.text, lte.textLen, lte.index, ~(i - cursorRow) + 1);
+                        DrawLine(&frame[lte.screenCols * i], &lte.text[lte.index + index], lte.screenCols);
                 }
         }
         frame[frameLen - 1] = '\0';
-        sprintf(cursorMove, "\x1b[%d;%dH", cursorRow + 1, le.index - startLineIndex + 1);
+        sprintf(cursorMove, "\x1b[%d;%dH", cursorRow + 1, lte.index - startLineIndex + 1);
         strcat(print, CURSOR_HOME);
         strcat(print, ERASE_SCREEN);
         strcat(print, frame);
@@ -146,81 +146,81 @@ void GetInput() {
         if (key == LINEFEED_KEY) {
                 key = NEWLINE_KEY;
         }
-        if (le.mode == EDIT) {
+        if (lte.mode == EDIT) {
                 if (key == ESCAPE_KEY) {
-                        le.mode = COMMAND;
+                        lte.mode = COMMAND;
                 } else if (key == DELETE_KEY) {
-                        le.command = MOVE;
-                        le.count = 0;
-                        --le.index;
-                        DeleteChars(&le.text, &le.textLen, le.index, 1);
+                        lte.command = MOVE;
+                        lte.count = 0;
+                        --lte.index;
+                        DeleteChars(&lte.text, &lte.textLen, lte.index, 1);
                 } else if (key == NEWLINE_KEY || (key >= SPACE_KEY && key < DELETE_KEY)) {
-                        le.command = MOVE;
-                        le.count = 0;
-                        InsertChars(&le.text, &le.textLen, le.index, &key, 1);
-                        ++le.index;
+                        lte.command = MOVE;
+                        lte.count = 0;
+                        InsertChars(&lte.text, &lte.textLen, lte.index, &key, 1);
+                        ++lte.index;
                 }
-        } else if (le.mode == COMMAND) {
+        } else if (lte.mode == COMMAND) {
                 if        (key >= '0' && key <= '9') {
-                        le.count *= 10;
-                        le.count += key & 0xf;
+                        lte.count *= 10;
+                        lte.count += key & 0xf;
                 } else if (key == 'd') {
-                        le.command = DELETE;
+                        lte.command = DELETE;
                 } else if (key == 'c') {
-                        le.command = CHANGE;
+                        lte.command = CHANGE;
                 } else if (key == 'y') {
-                        le.command = YEET;
+                        lte.command = YEET;
                 } else if (key == 'q') {
                         exit(0);
                 } else if (key == 'w') {
                         WriteFile();
                 } else if (key == 'i') {
-                        le.mode = EDIT;
+                        lte.mode = EDIT;
                 } else if (key == 'a') {
-                        move = NextCharIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
-                        le.mode = EDIT;
+                        move = NextCharIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
+                        lte.mode = EDIT;
                 } else if (key == 'h') {
-                        move = PrevCharIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
+                        move = PrevCharIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
                 } else if (key == 'l') {
-                        move = NextCharIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
+                        move = NextCharIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
                 } else if (key == 'b') {
-                        move = PrevWordIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
+                        move = PrevWordIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
                 } else if (key == 'e') {
-                        move = NextWordIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
+                        move = NextWordIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
                 } else if (key == 'k') {
-                        move = PrevLineIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
+                        move = PrevLineIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
                 } else if (key == 'j') {
-                        move = NextLineIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
+                        move = NextLineIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
                 } else if (key == 'n') {
-                        move = PrevParaIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
+                        move = PrevParaIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
                 } else if (key == 'm') {
-                        move = NextParaIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
+                        move = NextParaIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
                 } else if (key == 'z') {
-                        move = StartLineIndex(&le.text, le.textLen, le.index);
+                        move = StartLineIndex(&lte.text, lte.textLen, lte.index);
                 } else if (key == 'x') {
-                        move = EndLineIndex(&le.text, le.textLen, le.index);
+                        move = EndLineIndex(&lte.text, lte.textLen, lte.index);
                 } else if (key == 'g') {
-                        move = LineIndex(&le.text, le.textLen, le.index, ((le.count < 1) ? 1 : le.count));
+                        move = LineIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
                 }
         }
         if (move != 0) {
-                if (le.command == MOVE) {
-                        le.index += move;
-                } else if (le.command == DELETE) {
+                if (lte.command == MOVE) {
+                        lte.index += move;
+                } else if (lte.command == DELETE) {
                         if (move < 0) {
-                                le.index += move;
+                                lte.index += move;
                         }
-                        DeleteChars(&le.text, &le.textLen, le.index, abs(move));
-                } else if (le.command == CHANGE) {
+                        DeleteChars(&lte.text, &lte.textLen, lte.index, abs(move));
+                } else if (lte.command == CHANGE) {
                         if (move < 0) {
-                                le.index += move;
+                                lte.index += move;
                         }
-                        DeleteChars(&le.text, &le.textLen, le.index, abs(move));
-                        le.mode = EDIT;
-                } else if (le.command == YEET) {
+                        DeleteChars(&lte.text, &lte.textLen, lte.index, abs(move));
+                        lte.mode = EDIT;
+                } else if (lte.command == YEET) {
                 }
-                le.command = MOVE;
-                le.count = 0;
+                lte.command = MOVE;
+                lte.count = 0;
         }
 }
 
