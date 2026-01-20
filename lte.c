@@ -13,6 +13,7 @@
 #define ERASE_SCREEN "\x1b[2J"
 #define CURSOR_HOME "\x1b[1;1H"
 
+#define TAB_KEY 9
 #define NEWLINE_KEY 10
 #define LINEFEED_KEY 13
 #define ESCAPE_KEY 27
@@ -154,6 +155,12 @@ void GetInput() {
                         lte.count = 0;
                         --lte.index;
                         DeleteChars(&lte.text, &lte.textLen, lte.index, 1);
+                } else if (key == TAB_KEY) {
+                        char* tab = "        ";
+                        lte.command = MOVE;
+                        lte.count = 0;
+                        InsertChars(&lte.text, &lte.textLen, lte.index, tab, 8);
+                        lte.index += 8;
                 } else if (key == NEWLINE_KEY || (key >= SPACE_KEY && key < DELETE_KEY)) {
                         lte.command = MOVE;
                         lte.count = 0;
