@@ -212,6 +212,11 @@ void GetInput() {
                         }
                         DeleteChars(&le.text, &le.textLen, le.index, abs(move));
                 } else if (le.command == CHANGE) {
+                        if (move < 0) {
+                                le.index += move;
+                        }
+                        DeleteChars(&le.text, &le.textLen, le.index, abs(move));
+                        le.mode = EDIT;
                 } else if (le.command == YEET) {
                 }
                 le.command = MOVE;
