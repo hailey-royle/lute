@@ -44,6 +44,10 @@ undo redo repeat commands/infrastructrue
 
 macro support
 
+open empty file
+
+open non-existant file
+
 select all
 
 find in selection command
