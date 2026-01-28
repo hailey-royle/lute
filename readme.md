@@ -1,47 +1,57 @@
-# lte text editor
+
+## lte text editor
 
 **L**uddite **T**ext **E**ditor  
 
-lte is a vi like text editor made for personal use  
+lte is made for my personal use, it is not ment to cater to a general audience
+lte is inspired by vi and kakoune
 lte is usable, but unfinished
 
-commands are in three parts;  
-[command] [count] [motion]  
-command defualts to [move]  
-count defaults to [1]  
-motion defaults to [none]  
+### keybinds
 
-*currently, only the move command is implemented*
+```
++---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+--------------+
+|         |         |         |         |         |         |         |         |         |         |         |         |         |              |
+|         |         |         |         |         |         |         |         |         |         |         |         |         |              |
+|         |    1    |    2    |    3    |    4    |    5    |    6    |    7    |    8    |    9    |    0    |         |         |              |
++---------+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+---------+
+|              |     quit|         |1        |2        |         |2        |    *redo|         |    above|      pre|         |         |         |
+|              |         |         |word     |replace  |         |yank     |         |         |open     |paste    |         |         |         |
+|              |   w quit|    write|         |         |         |         |    *undo| pre edit|    below|     post|         |         |         |
++--------------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+---------+
+|                 |         | *sub all|2        |         |1        |1        |1        |1        |1        |         |         |                |
+|                 |         |         |delete   |         |goto     |left     |down     |up       |right    |         |         |                |
+|                 |post edit|     *sub|         |    *find|         |         |         |         |         |         |         |                |
++----------------------+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----------------+
+|                      |1        |1        |2        |         |1        |1        |1        |         |         |         |                     |
+|                      |line star|line end |change   |         |word back|para down|para up  |         |         |         |                     |
+|                      |         |         |         |         |         |         |         |         |         |         |                     |
++----------------------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------------------+
 
-Some actions fall outside of this system, such as quit and write
+[1] = default changes selection; SHIFT extends selection
+[2] = default effects selection; SHIFT effects line
+[*] = not yet implmented
 
-## keybindings
+repeat
+macro record
+macro execute
+select all
+```
 
-- q - quit
-- w - write
-- i - [mode] = edit // ignores other parameters
-- a - [mode] = edit, [motion] = char right // ignores other parameters
-- d - [command] = delete
-- c - [command] = change
-- h - [motion] = char left
-- l - [motion] = char right
-- b - [motion] = word left
-- e - [motion] = word right
-- k - [motion] = line up
-- j - [motion] = line down
-- n - [motion] = paragraph up
-- m - [motion] = papargaph down
-- z - [motion] = line start
-- x - [motion] = line end
-- g - [motion] = goto line [count]
+## todo  
 
-## planned keybindings
+undo redo repeat commands/infrastructrue
 
-- u - undo
-- r - redo
-- ? - repeat last command
-- f - find "string"
-- s - subsitute "string" for "string"
-- o - open
-- y - yeet
-- p - paste
+macro support
+
+select all
+
+find in selection command
+
+subsitute in selection command
+
+refactor DrawScreen() to display anchor
+
+refactor DrawScreen() to not use old lte.h
+
+refactor DrawScreen() to cashe lines

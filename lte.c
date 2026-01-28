@@ -20,32 +20,339 @@
 #define SPACE_KEY 32
 #define DELETE_KEY 127
 
-enum mode {
-        COMMAND,
-        EDIT,
+struct string {
+        char* text;
+        int len;
 };
 
-enum command {
-        MOVE,
-        DELETE,
-        CHANGE,
-        YEET,
+struct edit {
+        struct string insert;
+        struct string delete;
+        int cursor;
+};
+
+enum mode {
+        COMMAND_MODE,
+        EDIT_MODE,
 };
 
 struct lte {
-        char* text;
+        struct string file;
+        struct string clipboard;
+        //struct edit* history;
         char* fileName;
-        int textLen;
-        int index;
-        int screenCols;
-        int screenRows;
+        int cursor;
+        int anchor;
+        int cols;
+        int rows;
         int count;
         enum mode mode;
-        enum command command;
 };
 
 struct lte lte = { 0 };
 struct termios initTermios;
+
+//==============================================================
+// String
+//==============================================================
+
+void StringInsert(struct string* string, int index, char* src, int count) {
+        assert(string != NULL);
+        assert(string->len >= 0);
+        assert(index >= 0);
+        assert(src != NULL);
+        assert(count >= 0);
+        if (count == 0) return;
+        char* tmp = realloc(string->text, string->len + count);
+        assert(tmp != NULL);
+        memmove(&tmp[index + count], &tmp[index], string->len - index);
+        memmove(&tmp[index], src, count);
+        string->text = tmp;
+        string->len += count;
+}
+
+void StringDelete(struct string* string, int index, int count) {
+        assert(string != NULL);
+        assert(string->text != NULL);
+        assert(string->len >= 0);
+        assert(index >= 0);
+        assert(count >= 0);
+        assert(string->len > index + count);
+        if (count == 0) return;
+        char* tmp = string->text;
+        memmove(&tmp[index], &tmp[index + count], string->len - count - index);
+        tmp = realloc(string->text, string->len - count);
+        assert(tmp != NULL);
+        string->text = tmp;
+        string->len -= count;
+}
+
+void StringErase(struct string* string) {
+        assert(string != NULL);
+        assert(string->len >= 0);
+        if (string->text == NULL) return;
+        free(string->text);
+        string->text = NULL;
+        string->len = 0;
+}
+
+//==============================================================
+// select
+//==============================================================
+
+void SelectCharLeft(char* text, int len, int* cursor) {
+        assert(text != NULL);
+        assert(len > 0);
+        assert(len > *cursor);
+        assert(*cursor >= 0);
+        if (*cursor == 0) return;
+        --(*cursor);
+        if (text[*cursor] == '\n') {
+                ++(*cursor);
+        }
+}
+
+void SelectCharRight(char* text, int len, int* cursor) {
+        assert(text != NULL);
+        assert(len > 0);
+        assert(len > *cursor);
+        assert(*cursor >= 0);
+        if (*cursor >= len - 1) return;
+        if (text[*cursor] == '\n') return;
+        ++(*cursor);
+}
+
+void SelectWordLeft(char* text, int len, int* cursor) {
+        assert(text != NULL);
+        assert(len > 0);
+        assert(len > *cursor);
+        assert(*cursor >= 0);
+        while (true) {
+                if (*cursor <= 0) return;
+                --(*cursor);
+                if (text[*cursor] == '\n') {
+                        ++(*cursor);
+                        break;
+                }
+                if (text[*cursor] != ' ') break;
+        }
+        while (true) {
+                if (*cursor <= 0) return;
+                --(*cursor);
+                if (text[*cursor] == '\n') {
+                        ++(*cursor);
+                        break;
+                }
+                if (text[*cursor] == ' ') {
+                        ++(*cursor);
+                        break;
+                }
+        }
+}
+
+void SelectWordRight(char* text, int len, int* cursor) {
+        assert(text != NULL);
+        assert(len > 0);
+        assert(len > *cursor);
+        assert(*cursor >= 0);
+        while (true) {
+                if (*cursor >= len - 1) break;
+                if (text[*cursor] == '\n') break;
+                if (text[*cursor] == ' ') break;
+                ++(*cursor);
+        }
+        while (true) {
+                if (*cursor >= len - 1) break;
+                if (text[*cursor] == '\n') break;
+                if (text[*cursor] != ' ') break;
+                ++(*cursor);
+        }
+}
+
+void SelectLineStart(char* text, int len, int* cursor) {
+        assert(text != NULL);
+        assert(len > 0);
+        assert(len > *cursor);
+        assert(*cursor >= 0);
+        while (true) {
+                if (*cursor <= 0) return;
+                --(*cursor);
+                if (text[*cursor] == '\n') {
+                        ++(*cursor);
+                        break;
+                }
+        }
+                
+}
+
+void SelectLineEnd(char* text, int len, int* cursor) {
+        assert(text != NULL);
+        assert(len > 0);
+        assert(len > *cursor);
+        assert(*cursor >= 0);
+        while (true) {
+                if (*cursor >= len - 1) break;
+                if (text[*cursor] == '\n') break;
+                ++(*cursor);
+        }
+}
+
+void SelectLineUp(char* text, int len, int* cursor) {
+        assert(text != NULL);
+        assert(len > 0);
+        assert(len > *cursor);
+        assert(*cursor >= 0);
+        while (true) {
+                if (*cursor <= 0) return;
+                --(*cursor);
+                if (text[*cursor] == '\n') break;
+        }
+        while (true) {
+                if (*cursor <= 0) return;
+                --(*cursor);
+                if (text[*cursor] == '\n') {
+                        ++(*cursor);
+                        break;
+                }
+        }
+                
+}
+
+void SelectLineDown(char* text, int len, int* cursor) {
+        assert(text != NULL);
+        assert(len > 0);
+        assert(len > *cursor);
+        assert(*cursor >= 0);
+        while (true) {
+                if (*cursor >= len - 1) break;
+                if (text[*cursor] == '\n') {
+                        if (*cursor >= len - 1) break;
+                        ++(*cursor);
+                        break;
+                }
+                ++(*cursor);
+        }
+}
+
+void SelectParaUp(char* text, int len, int* cursor) {
+        assert(text != NULL);
+        assert(len > 0);
+        assert(len > *cursor);
+        assert(*cursor >= 0);
+        while (true) {
+                if (*cursor <= 0) return;
+                --(*cursor);
+                if (text[*cursor] == '\n') {
+                        if (*cursor <= 0) return;
+                        if (*cursor >= len - 1) break;
+                        --(*cursor);
+                        if (text[*cursor] == '\n') {
+                                ++(*cursor);
+                                break;
+                        }
+                }
+        }
+}
+
+void SelectParaDown(char* text, int len, int* cursor) {
+        assert(text != NULL);
+        assert(len > 0);
+        assert(len > *cursor);
+        assert(*cursor >= 0);
+        while (true) {
+                if (*cursor >= len - 1) break;
+                if (text[*cursor] == '\n') {
+                        if (*cursor >= len - 1) break;
+                        ++(*cursor);
+                        if (text[*cursor] == '\n') {
+                                break;
+                        }
+                }
+                ++(*cursor);
+        }
+}
+
+void SelectFileStart(char* text, int len, int* cursor) {
+        assert(text != NULL);
+        assert(len > 0);
+        assert(len > *cursor);
+        assert(*cursor >= 0);
+        *cursor = 0;
+}
+
+void SelectFileEnd(char* text, int len, int* cursor) {
+        assert(text != NULL);
+        assert(len > 0);
+        assert(len > *cursor);
+        assert(*cursor >= 0);
+        *cursor = len - 1;
+}
+
+void SelectLineNumber(char* text, int len, int* cursor, int line) {
+        assert(text != NULL);
+        assert(len > 0);
+        assert(len > *cursor);
+        assert(*cursor >= 0);
+        assert(line >= 0);
+        *cursor = 0;
+        while (line >= 0) {
+                if (*cursor >= len - 1) return;
+                if (text[*cursor] == '\n') {
+                        --line;
+                }
+                ++(*cursor);
+        }
+}
+
+void SelectLineAll() {
+        if (lte.cursor >= lte.anchor) {
+                SelectLineStart(lte.file.text, lte.file.len, &lte.anchor);
+                SelectLineEnd(lte.file.text, lte.file.len, &lte.cursor);
+                ++lte.cursor;
+        } else {
+                SelectLineStart(lte.file.text, lte.file.len, &lte.cursor);
+                SelectLineEnd(lte.file.text, lte.file.len, &lte.anchor);
+                ++lte.anchor;
+        }
+}
+
+int SelectLower() {
+        return (lte.cursor > lte.anchor ? lte.anchor : lte.cursor);
+}
+
+int SelectHigher() {
+        return (lte.cursor > lte.anchor ? lte.cursor : lte.anchor);
+}
+
+int SelectLen() {
+        return abs(lte.cursor - lte.anchor);
+}
+
+//==============================================================
+// undo
+//==============================================================
+
+void UndoNewUndo() {
+}
+
+void UndoExecuteUndo() {
+}
+
+void UndoExecuteRedo() {
+}
+
+void UndoExecuteRepeat() {
+}
+
+void UndoInsert() {
+}
+
+void UndoDelete() {
+}
+
+//==============================================================
+// control
+//==============================================================
 
 void LoadArgs(int argc, char** argv) {
         assert(argc == 2);
@@ -71,8 +378,8 @@ void EnableRawMode() {
 void LoadScreen() {
         struct winsize winsize;
         ioctl(STDOUT_FILENO, TIOCGWINSZ, &winsize);
-        lte.screenCols = winsize.ws_col;
-        lte.screenRows = winsize.ws_row;
+        lte.cols = winsize.ws_col;
+        lte.rows = winsize.ws_row;
         EnableRawMode();
 }
 
@@ -81,23 +388,17 @@ void LoadFile() {
         ssize_t res = 0;
         FILE* file = fopen(lte.fileName, "r");
         assert(file != NULL);
-        res = getdelim(&lte.text, &size, '\0', file);
-        assert(lte.text != NULL);
+        res = getdelim(&lte.file.text, &size, '\0', file);
+        assert(lte.file.text != NULL);
         assert(res != -1);
-        lte.textLen = ++res;
+        lte.file.len = ++res;
         fclose(file);
-}
-
-void LoadCommand() {
-        lte.command = MOVE;
-        lte.count = 0;
-        lte.mode = COMMAND;
 }
 
 void WriteFile() {
         FILE* file = fopen(lte.fileName, "w");
         assert(file != NULL);
-        fwrite(lte.text, sizeof(*lte.text), lte.textLen - 1, file);
+        fwrite(lte.file.text, sizeof(*lte.file.text), lte.file.len - 1, file);
         fclose(file);
 }
 
@@ -109,10 +410,10 @@ void DrawLine(char* dst, char* src, int max) {
 }
 
 void DrawFrame() {
-        int frameLen = lte.screenCols * lte.screenRows + 1;
-        int cursorRow = lte.screenRows / 2;
-        int startLineIndex = lte.index + StartLineIndex(&lte.text, lte.textLen, lte.index);
-        int lineNumber = LineNumber(&lte.text, lte.textLen, lte.index);
+        int frameLen = lte.cols * lte.rows + 1;
+        int cursorRow = lte.rows / 2;
+        int startLineIndex = lte.cursor + StartLineIndex(&lte.file.text, lte.file.len, lte.cursor);
+        int lineNumber = LineNumber(&lte.file.text, lte.file.len, lte.cursor);
         char frame[frameLen];
         char cursorMove[27] = { 0 };
         char print[frameLen + sizeof(ERASE_SCREEN) + sizeof(CURSOR_HOME) + sizeof(cursorMove)];
@@ -120,19 +421,19 @@ void DrawFrame() {
         for (int i = 0; i < frameLen; ++i) {
                 frame[i] = ' ';
         }
-        for (int i = 0; i < lte.screenRows; ++i) {
+        for (int i = 0; i < lte.rows; ++i) {
                 if (i == cursorRow) {
-                        DrawLine(&frame[lte.screenCols * cursorRow], &lte.text[startLineIndex], lte.screenCols);
+                        DrawLine(&frame[lte.cols * cursorRow], &lte.file.text[startLineIndex], lte.cols);
                 } else if (i > cursorRow) {
-                        int index = NextLineIndex(&lte.text, lte.textLen, lte.index, i - cursorRow);
-                        DrawLine(&frame[lte.screenCols * i], &lte.text[lte.index + index], lte.screenCols);
+                        int cursor = NextLineIndex(&lte.file.text, lte.file.len, lte.cursor, i - cursorRow);
+                        DrawLine(&frame[lte.cols * i], &lte.file.text[lte.cursor + cursor], lte.cols);
                 } else if (i < cursorRow && ~(i - cursorRow) + 1 <= lineNumber) {
-                        int index = PrevLineIndex(&lte.text, lte.textLen, lte.index, ~(i - cursorRow) + 1);
-                        DrawLine(&frame[lte.screenCols * i], &lte.text[lte.index + index], lte.screenCols);
+                        int cursor = PrevLineIndex(&lte.file.text, lte.file.len, lte.cursor, ~(i - cursorRow) + 1);
+                        DrawLine(&frame[lte.cols * i], &lte.file.text[lte.cursor + cursor], lte.cols);
                 }
         }
         frame[frameLen - 1] = '\0';
-        sprintf(cursorMove, "\x1b[%d;%dH", cursorRow + 1, lte.index - startLineIndex + 1);
+        sprintf(cursorMove, "\x1b[%d;%dH", cursorRow + 1, lte.cursor - startLineIndex + 1);
         strcat(print, CURSOR_HOME);
         strcat(print, ERASE_SCREEN);
         strcat(print, frame);
@@ -140,102 +441,198 @@ void DrawFrame() {
         write(STDOUT_FILENO, print, strlen(print));
 }
 
+void ProsessEdit(char key) {
+        if (key == ESCAPE_KEY) {
+                lte.mode = COMMAND_MODE;
+                lte.anchor = lte.cursor;
+        } else if (key == DELETE_KEY) {
+                if (lte.cursor == 0) return;
+                --lte.cursor;
+                StringDelete(&lte.file, lte.cursor, 1);
+                lte.anchor = lte.cursor;
+                StringDelete(&lte.clipboard, lte.clipboard.len, 1);
+        } else if (key == NEWLINE_KEY || (key >= SPACE_KEY && key < DELETE_KEY)) {
+                StringInsert(&lte.file, lte.cursor, &key, 1);
+                ++lte.cursor;
+                lte.anchor = lte.cursor;
+                StringInsert(&lte.clipboard, lte.clipboard.len, &key, 1);
+        } else if (key == TAB_KEY) {
+                char* tab = "        ";
+                StringInsert(&lte.file, lte.cursor, tab, 8);
+                lte.cursor += 8;
+                lte.anchor = lte.cursor;
+                StringInsert(&lte.clipboard, lte.clipboard.len, tab, 8);
+        }
+}
+
+void ProsessSelect(void (*Call)(char*, int, int*)) {
+        if (lte.count == 0) {
+                lte.count = 1;
+        }
+        while (lte.count > 0) {
+                lte.anchor = lte.cursor;
+                Call(lte.file.text, lte.file.len, &lte.cursor);
+                --lte.count;
+        }
+}
+
+void ProsessSelectExtend(void (*Call)(char*, int, int*)) {
+        if (lte.count == 0) {
+                lte.count = 1;
+        }
+        while (lte.count > 0) {
+                Call(lte.file.text, lte.file.len, &lte.cursor);
+                --lte.count;
+        }
+}
+
+void DeleteSelection() {
+        StringErase(&lte.clipboard);
+        StringInsert(&lte.clipboard, lte.clipboard.len, &lte.file.text[SelectLower()], SelectLen());
+        StringDelete(&lte.file, SelectLower(), SelectLen());
+        lte.cursor = SelectLower();
+        lte.anchor = SelectLower();
+}
+
+void EnterEditMode() {
+        StringErase(&lte.clipboard);
+        lte.mode = EDIT_MODE;
+}
+
+void ProsessKey(char key) {
+        if (lte.mode == EDIT_MODE) {
+                ProsessEdit(key);
+        } else if (key >= '0' && key <= '9') {
+                lte.count *= 10;
+                lte.count += key & 0xf;
+        } else if (key == 'w') {
+                WriteFile();
+        } else if (key == 'q') {
+                WriteFile();
+                exit(0);
+        } else if (key == 'Q') {
+                exit(0);
+        } else if (key == 'h') {
+                ProsessSelect(SelectCharLeft);
+        } else if (key == 'H') {
+                ProsessSelectExtend(SelectCharLeft);
+        } else if (key == 'l') {
+                ProsessSelect(SelectCharRight);
+        } else if (key == 'L') {
+                ProsessSelectExtend(SelectCharRight);
+        } else if (key == 'b') {
+                ProsessSelect(SelectWordLeft);
+        } else if (key == 'B') {
+                ProsessSelectExtend(SelectWordLeft);
+        } else if (key == 'e') {
+                ProsessSelect(SelectWordRight);
+        } else if (key == 'E') {
+                ProsessSelectExtend(SelectWordRight);
+        } else if (key == 'z') {
+                ProsessSelect(SelectLineStart);
+        } else if (key == 'Z') {
+                ProsessSelectExtend(SelectLineStart);
+        } else if (key == 'x') {
+                ProsessSelect(SelectLineEnd);
+        } else if (key == 'X') {
+                ProsessSelectExtend(SelectLineEnd);
+        } else if (key == 'k') {
+                ProsessSelect(SelectLineUp);
+        } else if (key == 'K') {
+                ProsessSelectExtend(SelectLineUp);
+        } else if (key == 'j') {
+                ProsessSelect(SelectLineDown);
+        } else if (key == 'J') {
+                ProsessSelectExtend(SelectLineDown);
+        } else if (key == 'm') {
+                ProsessSelect(SelectParaUp);
+        } else if (key == 'M') {
+                ProsessSelectExtend(SelectParaUp);
+        } else if (key == 'n') {
+                ProsessSelect(SelectParaDown);
+        } else if (key == 'N') {
+                ProsessSelectExtend(SelectParaDown);
+        } else if (key == 'g') {
+                SelectLineNumber(lte.file.text, lte.file.len, &lte.cursor, lte.count); 
+                lte.count = 0;
+                lte.anchor = lte.cursor;
+        } else if (key == 'G') {
+                SelectLineNumber(lte.file.text, lte.file.len, &lte.cursor, lte.count); 
+                lte.count = 0;
+                lte.anchor = 0;
+        } else if (key == 'i') {
+                lte.cursor = SelectLower();
+                EnterEditMode();
+        } else if (key == 'a') {
+                lte.cursor = SelectHigher();
+                EnterEditMode();
+        } else if (key == 'o') {
+                char newline = '\n';
+                SelectLineEnd(lte.file.text, lte.file.len, &lte.cursor);
+                StringInsert(&lte.file, lte.cursor, &newline, 1);
+                ++lte.cursor;
+                lte.anchor = lte.cursor;
+                EnterEditMode();
+        } else if (key == 'O') {
+                char newline = '\n';
+                SelectLineStart(lte.file.text, lte.file.len, &lte.cursor);
+                StringInsert(&lte.file, lte.cursor, &newline, 1);
+                lte.anchor = lte.cursor;
+                EnterEditMode();
+        } else if (key == 'd') {
+                DeleteSelection();
+        } else if (key == 'D') {
+                SelectLineAll();
+                DeleteSelection();
+        } else if (key == 'c') {
+                DeleteSelection();
+                EnterEditMode();
+        } else if (key == 'C') {
+                SelectLineAll();
+                DeleteSelection();
+                EnterEditMode();
+        } else if (key == 'r') {
+                DeleteSelection();
+                StringInsert(&lte.file, lte.cursor, lte.clipboard.text, lte.clipboard.len);
+                lte.cursor += lte.clipboard.len;
+        } else if (key == 'R') {
+                SelectLineAll();
+                DeleteSelection();
+                StringInsert(&lte.file, lte.cursor, lte.clipboard.text, lte.clipboard.len);
+                lte.cursor += lte.clipboard.len;
+        } else if (key == 'y') {
+                StringErase(&lte.clipboard);
+                StringInsert(&lte.clipboard, lte.clipboard.len, &lte.file.text[SelectLower()], SelectLen());
+        } else if (key == 'Y') {
+                SelectLineAll();
+                StringErase(&lte.clipboard);
+                StringInsert(&lte.clipboard, lte.clipboard.len, &lte.file.text[SelectLower()], SelectLen());
+        } else if (key == 'p') {
+                if (lte.clipboard.text == NULL) return;
+                lte.cursor = SelectHigher();
+                lte.anchor = SelectHigher();
+                StringInsert(&lte.file, lte.cursor, lte.clipboard.text, lte.clipboard.len);
+                lte.cursor += lte.clipboard.len;
+        } else if (key == 'P') {
+                if (lte.clipboard.text == NULL) return;
+                lte.cursor = SelectLower();
+                lte.anchor = SelectLower();
+                StringInsert(&lte.file, lte.cursor, lte.clipboard.text, lte.clipboard.len);
+                lte.cursor += lte.clipboard.len;
+        }
+}
+
 void GetInput() {
         char key = 0;
-        int move = 0;
         read(STDIN_FILENO, &key, sizeof(char));
-        if (key == LINEFEED_KEY) {
-                key = NEWLINE_KEY;
-        }
-        if (lte.mode == EDIT) {
-                if (key == ESCAPE_KEY) {
-                        lte.mode = COMMAND;
-                } else if (key == DELETE_KEY) {
-                        lte.command = MOVE;
-                        lte.count = 0;
-                        --lte.index;
-                        DeleteChars(&lte.text, &lte.textLen, lte.index, 1);
-                } else if (key == TAB_KEY) {
-                        char* tab = "        ";
-                        lte.command = MOVE;
-                        lte.count = 0;
-                        InsertChars(&lte.text, &lte.textLen, lte.index, tab, 8);
-                        lte.index += 8;
-                } else if (key == NEWLINE_KEY || (key >= SPACE_KEY && key < DELETE_KEY)) {
-                        lte.command = MOVE;
-                        lte.count = 0;
-                        InsertChars(&lte.text, &lte.textLen, lte.index, &key, 1);
-                        ++lte.index;
-                }
-        } else if (lte.mode == COMMAND) {
-                if        (key >= '0' && key <= '9') {
-                        lte.count *= 10;
-                        lte.count += key & 0xf;
-                } else if (key == 'd') {
-                        lte.command = DELETE;
-                } else if (key == 'c') {
-                        lte.command = CHANGE;
-                } else if (key == 'y') {
-                        lte.command = YEET;
-                } else if (key == 'q') {
-                        exit(0);
-                } else if (key == 'w') {
-                        WriteFile();
-                } else if (key == 'i') {
-                        lte.mode = EDIT;
-                } else if (key == 'a') {
-                        move = NextCharIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
-                        lte.mode = EDIT;
-                } else if (key == 'h') {
-                        move = PrevCharIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
-                } else if (key == 'l') {
-                        move = NextCharIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
-                } else if (key == 'b') {
-                        move = PrevWordIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
-                } else if (key == 'e') {
-                        move = NextWordIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
-                } else if (key == 'k') {
-                        move = PrevLineIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
-                } else if (key == 'j') {
-                        move = NextLineIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
-                } else if (key == 'n') {
-                        move = PrevParaIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
-                } else if (key == 'm') {
-                        move = NextParaIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
-                } else if (key == 'z') {
-                        move = StartLineIndex(&lte.text, lte.textLen, lte.index);
-                } else if (key == 'x') {
-                        move = EndLineIndex(&lte.text, lte.textLen, lte.index);
-                } else if (key == 'g') {
-                        move = LineIndex(&lte.text, lte.textLen, lte.index, ((lte.count < 1) ? 1 : lte.count));
-                }
-        }
-        if (move != 0) {
-                if (lte.command == MOVE) {
-                        lte.index += move;
-                } else if (lte.command == DELETE) {
-                        if (move < 0) {
-                                lte.index += move;
-                        }
-                        DeleteChars(&lte.text, &lte.textLen, lte.index, abs(move));
-                } else if (lte.command == CHANGE) {
-                        if (move < 0) {
-                                lte.index += move;
-                        }
-                        DeleteChars(&lte.text, &lte.textLen, lte.index, abs(move));
-                        lte.mode = EDIT;
-                } else if (lte.command == YEET) {
-                }
-                lte.command = MOVE;
-                lte.count = 0;
-        }
+        if (key == LINEFEED_KEY) key = NEWLINE_KEY;
+        ProsessKey(key);
 }
 
 int main(int argc, char** argv) {
         LoadArgs(argc, argv);
         LoadScreen();
         LoadFile();
-        LoadCommand();
         while (true) {
                 DrawFrame();
                 GetInput();
