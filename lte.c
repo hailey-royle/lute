@@ -491,7 +491,7 @@ void DeleteSelection() {
         StringInsert(&lte.clipboard, lte.clipboard.len, &lte.file.text[SelectLower()], SelectLen());
         StringDelete(&lte.file, SelectLower(), SelectLen());
         lte.cursor = SelectLower();
-        lte.anchor = SelectLower();
+        lte.anchor = lte.cursor;
 }
 
 void EnterEditMode() {
@@ -592,12 +592,16 @@ void ProsessKey(char key) {
                 DeleteSelection();
                 EnterEditMode();
         } else if (key == 'r') {
-                DeleteSelection();
+                StringDelete(&lte.file, SelectLower(), SelectLen());
+                lte.cursor = SelectLower();
+                lte.anchor = lte.cursor;
                 StringInsert(&lte.file, lte.cursor, lte.clipboard.text, lte.clipboard.len);
                 lte.cursor += lte.clipboard.len;
         } else if (key == 'R') {
                 SelectLineAll();
-                DeleteSelection();
+                StringDelete(&lte.file, SelectLower(), SelectLen());
+                lte.cursor = SelectLower();
+                lte.anchor = lte.cursor;
                 StringInsert(&lte.file, lte.cursor, lte.clipboard.text, lte.clipboard.len);
                 lte.cursor += lte.clipboard.len;
         } else if (key == 'y') {
