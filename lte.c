@@ -610,13 +610,13 @@ void ProsessKey(char key) {
         } else if (key == 'p') {
                 if (lte.clipboard.text == NULL) return;
                 lte.cursor = SelectHigher();
-                lte.anchor = SelectHigher();
+                lte.anchor = lte.cursor;
                 StringInsert(&lte.file, lte.cursor, lte.clipboard.text, lte.clipboard.len);
                 lte.cursor += lte.clipboard.len;
         } else if (key == 'P') {
                 if (lte.clipboard.text == NULL) return;
                 lte.cursor = SelectLower();
-                lte.anchor = SelectLower();
+                lte.anchor = lte.cursor;
                 StringInsert(&lte.file, lte.cursor, lte.clipboard.text, lte.clipboard.len);
                 lte.cursor += lte.clipboard.len;
         }
