@@ -1,0 +1,57 @@
+
+## lte text editor
+
+**L**uddite **T**ext **E**ditor  
+
+lte is made for my personal use, it is not ment to cater to a general audience
+lte is inspired by vi and kakoune
+lte is usable, but unfinished
+
+### keybinds
+
+```
++---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+--------------+
+|         |         |         |         |         |         |         |         |         |         |         |         |         |              |
+|         |         |         |         |         |         |         |         |         |         |         |         |         |              |
+|         |    1    |    2    |    3    |    4    |    5    |    6    |    7    |    8    |    9    |    0    |         |         |              |
++---------+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+---------+
+|              |     quit|         |1        |2        |         |2        |    *redo|         |    above|      pre|         |         |         |
+|              |         |         |word     |replace  |         |yank     |         |         |open     |paste    |         |         |         |
+|              |   w quit|    write|         |         |         |         |    *undo| pre edit|    below|     post|         |         |         |
++--------------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+---------+
+|                 |         | *sub all|2        |         |1        |1        |1        |1        |1        |         |         |                |
+|                 |         |         |delete   |         |goto     |left     |down     |up       |right    |         |         |                |
+|                 |post edit|     *sub|         |    *find|         |         |         |         |         |         |         |                |
++----------------------+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----------------+
+|                      |1        |1        |2        |         |1        |1        |1        |         |         |         |                     |
+|                      |line star|line end |change   |         |word back|para down|para up  |         |         |         |                     |
+|                      |         |         |         |         |         |         |         |         |         |         |                     |
++----------------------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------------------+
+
+[1] = default changes selection; SHIFT extends selection
+[2] = default effects selection; SHIFT effects line
+[*] = not yet implmented
+
+repeat
+macro record
+macro execute
+select all
+```
+
+## todo  
+
+undo redo repeat commands/infrastructrue
+
+macro support
+
+select all
+
+find in selection command
+
+subsitute in selection command
+
+refactor DrawScreen() to display anchor
+
+refactor DrawScreen() to not use old lte.h
+
+refactor DrawScreen() to cashe lines
