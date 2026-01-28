@@ -39,13 +39,13 @@ enum mode {
 struct lte {
         struct string file;
         struct string clipboard;
-        //struct edit* history;
+        struct edit* history;
         char* fileName;
         int cursor;
         int anchor;
         int cols;
         int rows;
-        int count;
+        int commandCount;
         enum mode mode;
 };
 
@@ -466,23 +466,23 @@ void ProsessEdit(char key) {
 }
 
 void ProsessSelect(void (*Call)(char*, int, int*)) {
-        if (lte.count == 0) {
-                lte.count = 1;
+        if (lte.commandCount == 0) {
+                lte.commandCount = 1;
         }
-        while (lte.count > 0) {
+        while (lte.commandCount > 0) {
                 lte.anchor = lte.cursor;
                 Call(lte.file.text, lte.file.len, &lte.cursor);
-                --lte.count;
+                --lte.commandCount;
         }
 }
 
 void ProsessSelectExtend(void (*Call)(char*, int, int*)) {
-        if (lte.count == 0) {
-                lte.count = 1;
+        if (lte.commandCount == 0) {
+                lte.commandCount = 1;
         }
-        while (lte.count > 0) {
+        while (lte.commandCount > 0) {
                 Call(lte.file.text, lte.file.len, &lte.cursor);
-                --lte.count;
+                --lte.commandCount;
         }
 }
 
@@ -503,8 +503,8 @@ void ProsessKey(char key) {
         if (lte.mode == EDIT_MODE) {
                 ProsessEdit(key);
         } else if (key >= '0' && key <= '9') {
-                lte.count *= 10;
-                lte.count += key & 0xf;
+                lte.commandCount *= 10;
+                lte.commandCount += key & 0xf;
         } else if (key == 'w') {
                 WriteFile();
         } else if (key == 'q') {
@@ -553,12 +553,12 @@ void ProsessKey(char key) {
         } else if (key == 'N') {
                 ProsessSelectExtend(SelectParaDown);
         } else if (key == 'g') {
-                SelectLineNumber(lte.file.text, lte.file.len, &lte.cursor, lte.count); 
-                lte.count = 0;
+                SelectLineNumber(lte.file.text, lte.file.len, &lte.cursor, lte.commandCount); 
+                lte.commandCount = 0;
                 lte.anchor = lte.cursor;
         } else if (key == 'G') {
-                SelectLineNumber(lte.file.text, lte.file.len, &lte.cursor, lte.count); 
-                lte.count = 0;
+                SelectLineNumber(lte.file.text, lte.file.len, &lte.cursor, lte.commandCount); 
+                lte.commandCount = 0;
                 lte.anchor = 0;
         } else if (key == 'i') {
                 lte.cursor = SelectLower();
