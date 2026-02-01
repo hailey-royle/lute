@@ -46,6 +46,8 @@ struct lte {
         int cols;
         int rows;
         int commandCount;
+        int undoCount;
+        int redoCount;
         enum mode mode;
 };
 
@@ -60,8 +62,8 @@ void StringInsert(struct string* string, int index, char* src, int count) {
         assert(string != NULL);
         assert(string->len >= 0);
         assert(index >= 0);
-        assert(src != NULL);
         assert(count >= 0);
+        if (src == NULL) return;
         if (count == 0) return;
         char* tmp = realloc(string->text, string->len + count);
         assert(tmp != NULL);
@@ -77,12 +79,14 @@ void StringDelete(struct string* string, int index, int count) {
         assert(string->len >= 0);
         assert(index >= 0);
         assert(count >= 0);
-        assert(string->len > index + count);
+        assert(string->len >= index + count);
         if (count == 0) return;
         char* tmp = string->text;
         memmove(&tmp[index], &tmp[index + count], string->len - count - index);
         tmp = realloc(string->text, string->len - count);
-        assert(tmp != NULL);
+        if (string->len - count != 0) {
+                assert(tmp != NULL);
+        }
         string->text = tmp;
         string->len -= count;
 }
@@ -333,21 +337,59 @@ int SelectLen() {
 //==============================================================
 
 void UndoNewUndo() {
+        if (lte.undoCount > 0 && lte.history[lte.undoCount - 1].insert.len == 0 && lte.history[lte.undoCount - 1].delete.len == 0) {
+                return;
+        }
+        ++lte.undoCount;
+        struct edit* tmp = realloc(lte.history, lte.undoCount * sizeof(struct edit));
+        assert(tmp != NULL);
+        lte.redoCount = 0;
+        tmp[lte.undoCount - 1].insert.text = NULL;
+        tmp[lte.undoCount - 1].insert.len = 0;
+        tmp[lte.undoCount - 1].delete.text = NULL;
+        tmp[lte.undoCount - 1].delete.len = 0;
+        tmp[lte.undoCount - 1].cursor = lte.cursor;
+        lte.history = tmp;
 }
 
 void UndoExecuteUndo() {
+        if (lte.undoCount == 0) return;
+        lte.cursor = lte.history[lte.undoCount - 1].cursor;
+        StringDelete(&lte.file, lte.cursor, lte.history[lte.undoCount - 1].insert.len);
+        StringInsert(&lte.file, lte.cursor, lte.history[lte.undoCount - 1].delete.text, lte.history[lte.undoCount - 1].delete.len);
+        --lte.undoCount;
+        ++lte.redoCount;
 }
 
 void UndoExecuteRedo() {
+        if (lte.redoCount == 0) return;
+        lte.cursor = lte.history[lte.undoCount].cursor;
+        StringDelete(&lte.file, lte.cursor, lte.history[lte.undoCount].delete.len);
+        StringInsert(&lte.file, lte.cursor, lte.history[lte.undoCount].insert.text, lte.history[lte.undoCount].insert.len);
+        --lte.redoCount;
+        ++lte.undoCount;
 }
 
-void UndoExecuteRepeat() {
+void UndoInsert(char* src, int count) {
+        assert(src != NULL);
+        assert(count >= 0);
+        assert(lte.redoCount == 0);
+        StringInsert(&lte.history[lte.undoCount - 1].insert, lte.history[lte.undoCount - 1].insert.len, src, count);
 }
 
-void UndoInsert() {
-}
-
-void UndoDelete() {
+void UndoDelete(int count) {
+        assert(count >= 0);
+        assert(lte.redoCount == 0);
+        if (lte.history[lte.undoCount - 1].insert.len >= count) {
+                StringDelete(&lte.history[lte.undoCount - 1].insert, lte.history[lte.undoCount - 1].insert.len - count, count);
+        } else if (lte.history[lte.undoCount - 1].insert.len < count && lte.history[lte.undoCount - 1].insert.len > 0) {
+                assert(false);
+        } else if (lte.history[lte.undoCount - 1].insert.len == 0) {
+                StringInsert(&lte.history[lte.undoCount - 1].delete, 0, &lte.file.text[SelectLower()], count);
+                lte.history[lte.undoCount - 1].cursor -= count;
+        } else {
+                assert(false);
+        }
 }
 
 //==============================================================
@@ -448,20 +490,25 @@ void ProsessEdit(char key) {
         } else if (key == DELETE_KEY) {
                 if (lte.cursor == 0) return;
                 --lte.cursor;
+                UndoDelete(1);
                 StringDelete(&lte.file, lte.cursor, 1);
                 lte.anchor = lte.cursor;
-                StringDelete(&lte.clipboard, lte.clipboard.len, 1);
+                if (lte.clipboard.len > 0) {
+                        StringDelete(&lte.clipboard, lte.clipboard.len - 1, 1);
+                }
         } else if (key == NEWLINE_KEY || (key >= SPACE_KEY && key < DELETE_KEY)) {
                 StringInsert(&lte.file, lte.cursor, &key, 1);
                 ++lte.cursor;
                 lte.anchor = lte.cursor;
                 StringInsert(&lte.clipboard, lte.clipboard.len, &key, 1);
+                UndoInsert(&key, 1);
         } else if (key == TAB_KEY) {
                 char* tab = "        ";
                 StringInsert(&lte.file, lte.cursor, tab, 8);
                 lte.cursor += 8;
                 lte.anchor = lte.cursor;
                 StringInsert(&lte.clipboard, lte.clipboard.len, tab, 8);
+                UndoInsert(tab, 8);
         }
 }
 
@@ -486,16 +533,29 @@ void ProsessSelectExtend(void (*Call)(char*, int, int*)) {
         }
 }
 
-void DeleteSelection() {
+void ClipboardSelection() {
         StringErase(&lte.clipboard);
         StringInsert(&lte.clipboard, lte.clipboard.len, &lte.file.text[SelectLower()], SelectLen());
+}
+
+void DeleteSelection() {
+        if (SelectLen() == 0) return;
+        UndoNewUndo();
+        UndoDelete(SelectLen());
         StringDelete(&lte.file, SelectLower(), SelectLen());
         lte.cursor = SelectLower();
         lte.anchor = lte.cursor;
 }
 
+void PasteSelection() {
+        StringInsert(&lte.file, lte.cursor, lte.clipboard.text, lte.clipboard.len);
+        lte.cursor += lte.clipboard.len;
+}
+
 void EnterEditMode() {
         StringErase(&lte.clipboard);
+        UndoNewUndo();
+        lte.anchor = lte.cursor;
         lte.mode = EDIT_MODE;
 }
 
@@ -571,58 +631,54 @@ void ProsessKey(char key) {
                 SelectLineEnd(lte.file.text, lte.file.len, &lte.cursor);
                 StringInsert(&lte.file, lte.cursor, &newline, 1);
                 ++lte.cursor;
-                lte.anchor = lte.cursor;
                 EnterEditMode();
         } else if (key == 'O') {
                 char newline = '\n';
                 SelectLineStart(lte.file.text, lte.file.len, &lte.cursor);
                 StringInsert(&lte.file, lte.cursor, &newline, 1);
-                lte.anchor = lte.cursor;
                 EnterEditMode();
         } else if (key == 'd') {
+                ClipboardSelection();
                 DeleteSelection();
         } else if (key == 'D') {
                 SelectLineAll();
+                ClipboardSelection();
                 DeleteSelection();
         } else if (key == 'c') {
+                ClipboardSelection();
                 DeleteSelection();
                 EnterEditMode();
         } else if (key == 'C') {
                 SelectLineAll();
+                ClipboardSelection();
                 DeleteSelection();
                 EnterEditMode();
         } else if (key == 'r') {
-                StringDelete(&lte.file, SelectLower(), SelectLen());
-                lte.cursor = SelectLower();
-                lte.anchor = lte.cursor;
-                StringInsert(&lte.file, lte.cursor, lte.clipboard.text, lte.clipboard.len);
-                lte.cursor += lte.clipboard.len;
+                DeleteSelection();
+                PasteSelection();
         } else if (key == 'R') {
                 SelectLineAll();
-                StringDelete(&lte.file, SelectLower(), SelectLen());
-                lte.cursor = SelectLower();
-                lte.anchor = lte.cursor;
-                StringInsert(&lte.file, lte.cursor, lte.clipboard.text, lte.clipboard.len);
-                lte.cursor += lte.clipboard.len;
+                DeleteSelection();
+                PasteSelection();
         } else if (key == 'y') {
-                StringErase(&lte.clipboard);
-                StringInsert(&lte.clipboard, lte.clipboard.len, &lte.file.text[SelectLower()], SelectLen());
+                ClipboardSelection();
         } else if (key == 'Y') {
                 SelectLineAll();
-                StringErase(&lte.clipboard);
-                StringInsert(&lte.clipboard, lte.clipboard.len, &lte.file.text[SelectLower()], SelectLen());
+                ClipboardSelection();
         } else if (key == 'p') {
                 if (lte.clipboard.text == NULL) return;
                 lte.cursor = SelectHigher();
                 lte.anchor = lte.cursor;
-                StringInsert(&lte.file, lte.cursor, lte.clipboard.text, lte.clipboard.len);
-                lte.cursor += lte.clipboard.len;
+                PasteSelection();
         } else if (key == 'P') {
                 if (lte.clipboard.text == NULL) return;
                 lte.cursor = SelectLower();
                 lte.anchor = lte.cursor;
-                StringInsert(&lte.file, lte.cursor, lte.clipboard.text, lte.clipboard.len);
-                lte.cursor += lte.clipboard.len;
+                PasteSelection();
+        } else if (key == 'u') {
+                UndoExecuteUndo();
+        } else if (key == 'U') {
+                UndoExecuteRedo();
         }
 }
 

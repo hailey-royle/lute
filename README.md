@@ -15,9 +15,9 @@ lte is usable, but unfinished
 |         |         |         |         |         |         |         |         |         |         |         |         |         |              |
 |         |    1    |    2    |    3    |    4    |    5    |    6    |    7    |    8    |    9    |    0    |         |         |              |
 +---------+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+---------+
-|              |     quit|         |1        |2        |         |2        |    *redo|         |    above|      pre|         |         |         |
+|              |     quit|         |1        |2        |         |2        |     redo|         |    above|      pre|         |         |         |
 |              |         |         |word     |replace  |         |yank     |         |         |open     |paste    |         |         |         |
-|              |   w quit|    write|         |         |         |         |    *undo| pre edit|    below|     post|         |         |         |
+|              |   w quit|    write|         |         |         |         |     undo| pre edit|    below|     post|         |         |         |
 +--------------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+---------+
 |                 |         | *sub all|2        |         |1        |1        |1        |1        |1        |         |         |                |
 |                 |         |         |delete   |         |goto     |left     |down     |up       |right    |         |         |                |
@@ -40,9 +40,7 @@ select all
 
 ## todo  
 
-undo redo repeat commands/infrastructrue
-
-macro support
+macro/repeat support
 
 open empty file
 
