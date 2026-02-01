@@ -643,14 +643,14 @@ void ProsessKey(char key) {
         } else if (key == 'o') {
                 char newline = '\n';
                 lte.cursor = SelectLineEnd(lte.file.text, lte.file.len, lte.cursor);
-                StringInsert(&lte.file, lte.cursor, &newline, 1);
-                ++lte.cursor;
                 EnterEditMode();
+                ProsessEdit(newline);
         } else if (key == 'O') {
                 char newline = '\n';
                 lte.cursor = SelectLineStart(lte.file.text, lte.file.len, lte.cursor);
-                StringInsert(&lte.file, lte.cursor, &newline, 1);
+                --lte.cursor;
                 EnterEditMode();
+                ProsessEdit(newline);
         } else if (key == 'd') {
                 ClipboardSelection();
                 DeleteSelection();
