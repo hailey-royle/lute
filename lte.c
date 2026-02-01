@@ -104,218 +104,210 @@ void StringErase(struct string* string) {
 // select
 //==============================================================
 
-void SelectCharLeft(char* text, int len, int* cursor) {
+int SelectCharLeft(char* text, int len, int cursor) {
         assert(text != NULL);
         assert(len > 0);
-        assert(len > *cursor);
-        assert(*cursor >= 0);
-        if (*cursor == 0) return;
-        --(*cursor);
-        if (text[*cursor] == '\n') {
-                ++(*cursor);
+        assert(len > cursor);
+        assert(cursor >= 0);
+        if (cursor == 0) return cursor;
+        --cursor;
+        if (text[cursor] == '\n') {
+                ++cursor;
         }
+        return cursor;
 }
 
-void SelectCharRight(char* text, int len, int* cursor) {
+int SelectCharRight(char* text, int len, int cursor) {
         assert(text != NULL);
         assert(len > 0);
-        assert(len > *cursor);
-        assert(*cursor >= 0);
-        if (*cursor >= len - 1) return;
-        if (text[*cursor] == '\n') return;
-        ++(*cursor);
+        assert(len > cursor);
+        assert(cursor >= 0);
+        if (cursor >= len - 1) return cursor;
+        if (text[cursor] == '\n') return cursor;
+        return ++cursor;
 }
 
-void SelectWordLeft(char* text, int len, int* cursor) {
+int SelectWordLeft(char* text, int len, int cursor) {
         assert(text != NULL);
         assert(len > 0);
-        assert(len > *cursor);
-        assert(*cursor >= 0);
+        assert(len > cursor);
+        assert(cursor >= 0);
         while (true) {
-                if (*cursor <= 0) return;
-                --(*cursor);
-                if (text[*cursor] == '\n') {
-                        ++(*cursor);
+                if (cursor <= 0) return cursor;
+                --cursor;
+                if (text[cursor] == '\n') {
+                        ++cursor;
                         break;
                 }
-                if (text[*cursor] != ' ') break;
+                if (text[cursor] != ' ') break;
         }
         while (true) {
-                if (*cursor <= 0) return;
-                --(*cursor);
-                if (text[*cursor] == '\n') {
-                        ++(*cursor);
+                if (cursor <= 0) return cursor;
+                --cursor;
+                if (text[cursor] == '\n') {
+                        ++cursor;
                         break;
                 }
-                if (text[*cursor] == ' ') {
-                        ++(*cursor);
-                        break;
-                }
-        }
-}
-
-void SelectWordRight(char* text, int len, int* cursor) {
-        assert(text != NULL);
-        assert(len > 0);
-        assert(len > *cursor);
-        assert(*cursor >= 0);
-        while (true) {
-                if (*cursor >= len - 1) break;
-                if (text[*cursor] == '\n') break;
-                if (text[*cursor] == ' ') break;
-                ++(*cursor);
-        }
-        while (true) {
-                if (*cursor >= len - 1) break;
-                if (text[*cursor] == '\n') break;
-                if (text[*cursor] != ' ') break;
-                ++(*cursor);
-        }
-}
-
-void SelectLineStart(char* text, int len, int* cursor) {
-        assert(text != NULL);
-        assert(len > 0);
-        assert(len > *cursor);
-        assert(*cursor >= 0);
-        while (true) {
-                if (*cursor <= 0) return;
-                --(*cursor);
-                if (text[*cursor] == '\n') {
-                        ++(*cursor);
+                if (text[cursor] == ' ') {
+                        ++cursor;
                         break;
                 }
         }
-                
+        return cursor;
 }
 
-void SelectLineEnd(char* text, int len, int* cursor) {
+int SelectWordRight(char* text, int len, int cursor) {
         assert(text != NULL);
         assert(len > 0);
-        assert(len > *cursor);
-        assert(*cursor >= 0);
+        assert(len > cursor);
+        assert(cursor >= 0);
         while (true) {
-                if (*cursor >= len - 1) break;
-                if (text[*cursor] == '\n') break;
-                ++(*cursor);
+                if (cursor >= len - 1) break;
+                if (text[cursor] == '\n') break;
+                if (text[cursor] == ' ') break;
+                ++cursor;
         }
+        while (true) {
+                if (cursor >= len - 1) break;
+                if (text[cursor] == '\n') break;
+                if (text[cursor] != ' ') break;
+                ++cursor;
+        }
+        return cursor;
 }
 
-void SelectLineUp(char* text, int len, int* cursor) {
+int SelectLineStart(char* text, int len, int cursor) {
         assert(text != NULL);
         assert(len > 0);
-        assert(len > *cursor);
-        assert(*cursor >= 0);
+        assert(len > cursor);
+        assert(cursor >= 0);
         while (true) {
-                if (*cursor <= 0) return;
-                --(*cursor);
-                if (text[*cursor] == '\n') break;
-        }
-        while (true) {
-                if (*cursor <= 0) return;
-                --(*cursor);
-                if (text[*cursor] == '\n') {
-                        ++(*cursor);
+                if (cursor <= 0) break;
+                --cursor;
+                if (text[cursor] == '\n') {
+                        ++cursor;
                         break;
                 }
         }
-                
+        return cursor;
 }
 
-void SelectLineDown(char* text, int len, int* cursor) {
+int SelectLineEnd(char* text, int len, int cursor) {
         assert(text != NULL);
         assert(len > 0);
-        assert(len > *cursor);
-        assert(*cursor >= 0);
+        assert(len > cursor);
+        assert(cursor >= 0);
         while (true) {
-                if (*cursor >= len - 1) break;
-                if (text[*cursor] == '\n') {
-                        if (*cursor >= len - 1) break;
-                        ++(*cursor);
+                if (cursor >= len - 1) break;
+                if (text[cursor] == '\n') break;
+                ++cursor;
+        }
+        return cursor;
+}
+
+int SelectLineUp(char* text, int len, int cursor) {
+        assert(text != NULL);
+        assert(len > 0);
+        assert(len > cursor);
+        assert(cursor >= 0);
+        while (true) {
+                if (cursor <= 0) return cursor;
+                --cursor;
+                if (text[cursor] == '\n') break;
+        }
+        while (true) {
+                if (cursor <= 0) break;
+                --cursor;
+                if (text[cursor] == '\n') {
+                        ++cursor;
                         break;
                 }
-                ++(*cursor);
         }
+        return cursor;
 }
 
-void SelectParaUp(char* text, int len, int* cursor) {
+int SelectLineDown(char* text, int len, int cursor) {
         assert(text != NULL);
         assert(len > 0);
-        assert(len > *cursor);
-        assert(*cursor >= 0);
+        assert(len > cursor);
+        assert(cursor >= 0);
         while (true) {
-                if (*cursor <= 0) return;
-                --(*cursor);
-                if (text[*cursor] == '\n') {
-                        if (*cursor <= 0) return;
-                        if (*cursor >= len - 1) break;
-                        --(*cursor);
-                        if (text[*cursor] == '\n') {
-                                ++(*cursor);
+                if (cursor >= len - 1) break;
+                if (text[cursor] == '\n') {
+                        if (cursor >= len - 1) break;
+                        ++cursor;
+                        break;
+                }
+                ++cursor;
+        }
+        return cursor;
+}
+
+int SelectParaUp(char* text, int len, int cursor) {
+        assert(text != NULL);
+        assert(len > 0);
+        assert(len > cursor);
+        assert(cursor >= 0);
+        while (true) {
+                if (cursor <= 0) break;
+                --cursor;
+                if (text[cursor] == '\n') {
+                        if (cursor <= 0) break;
+                        if (cursor >= len - 1) break;
+                        --cursor;
+                        if (text[cursor] == '\n') {
+                                ++cursor;
                                 break;
                         }
                 }
         }
+        return cursor;
 }
 
-void SelectParaDown(char* text, int len, int* cursor) {
+int SelectParaDown(char* text, int len, int cursor) {
         assert(text != NULL);
         assert(len > 0);
-        assert(len > *cursor);
-        assert(*cursor >= 0);
+        assert(len > cursor);
+        assert(cursor >= 0);
         while (true) {
-                if (*cursor >= len - 1) break;
-                if (text[*cursor] == '\n') {
-                        if (*cursor >= len - 1) break;
-                        ++(*cursor);
-                        if (text[*cursor] == '\n') {
+                if (cursor >= len - 1) break;
+                if (text[cursor] == '\n') {
+                        if (cursor >= len - 1) break;
+                        ++cursor;
+                        if (text[cursor] == '\n') {
                                 break;
                         }
                 }
-                ++(*cursor);
+                ++cursor;
         }
+        return cursor;
 }
 
-void SelectFileStart(char* text, int len, int* cursor) {
+int SelectLineNumber(char* text, int len, int cursor, int line) {
         assert(text != NULL);
         assert(len > 0);
-        assert(len > *cursor);
-        assert(*cursor >= 0);
-        *cursor = 0;
-}
-
-void SelectFileEnd(char* text, int len, int* cursor) {
-        assert(text != NULL);
-        assert(len > 0);
-        assert(len > *cursor);
-        assert(*cursor >= 0);
-        *cursor = len - 1;
-}
-
-void SelectLineNumber(char* text, int len, int* cursor, int line) {
-        assert(text != NULL);
-        assert(len > 0);
-        assert(len > *cursor);
-        assert(*cursor >= 0);
+        assert(len > cursor);
+        assert(cursor >= 0);
         assert(line >= 0);
-        *cursor = 0;
+        cursor = 0;
         while (line >= 0) {
-                if (*cursor >= len - 1) return;
-                if (text[*cursor] == '\n') {
+                if (cursor >= len - 1) break;
+                if (text[cursor] == '\n') {
                         --line;
                 }
-                ++(*cursor);
+                ++cursor;
         }
+        return cursor;
 }
 
 void SelectLineAll() {
         if (lte.cursor >= lte.anchor) {
-                SelectLineStart(lte.file.text, lte.file.len, &lte.anchor);
-                SelectLineEnd(lte.file.text, lte.file.len, &lte.cursor);
+                lte.anchor = SelectLineStart(lte.file.text, lte.file.len, lte.anchor);
+                lte.cursor = SelectLineEnd(lte.file.text, lte.file.len, lte.cursor);
                 ++lte.cursor;
         } else {
-                SelectLineStart(lte.file.text, lte.file.len, &lte.cursor);
-                SelectLineEnd(lte.file.text, lte.file.len, &lte.anchor);
+                lte.cursor = SelectLineStart(lte.file.text, lte.file.len, lte.cursor);
+                lte.anchor = SelectLineEnd(lte.file.text, lte.file.len, lte.anchor);
                 ++lte.anchor;
         }
 }
@@ -448,6 +440,25 @@ void WriteFile() {
         fclose(file);
 }
 
+/*
+void DrawFrame() {
+        struct string print;
+        StringInsert(&print, print.len, CURSOR_HOME, sizeof(CURSOR_HOME));
+        StringInsert(&print, print.len, ERASE_SCREEN, sizeof(ERASE_SCREEN));
+        DrawFile(&print);
+        DrawCursor(&print);
+        write(STDOUT_FILENO, print.text, print.len);
+        StringErase(&print);
+}
+*/
+
+void CursorMove(struct string* print) {
+        char cursorMove[27] = { 0 };
+        int startLineIndex = lte.cursor + StartLineIndex(&lte.file.text, lte.file.len, lte.cursor);
+        sprintf(cursorMove, "\x1b[%d;%dH", lte.rows / 2 + 1, lte.cursor - startLineIndex + 1);
+        StringInsert(print, print->len, cursorMove, sizeof(cursorMove));
+}
+
 void DrawLine(char* dst, char* src, int max) {
         while (max > 0 && *src != '\n' && *src != '\0') {
                 *dst++ = *src++;
@@ -458,12 +469,10 @@ void DrawLine(char* dst, char* src, int max) {
 void DrawFrame() {
         int frameLen = lte.cols * lte.rows + 1;
         int cursorRow = lte.rows / 2;
-        int startLineIndex = lte.cursor + StartLineIndex(&lte.file.text, lte.file.len, lte.cursor);
         int lineNumber = LineNumber(&lte.file.text, lte.file.len, lte.cursor);
+        int startLineIndex = lte.cursor + StartLineIndex(&lte.file.text, lte.file.len, lte.cursor);
         char frame[frameLen];
-        char cursorMove[27] = { 0 };
-        char print[frameLen + sizeof(ERASE_SCREEN) + sizeof(CURSOR_HOME) + sizeof(cursorMove)];
-        print[0] = '\0';
+        struct string print;
         for (int i = 0; i < frameLen; ++i) {
                 frame[i] = ' ';
         }
@@ -479,12 +488,12 @@ void DrawFrame() {
                 }
         }
         frame[frameLen - 1] = '\0';
-        sprintf(cursorMove, "\x1b[%d;%dH", cursorRow + 1, lte.cursor - startLineIndex + 1);
-        strcat(print, CURSOR_HOME);
-        strcat(print, ERASE_SCREEN);
-        strcat(print, frame);
-        strcat(print, cursorMove);
-        write(STDOUT_FILENO, print, strlen(print));
+        StringInsert(&print, print.len, CURSOR_HOME, sizeof(CURSOR_HOME));
+        StringInsert(&print, print.len, ERASE_SCREEN, sizeof(ERASE_SCREEN));
+        StringInsert(&print, print.len, frame, frameLen);
+        CursorMove(&print);
+        write(STDOUT_FILENO, print.text, print.len);
+        StringErase(&print);
 }
 
 void ProsessEdit(char key) {
@@ -516,23 +525,23 @@ void ProsessEdit(char key) {
         }
 }
 
-void ProsessSelect(void (*Call)(char*, int, int*)) {
+void ProsessSelect(int (*Call)(char*, int, int)) {
         if (lte.commandCount == 0) {
                 lte.commandCount = 1;
         }
         while (lte.commandCount > 0) {
                 lte.anchor = lte.cursor;
-                Call(lte.file.text, lte.file.len, &lte.cursor);
+                lte.cursor = Call(lte.file.text, lte.file.len, lte.cursor);
                 --lte.commandCount;
         }
 }
 
-void ProsessSelectExtend(void (*Call)(char*, int, int*)) {
+void ProsessSelectExtend(int (*Call)(char*, int, int)) {
         if (lte.commandCount == 0) {
                 lte.commandCount = 1;
         }
         while (lte.commandCount > 0) {
-                Call(lte.file.text, lte.file.len, &lte.cursor);
+                lte.cursor = Call(lte.file.text, lte.file.len, lte.cursor);
                 --lte.commandCount;
         }
 }
@@ -559,6 +568,7 @@ void PasteSelection() {
 void EnterEditMode() {
         StringErase(&lte.clipboard);
         UndoNewUndo();
+        lte.commandCount = 0;
         lte.anchor = lte.cursor;
         lte.mode = EDIT_MODE;
 }
@@ -617,13 +627,13 @@ void ProsessKey(char key) {
         } else if (key == 'N') {
                 ProsessSelectExtend(SelectParaDown);
         } else if (key == 'g') {
-                SelectLineNumber(lte.file.text, lte.file.len, &lte.cursor, lte.commandCount); 
-                lte.commandCount = 0;
+                lte.cursor = SelectLineNumber(lte.file.text, lte.file.len, lte.cursor, lte.commandCount);
                 lte.anchor = lte.cursor;
-        } else if (key == 'G') {
-                SelectLineNumber(lte.file.text, lte.file.len, &lte.cursor, lte.commandCount); 
                 lte.commandCount = 0;
+        } else if (key == 'G') {
+                lte.cursor = SelectLineNumber(lte.file.text, lte.file.len, lte.cursor, lte.commandCount);
                 lte.anchor = 0;
+                lte.commandCount = 0;
         } else if (key == 'i') {
                 lte.cursor = SelectLower();
                 EnterEditMode();
@@ -632,13 +642,13 @@ void ProsessKey(char key) {
                 EnterEditMode();
         } else if (key == 'o') {
                 char newline = '\n';
-                SelectLineEnd(lte.file.text, lte.file.len, &lte.cursor);
+                lte.cursor = SelectLineEnd(lte.file.text, lte.file.len, lte.cursor);
                 StringInsert(&lte.file, lte.cursor, &newline, 1);
                 ++lte.cursor;
                 EnterEditMode();
         } else if (key == 'O') {
                 char newline = '\n';
-                SelectLineStart(lte.file.text, lte.file.len, &lte.cursor);
+                lte.cursor = SelectLineStart(lte.file.text, lte.file.len, lte.cursor);
                 StringInsert(&lte.file, lte.cursor, &newline, 1);
                 EnterEditMode();
         } else if (key == 'd') {
