@@ -340,6 +340,10 @@ void UndoNewUndo() {
         if (lte.undoCount > 0 && lte.history[lte.undoCount - 1].insert.len == 0 && lte.history[lte.undoCount - 1].delete.len == 0) {
                 return;
         }
+        for (; lte.redoCount > 0; --lte.redoCount) {
+                StringErase(&lte.history[lte.undoCount + lte.redoCount - 1].insert);
+                StringErase(&lte.history[lte.undoCount + lte.redoCount - 1].delete);
+        }
         ++lte.undoCount;
         struct edit* tmp = realloc(lte.history, lte.undoCount * sizeof(struct edit));
         assert(tmp != NULL);
