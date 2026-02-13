@@ -449,26 +449,15 @@ void DrawBlanks(struct string* print, int i) {
 void DrawFile(struct string* print) {
         int index = lte.cursor;
         int screenLine = lte.rows / 2;
-        for (int i = screenLine; i >= 0; --i) {
-                while (true) {
-                        if (index <= 0) break;
-                        --index;
-                        if (lte.file.text[index] == '\n') {
-                                --screenLine;
-                                break;
-                        }
-                }
-        }
+        int jump = 0;
+        char* tilde = "~";
         while (true) {
+                if (screenLine <= 0) break;
                 if (index <= 0) break;
-                --index;
-                if (lte.file.text[index] == '\n') {
-                        ++index;
-                        break;
-                }
+                index = SelectLineUp(lte.file.text, lte.file.len, index);
+                --screenLine;
         }
         DrawBlanks(print, screenLine);
-        int jump = 0;
         while (true) {
                 if (index + jump >= lte.file.len) break;
                 if (lte.file.text[index + jump] == '\n') {
@@ -491,7 +480,6 @@ void DrawFile(struct string* print) {
         }
         StringInsert(print, print->len, &lte.file.text[index], jump);
         DrawBlanks(print, lte.rows - screenLine - 1);
-        char* tilde = "~";
         StringInsert(print, print->len, tilde, 1);
 }
 
