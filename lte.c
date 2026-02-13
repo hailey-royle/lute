@@ -438,11 +438,11 @@ void WriteFile() {
         fclose(file);
 }
 
-void DrawBlanks(struct string* print, int i) {
-        while (i > 0) {
+void DrawBlanks(struct string* print, int count) {
+        while (count > 0) {
                 char* newline = "~\n";
                 StringInsert(print, print->len, newline, 2);
-                --i;
+                --count;
         }
 }
 
