@@ -52,8 +52,4 @@ find in selection command
 
 subsitute in selection command
 
-refactor DrawScreen() to display anchor
-
-refactor DrawScreen() to remove lte.h
-
 refactor DrawScreen() to cashe lines

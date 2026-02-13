@@ -6,12 +6,12 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 
-#include "lte.h"
-
 #define START_ALT_SCREEN "\x1b[?1049h"
 #define END_ALT_SCREEN "\x1b[?1049l"
 #define ERASE_SCREEN "\x1b[2J"
 #define CURSOR_HOME "\x1b[1;1H"
+#define START_HIGHLIGHT "\x1b[41m"
+#define END_HIGHLIGHT "\x1b[49m"
 
 #define TAB_KEY 9
 #define NEWLINE_KEY 10
@@ -283,13 +283,11 @@ int SelectParaDown(char* text, int len, int cursor) {
         return cursor;
 }
 
-int SelectLineNumber(char* text, int len, int cursor, int line) {
+int SelectLineNumber(char* text, int len, int line) {
         assert(text != NULL);
         assert(len > 0);
-        assert(len > cursor);
-        assert(cursor >= 0);
         assert(line >= 0);
-        cursor = 0;
+        int cursor = 0;
         while (line >= 0) {
                 if (cursor >= len - 1) break;
                 if (text[cursor] == '\n') {
@@ -440,58 +438,77 @@ void WriteFile() {
         fclose(file);
 }
 
-/*
+void DrawBlanks(struct string* print, int i) {
+        while (i > 0) {
+                char* newline = "~\n";
+                StringInsert(print, print->len, newline, 2);
+                --i;
+        }
+}
+
+void DrawFile(struct string* print) {
+        int index = lte.cursor;
+        int screenLine = lte.rows / 2;
+        for (int i = screenLine; i >= 0; --i) {
+                while (true) {
+                        if (index <= 0) break;
+                        --index;
+                        if (lte.file.text[index] == '\n') {
+                                --screenLine;
+                                break;
+                        }
+                }
+        }
+        while (true) {
+                if (index <= 0) break;
+                --index;
+                if (lte.file.text[index] == '\n') {
+                        ++index;
+                        break;
+                }
+        }
+        DrawBlanks(print, screenLine);
+        int jump = 0;
+        while (true) {
+                if (index + jump >= lte.file.len) break;
+                if (lte.file.text[index + jump] == '\n') {
+                        ++screenLine;
+                        if (screenLine >= lte.rows) break;
+                }
+                if (index + jump == SelectLower()) {
+                        StringInsert(print, print->len, &lte.file.text[index], jump);
+                        StringInsert(print, print->len, START_HIGHLIGHT, sizeof(START_HIGHLIGHT));
+                        index += jump;
+                        jump = 0;
+                }
+                if (index + jump == SelectHigher()) {
+                        StringInsert(print, print->len, &lte.file.text[index], jump);
+                        StringInsert(print, print->len, END_HIGHLIGHT, sizeof(END_HIGHLIGHT));
+                        index += jump;
+                        jump = 0;
+                }
+                ++jump;
+        }
+        StringInsert(print, print->len, &lte.file.text[index], jump);
+        DrawBlanks(print, lte.rows - screenLine - 1);
+        char* tilde = "~";
+        StringInsert(print, print->len, tilde, 1);
+}
+
+void DrawCursor(struct string* print) {
+        char cursorMove[27] = { 0 };
+        sprintf(cursorMove, "\x1b[%d;%dH", lte.rows / 2 + 1, lte.cursor - SelectLineStart(lte.file.text, lte.file.len, lte.cursor) + 1);
+        StringInsert(print, print->len, cursorMove, sizeof(cursorMove));
+}
+
 void DrawFrame() {
         struct string print;
+        print.text = NULL;
+        print.len = 0;
         StringInsert(&print, print.len, CURSOR_HOME, sizeof(CURSOR_HOME));
         StringInsert(&print, print.len, ERASE_SCREEN, sizeof(ERASE_SCREEN));
         DrawFile(&print);
         DrawCursor(&print);
-        write(STDOUT_FILENO, print.text, print.len);
-        StringErase(&print);
-}
-*/
-
-void CursorMove(struct string* print) {
-        char cursorMove[27] = { 0 };
-        int startLineIndex = lte.cursor + StartLineIndex(&lte.file.text, lte.file.len, lte.cursor);
-        sprintf(cursorMove, "\x1b[%d;%dH", lte.rows / 2 + 1, lte.cursor - startLineIndex + 1);
-        StringInsert(print, print->len, cursorMove, sizeof(cursorMove));
-}
-
-void DrawLine(char* dst, char* src, int max) {
-        while (max > 0 && *src != '\n' && *src != '\0') {
-                *dst++ = *src++;
-                --max;
-        }
-}
-
-void DrawFrame() {
-        int frameLen = lte.cols * lte.rows + 1;
-        int cursorRow = lte.rows / 2;
-        int lineNumber = LineNumber(&lte.file.text, lte.file.len, lte.cursor);
-        int startLineIndex = lte.cursor + StartLineIndex(&lte.file.text, lte.file.len, lte.cursor);
-        char frame[frameLen];
-        struct string print;
-        for (int i = 0; i < frameLen; ++i) {
-                frame[i] = ' ';
-        }
-        for (int i = 0; i < lte.rows; ++i) {
-                if (i == cursorRow) {
-                        DrawLine(&frame[lte.cols * cursorRow], &lte.file.text[startLineIndex], lte.cols);
-                } else if (i > cursorRow) {
-                        int cursor = NextLineIndex(&lte.file.text, lte.file.len, lte.cursor, i - cursorRow);
-                        DrawLine(&frame[lte.cols * i], &lte.file.text[lte.cursor + cursor], lte.cols);
-                } else if (i < cursorRow && ~(i - cursorRow) + 1 <= lineNumber) {
-                        int cursor = PrevLineIndex(&lte.file.text, lte.file.len, lte.cursor, ~(i - cursorRow) + 1);
-                        DrawLine(&frame[lte.cols * i], &lte.file.text[lte.cursor + cursor], lte.cols);
-                }
-        }
-        frame[frameLen - 1] = '\0';
-        StringInsert(&print, print.len, CURSOR_HOME, sizeof(CURSOR_HOME));
-        StringInsert(&print, print.len, ERASE_SCREEN, sizeof(ERASE_SCREEN));
-        StringInsert(&print, print.len, frame, frameLen);
-        CursorMove(&print);
         write(STDOUT_FILENO, print.text, print.len);
         StringErase(&print);
 }
@@ -627,11 +644,11 @@ void ProsessKey(char key) {
         } else if (key == 'N') {
                 ProsessSelectExtend(SelectParaDown);
         } else if (key == 'g') {
-                lte.cursor = SelectLineNumber(lte.file.text, lte.file.len, lte.cursor, lte.commandCount);
+                lte.cursor = SelectLineNumber(lte.file.text, lte.file.len, lte.commandCount);
                 lte.anchor = lte.cursor;
                 lte.commandCount = 0;
         } else if (key == 'G') {
-                lte.cursor = SelectLineNumber(lte.file.text, lte.file.len, lte.cursor, lte.commandCount);
+                lte.cursor = SelectLineNumber(lte.file.text, lte.file.len, lte.commandCount);
                 lte.anchor = 0;
                 lte.commandCount = 0;
         } else if (key == 'i') {
