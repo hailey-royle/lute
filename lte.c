@@ -391,8 +391,12 @@ void UndoDelete(int count) {
 //==============================================================
 
 void LoadArgs(int argc, char** argv) {
-        assert(argc == 2);
-        lte.fileName = argv[1];
+        if (argc == 2) {
+                lte.fileName = argv[1];
+        } else {
+                printf("Usage: lte [file]\n");
+                exit(1);
+        }
 }
 
 void DisableRawMode() {
@@ -411,14 +415,6 @@ void EnableRawMode() {
         atexit(DisableRawMode);
 }
 
-void LoadScreen() {
-        struct winsize winsize;
-        ioctl(STDOUT_FILENO, TIOCGWINSZ, &winsize);
-        lte.cols = winsize.ws_col;
-        lte.rows = winsize.ws_row;
-        EnableRawMode();
-}
-
 void LoadFile() {
         size_t size = 0;
         ssize_t res = 0;
@@ -429,6 +425,15 @@ void LoadFile() {
         assert(res != -1);
         lte.file.len = ++res;
         fclose(file);
+}
+
+
+void LoadScreen() {
+        struct winsize winsize;
+        ioctl(STDOUT_FILENO, TIOCGWINSZ, &winsize);
+        lte.cols = winsize.ws_col;
+        lte.rows = winsize.ws_row;
+        EnableRawMode();
 }
 
 void WriteFile() {
@@ -707,8 +712,8 @@ void GetInput() {
 
 int main(int argc, char** argv) {
         LoadArgs(argc, argv);
-        LoadScreen();
         LoadFile();
+        LoadScreen();
         while (true) {
                 DrawFrame();
                 GetInput();
