@@ -427,7 +427,7 @@ void LoadFile() {
         res = getdelim(&lte.file.text, &size, '\0', file);
         assert(lte.file.text != NULL);
         assert(res != -1);
-        lte.file.len = ++res;
+        lte.file.len = res;
         fclose(file);
 }
 
