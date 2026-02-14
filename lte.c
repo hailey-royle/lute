@@ -349,6 +349,7 @@ void UndoNewUndo() {
 void UndoExecuteUndo() {
         if (lte.undoCount == 0) return;
         lte.cursor = lte.history[lte.undoCount - 1].cursor;
+        lte.anchor = lte.history[lte.undoCount - 1].delete.len + lte.cursor;
         StringDelete(&lte.file, lte.cursor, lte.history[lte.undoCount - 1].insert.len);
         StringInsert(&lte.file, lte.cursor, lte.history[lte.undoCount - 1].delete.text, lte.history[lte.undoCount - 1].delete.len);
         --lte.undoCount;
@@ -358,6 +359,7 @@ void UndoExecuteUndo() {
 void UndoExecuteRedo() {
         if (lte.redoCount == 0) return;
         lte.cursor = lte.history[lte.undoCount].cursor;
+        lte.anchor = lte.history[lte.undoCount].insert.len + lte.cursor;
         StringDelete(&lte.file, lte.cursor, lte.history[lte.undoCount].delete.len);
         StringInsert(&lte.file, lte.cursor, lte.history[lte.undoCount].insert.text, lte.history[lte.undoCount].insert.len);
         --lte.redoCount;
@@ -376,11 +378,9 @@ void UndoDelete(int count) {
         assert(lte.redoCount == 0);
         if (lte.history[lte.undoCount - 1].insert.len >= count) {
                 StringDelete(&lte.history[lte.undoCount - 1].insert, lte.history[lte.undoCount - 1].insert.len - count, count);
-        } else if (lte.history[lte.undoCount - 1].insert.len < count && lte.history[lte.undoCount - 1].insert.len > 0) {
-                assert(false);
         } else if (lte.history[lte.undoCount - 1].insert.len == 0) {
                 StringInsert(&lte.history[lte.undoCount - 1].delete, 0, &lte.file.text[SelectLower()], count);
-                lte.history[lte.undoCount - 1].cursor -= count;
+                lte.history[lte.undoCount - 1].cursor = SelectLower();
         } else {
                 assert(false);
         }
