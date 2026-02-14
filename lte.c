@@ -288,7 +288,7 @@ int SelectLineNumber(char* text, int len, int line) {
         assert(len > 0);
         assert(line >= 0);
         int cursor = 0;
-        while (line >= 0) {
+        while (line > 0) {
                 if (cursor >= len - 1) break;
                 if (text[cursor] == '\n') {
                         --line;
@@ -628,12 +628,11 @@ void ProsessKey(char key) {
         } else if (key == 'N') {
                 ProsessSelectExtend(SelectParaDown);
         } else if (key == 'g') {
-                lte.cursor = SelectLineNumber(lte.file.text, lte.file.len, lte.commandCount);
                 lte.anchor = lte.cursor;
+                lte.cursor = SelectLineNumber(lte.file.text, lte.file.len, lte.commandCount);
                 lte.commandCount = 0;
         } else if (key == 'G') {
                 lte.cursor = SelectLineNumber(lte.file.text, lte.file.len, lte.commandCount);
-                lte.anchor = 0;
                 lte.commandCount = 0;
         } else if (key == 'i') {
                 lte.cursor = SelectLower();
