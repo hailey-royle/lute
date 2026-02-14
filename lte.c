@@ -427,7 +427,7 @@ void LoadFile() {
         res = getdelim(&lte.file.text, &size, '\0', file);
         assert(lte.file.text != NULL);
         assert(res != -1);
-        lte.file.len = res;
+        lte.file.len = ++res;
         fclose(file);
 }
 
@@ -438,26 +438,20 @@ void WriteFile() {
         fclose(file);
 }
 
-void DrawBlanks(struct string* print, int count) {
-        while (count > 0) {
-                char* newline = "~\n";
-                StringInsert(print, print->len, newline, 2);
-                --count;
-        }
-}
-
 void DrawFile(struct string* print) {
         int index = lte.cursor;
         int screenLine = lte.rows / 2;
         int jump = 0;
-        char* tilde = "~";
         while (true) {
                 if (screenLine <= 0) break;
                 if (index <= 0) break;
                 index = SelectLineUp(lte.file.text, lte.file.len, index);
                 --screenLine;
         }
-        DrawBlanks(print, screenLine);
+        for (int i = screenLine; i >= 0; --i) {
+                char* newline = "~\n";
+                StringInsert(print, print->len, newline, 2);
+        }
         while (true) {
                 if (index + jump >= lte.file.len) break;
                 if (lte.file.text[index + jump] == '\n') {
@@ -479,8 +473,10 @@ void DrawFile(struct string* print) {
                 ++jump;
         }
         StringInsert(print, print->len, &lte.file.text[index], jump);
-        DrawBlanks(print, lte.rows - screenLine - 1);
-        StringInsert(print, print->len, tilde, 1);
+        for (int i = screenLine; i < lte.rows - 1; ++i) {
+                char* newline = "\n~";
+                StringInsert(print, print->len, newline, 2);
+        }
 }
 
 void DrawCursor(struct string* print) {
