@@ -562,6 +562,8 @@ void DeleteSelection() {
 }
 
 void PasteSelection() {
+        UndoNewUndo();
+        UndoInsert(&lte.file.text[lte.anchor], lte.clipboard.len);
         StringInsert(&lte.file, lte.cursor, lte.clipboard.text, lte.clipboard.len);
         lte.cursor += lte.clipboard.len;
 }
