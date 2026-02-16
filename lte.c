@@ -99,10 +99,10 @@ void StringErase(struct string* string) {
 //==============================================================
 
 int SelectCharLeft(char* text, int len, int cursor) {
-        assert(text != NULL);
         assert(len >= 0);
         assert(len >= cursor);
         assert(cursor >= 0);
+        if (text == NULL) return cursor;
         if (cursor == 0) return cursor;
         --cursor;
         if (text[cursor] == '\n') {
@@ -112,20 +112,20 @@ int SelectCharLeft(char* text, int len, int cursor) {
 }
 
 int SelectCharRight(char* text, int len, int cursor) {
-        assert(text != NULL);
         assert(len >= 0);
         assert(len >= cursor);
         assert(cursor >= 0);
+        if (text == NULL) return cursor;
         if (cursor >= len - 1) return cursor;
         if (text[cursor] == '\n') return cursor;
         return ++cursor;
 }
 
 int SelectWordLeft(char* text, int len, int cursor) {
-        assert(text != NULL);
         assert(len >= 0);
         assert(len >= cursor);
         assert(cursor >= 0);
+        if (text == NULL) return cursor;
         while (true) {
                 if (cursor <= 0) return cursor;
                 --cursor;
@@ -151,10 +151,10 @@ int SelectWordLeft(char* text, int len, int cursor) {
 }
 
 int SelectWordRight(char* text, int len, int cursor) {
-        assert(text != NULL);
         assert(len >= 0);
         assert(len >= cursor);
         assert(cursor >= 0);
+        if (text == NULL) return cursor;
         while (true) {
                 if (cursor >= len - 1) break;
                 if (text[cursor] == '\n') break;
@@ -171,10 +171,10 @@ int SelectWordRight(char* text, int len, int cursor) {
 }
 
 int SelectLineStart(char* text, int len, int cursor) {
-        assert(text != NULL);
         assert(len >= 0);
         assert(len >= cursor);
         assert(cursor >= 0);
+        if (text == NULL) return cursor;
         while (true) {
                 if (cursor <= 0) break;
                 --cursor;
@@ -187,10 +187,10 @@ int SelectLineStart(char* text, int len, int cursor) {
 }
 
 int SelectLineEnd(char* text, int len, int cursor) {
-        assert(text != NULL);
         assert(len >= 0);
         assert(len >= cursor);
         assert(cursor >= 0);
+        if (text == NULL) return cursor;
         while (true) {
                 if (cursor >= len - 1) break;
                 if (text[cursor] == '\n') break;
@@ -200,10 +200,10 @@ int SelectLineEnd(char* text, int len, int cursor) {
 }
 
 int SelectLineUp(char* text, int len, int cursor) {
-        assert(text != NULL);
         assert(len >= 0);
         assert(len >= cursor);
         assert(cursor >= 0);
+        if (text == NULL) return cursor;
         while (true) {
                 if (cursor <= 0) return cursor;
                 --cursor;
@@ -221,10 +221,10 @@ int SelectLineUp(char* text, int len, int cursor) {
 }
 
 int SelectLineDown(char* text, int len, int cursor) {
-        assert(text != NULL);
         assert(len >= 0);
         assert(len >= cursor);
         assert(cursor >= 0);
+        if (text == NULL) return cursor;
         while (true) {
                 if (cursor >= len - 1) break;
                 if (text[cursor] == '\n') {
@@ -238,10 +238,10 @@ int SelectLineDown(char* text, int len, int cursor) {
 }
 
 int SelectParaUp(char* text, int len, int cursor) {
-        assert(text != NULL);
         assert(len >= 0);
         assert(len >= cursor);
         assert(cursor >= 0);
+        if (text == NULL) return cursor;
         while (true) {
                 if (cursor <= 0) break;
                 --cursor;
@@ -259,10 +259,10 @@ int SelectParaUp(char* text, int len, int cursor) {
 }
 
 int SelectParaDown(char* text, int len, int cursor) {
-        assert(text != NULL);
         assert(len >= 0);
         assert(len >= cursor);
         assert(cursor >= 0);
+        if (text == NULL) return cursor;
         while (true) {
                 if (cursor >= len - 1) break;
                 if (text[cursor] == '\n') {
@@ -282,6 +282,7 @@ int SelectLineNumber(char* text, int len, int line) {
         assert(len > 0);
         assert(line >= 0);
         int cursor = 0;
+        if (text == NULL) return cursor;
         while (line > 0) {
                 if (cursor >= len - 1) break;
                 if (text[cursor] == '\n') {
@@ -428,7 +429,6 @@ void LoadFile() {
         }
         fclose(file);
 }
-
 
 void LoadScreen() {
         struct winsize winsize;
