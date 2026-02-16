@@ -76,24 +76,18 @@ void StringInsert(struct string* string, int index, char* src, int count) {
 void StringDelete(struct string* string, int index, int count) {
         assert(string != NULL);
         assert(string->text != NULL);
-        assert(string->len >= 0);
-        assert(index >= 0);
-        assert(count >= 0);
         assert(string->len >= index + count);
         if (count == 0) return;
-        char* tmp = string->text;
-        memmove(&tmp[index], &tmp[index + count], string->len - count - index);
-        tmp = realloc(string->text, string->len - count);
+        memmove(&string->text[index], &string->text[index + count], string->len - count - index);
+        string->text = realloc(string->text, string->len - count);
         if (string->len - count != 0) {
-                assert(tmp != NULL);
+                assert(string->text != NULL);
         }
-        string->text = tmp;
         string->len -= count;
 }
 
 void StringErase(struct string* string) {
         assert(string != NULL);
-        assert(string->len >= 0);
         if (string->text == NULL) return;
         free(string->text);
         string->text = NULL;
@@ -106,8 +100,8 @@ void StringErase(struct string* string) {
 
 int SelectCharLeft(char* text, int len, int cursor) {
         assert(text != NULL);
-        assert(len > 0);
-        assert(len > cursor);
+        assert(len >= 0);
+        assert(len >= cursor);
         assert(cursor >= 0);
         if (cursor == 0) return cursor;
         --cursor;
@@ -119,8 +113,8 @@ int SelectCharLeft(char* text, int len, int cursor) {
 
 int SelectCharRight(char* text, int len, int cursor) {
         assert(text != NULL);
-        assert(len > 0);
-        assert(len > cursor);
+        assert(len >= 0);
+        assert(len >= cursor);
         assert(cursor >= 0);
         if (cursor >= len - 1) return cursor;
         if (text[cursor] == '\n') return cursor;
@@ -129,8 +123,8 @@ int SelectCharRight(char* text, int len, int cursor) {
 
 int SelectWordLeft(char* text, int len, int cursor) {
         assert(text != NULL);
-        assert(len > 0);
-        assert(len > cursor);
+        assert(len >= 0);
+        assert(len >= cursor);
         assert(cursor >= 0);
         while (true) {
                 if (cursor <= 0) return cursor;
@@ -158,8 +152,8 @@ int SelectWordLeft(char* text, int len, int cursor) {
 
 int SelectWordRight(char* text, int len, int cursor) {
         assert(text != NULL);
-        assert(len > 0);
-        assert(len > cursor);
+        assert(len >= 0);
+        assert(len >= cursor);
         assert(cursor >= 0);
         while (true) {
                 if (cursor >= len - 1) break;
@@ -178,8 +172,8 @@ int SelectWordRight(char* text, int len, int cursor) {
 
 int SelectLineStart(char* text, int len, int cursor) {
         assert(text != NULL);
-        assert(len > 0);
-        assert(len > cursor);
+        assert(len >= 0);
+        assert(len >= cursor);
         assert(cursor >= 0);
         while (true) {
                 if (cursor <= 0) break;
@@ -194,8 +188,8 @@ int SelectLineStart(char* text, int len, int cursor) {
 
 int SelectLineEnd(char* text, int len, int cursor) {
         assert(text != NULL);
-        assert(len > 0);
-        assert(len > cursor);
+        assert(len >= 0);
+        assert(len >= cursor);
         assert(cursor >= 0);
         while (true) {
                 if (cursor >= len - 1) break;
@@ -207,8 +201,8 @@ int SelectLineEnd(char* text, int len, int cursor) {
 
 int SelectLineUp(char* text, int len, int cursor) {
         assert(text != NULL);
-        assert(len > 0);
-        assert(len > cursor);
+        assert(len >= 0);
+        assert(len >= cursor);
         assert(cursor >= 0);
         while (true) {
                 if (cursor <= 0) return cursor;
@@ -228,8 +222,8 @@ int SelectLineUp(char* text, int len, int cursor) {
 
 int SelectLineDown(char* text, int len, int cursor) {
         assert(text != NULL);
-        assert(len > 0);
-        assert(len > cursor);
+        assert(len >= 0);
+        assert(len >= cursor);
         assert(cursor >= 0);
         while (true) {
                 if (cursor >= len - 1) break;
@@ -245,8 +239,8 @@ int SelectLineDown(char* text, int len, int cursor) {
 
 int SelectParaUp(char* text, int len, int cursor) {
         assert(text != NULL);
-        assert(len > 0);
-        assert(len > cursor);
+        assert(len >= 0);
+        assert(len >= cursor);
         assert(cursor >= 0);
         while (true) {
                 if (cursor <= 0) break;
@@ -266,8 +260,8 @@ int SelectParaUp(char* text, int len, int cursor) {
 
 int SelectParaDown(char* text, int len, int cursor) {
         assert(text != NULL);
-        assert(len > 0);
-        assert(len > cursor);
+        assert(len >= 0);
+        assert(len >= cursor);
         assert(cursor >= 0);
         while (true) {
                 if (cursor >= len - 1) break;
@@ -319,7 +313,7 @@ int SelectHigher() {
 }
 
 int SelectLen() {
-        return abs(lte.cursor - lte.anchor);
+        return SelectHigher() - SelectLower();
 }
 
 //==============================================================
@@ -416,14 +410,22 @@ void EnableRawMode() {
 }
 
 void LoadFile() {
-        size_t size = 0;
-        ssize_t res = 0;
         FILE* file = fopen(lte.fileName, "r");
-        assert(file != NULL);
-        res = getdelim(&lte.file.text, &size, '\0', file);
-        assert(lte.file.text != NULL);
-        assert(res != -1);
-        lte.file.len = ++res;
+        if (file == NULL) {
+                printf("Could not open file\n");
+                exit(1);
+        }
+        fseek(file, 0L, SEEK_END);
+        lte.file.len = ftell(file);
+        fseek(file, 0L, SEEK_SET);
+        if (lte.file.len > 0) {
+                lte.file.text = realloc(lte.file.text, lte.file.len);
+                if (lte.file.text == NULL) {
+                        printf("realloc failed\n");
+                        exit(1);
+                }
+                fread(lte.file.text, lte.file.len, 1, file);
+        }
         fclose(file);
 }
 
@@ -439,7 +441,7 @@ void LoadScreen() {
 void WriteFile() {
         FILE* file = fopen(lte.fileName, "w");
         assert(file != NULL);
-        fwrite(lte.file.text, sizeof(*lte.file.text), lte.file.len - 1, file);
+        fwrite(lte.file.text, sizeof(*lte.file.text), lte.file.len, file);
         fclose(file);
 }
 
