@@ -459,6 +459,9 @@ void DrawFile(struct string* print) {
                 char* newline = "~\n";
                 StringInsert(print, print->len, newline, 2);
         }
+        if (index > SelectLower()) {
+                StringInsert(print, print->len, START_HIGHLIGHT, sizeof(START_HIGHLIGHT));
+        }
         while (true) {
                 if (index + jump >= lte.file.len) break;
                 if (lte.file.text[index + jump] == '\n') {
@@ -480,6 +483,7 @@ void DrawFile(struct string* print) {
                 ++jump;
         }
         StringInsert(print, print->len, &lte.file.text[index], jump);
+        StringInsert(print, print->len, END_HIGHLIGHT, sizeof(END_HIGHLIGHT));
         for (int i = screenLine; i < lte.rows - 1; ++i) {
                 char* newline = "\n~";
                 StringInsert(print, print->len, newline, 2);
