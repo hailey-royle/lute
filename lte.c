@@ -552,22 +552,14 @@ void ProsessEdit(char key) {
         }
 }
 
-void ProsessSelect(int (*Call)(char*, int, int)) {
+void ProsessSelect(int (*Call)(char*, int, int), bool extend) {
         if (lte.commandCount == 0) {
                 lte.commandCount = 1;
         }
         while (lte.commandCount > 0) {
-                lte.anchor = lte.cursor;
-                lte.cursor = Call(lte.file.text, lte.file.len, lte.cursor);
-                --lte.commandCount;
-        }
-}
-
-void ProsessSelectExtend(int (*Call)(char*, int, int)) {
-        if (lte.commandCount == 0) {
-                lte.commandCount = 1;
-        }
-        while (lte.commandCount > 0) {
+                if (extend == false) {
+                        lte.anchor = lte.cursor;
+                }
                 lte.cursor = Call(lte.file.text, lte.file.len, lte.cursor);
                 --lte.commandCount;
         }
@@ -616,45 +608,45 @@ void ProsessKey(char key) {
         } else if (key == 'Q') {
                 exit(0);
         } else if (key == 'h') {
-                ProsessSelect(SelectCharLeft);
+                ProsessSelect(SelectCharLeft, false);
         } else if (key == 'H') {
-                ProsessSelectExtend(SelectCharLeft);
+                ProsessSelect(SelectCharLeft, true);
         } else if (key == 'l') {
-                ProsessSelect(SelectCharRight);
+                ProsessSelect(SelectCharRight, false);
         } else if (key == 'L') {
-                ProsessSelectExtend(SelectCharRight);
+                ProsessSelect(SelectCharRight, true);
         } else if (key == 'b') {
-                ProsessSelect(SelectWordLeft);
+                ProsessSelect(SelectWordLeft, false);
         } else if (key == 'B') {
-                ProsessSelectExtend(SelectWordLeft);
+                ProsessSelect(SelectWordLeft, true);
         } else if (key == 'e') {
-                ProsessSelect(SelectWordRight);
+                ProsessSelect(SelectWordRight, false);
         } else if (key == 'E') {
-                ProsessSelectExtend(SelectWordRight);
+                ProsessSelect(SelectWordRight, true);
         } else if (key == 'z') {
-                ProsessSelect(SelectLineStart);
+                ProsessSelect(SelectLineStart, false);
         } else if (key == 'Z') {
-                ProsessSelectExtend(SelectLineStart);
+                ProsessSelect(SelectLineStart, true);
         } else if (key == 'x') {
-                ProsessSelect(SelectLineEnd);
+                ProsessSelect(SelectLineEnd, false);
         } else if (key == 'X') {
-                ProsessSelectExtend(SelectLineEnd);
+                ProsessSelect(SelectLineEnd, true);
         } else if (key == 'k') {
-                ProsessSelect(SelectLineUp);
+                ProsessSelect(SelectLineUp, false);
         } else if (key == 'K') {
-                ProsessSelectExtend(SelectLineUp);
+                ProsessSelect(SelectLineUp, true);
         } else if (key == 'j') {
-                ProsessSelect(SelectLineDown);
+                ProsessSelect(SelectLineDown, false);
         } else if (key == 'J') {
-                ProsessSelectExtend(SelectLineDown);
+                ProsessSelect(SelectLineDown, true);
         } else if (key == 'm') {
-                ProsessSelect(SelectParaUp);
+                ProsessSelect(SelectParaUp, false);
         } else if (key == 'M') {
-                ProsessSelectExtend(SelectParaUp);
+                ProsessSelect(SelectParaUp, true);
         } else if (key == 'n') {
-                ProsessSelect(SelectParaDown);
+                ProsessSelect(SelectParaDown, false);
         } else if (key == 'N') {
-                ProsessSelectExtend(SelectParaDown);
+                ProsessSelect(SelectParaDown, true);
         } else if (key == 'g') {
                 lte.anchor = lte.cursor;
                 lte.cursor = SelectLineNumber(lte.file.text, lte.file.len, lte.commandCount);
