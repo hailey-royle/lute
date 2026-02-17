@@ -19,12 +19,12 @@ lte is usable, but unfinished
 |              |         |         |word     |replace  |         |yank     |         |edit     |open     |paste    |         |         |         |
 |              |   w quit|    write|         |         |         |         |     undo|   cursor|    below|   cursor|         |         |         |
 +--------------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+---------+
-|                 |         | *sub all|2        |         |1        |1        |1        |1        |1        |         |         |                |
-|                 |         |         |delete   |         |goto     |left     |down     |up       |right    |         |         |                |
-|                 |         |     *sub|         |    *find|         |         |         |         |         |         |         |                |
+|                 |         | *sub all|2        |         |1        |1        |1        |1        |1        |   record|         |                |
+|                 |         |         |delete   |         |goto     |left     |down     |up       |right    |macro*   |         |                |
+|                 |         |     *sub|         |         |         |         |         |         |         |  execute|         |                |
 +----------------------+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----------------+
-|                      |1        |1        |2        |         |1        |1        |1        |         |         |         |                     |
-|                      |line star|line end |change   |         |word back|para down|para up  |         |         |         |                     |
+|                      |1        |1        |2        |         |1        |1        |1        |1*       |1*       |         |                     |
+|                      |line star|line end |change   |         |word back|para down|para up  |find next|find prev|         |                     |
 |                      |         |         |         |         |         |         |         |         |         |         |                     |
 +----------------------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------------------+
 
@@ -32,9 +32,6 @@ lte is usable, but unfinished
 [2] = default effects selection; SHIFT effects line
 [*] = not yet implmented
 
-repeat
-macro record
-macro execute
 select all
 ```
 
