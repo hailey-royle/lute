@@ -19,13 +19,13 @@ lte is usable, but unfinished
 |              |         |         |word     |replace  |         |yank     |         |edit     |open     |paste    |         |         |         |
 |              |   w quit|    write|         |         |         |         |     undo|   cursor|    below|   cursor|         |         |         |
 +--------------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+---------+
-|                 |         | *sub all|2        |         |1        |1        |1        |1        |1        |   record|         |                |
-|                 |         |         |delete   |         |goto     |left     |down     |up       |right    |macro*   |         |                |
-|                 |         |     *sub|         |         |         |         |         |         |         |  execute|         |                |
+|                 |         |*     all|2        |         |1        |1        |1        |1        |1        |   record|         |                |
+|                 |         |replace s|delete   |         |goto     |left     |down     |up       |right    |macro*   |         |                |
+|                 |         |    first|         |         |         |         |         |         |         |  execute|         |                |
 +----------------------+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----------------+
-|                      |1        |1        |2        |         |1        |1        |1        |1*       |1*       |         |                     |
-|                      |line star|line end |change   |         |word back|para down|para up  |find next|find prev|         |                     |
-|                      |         |         |         |         |         |         |         |         |         |         |                     |
+|                      |1        |1        |2        |         |1        |1        |1        |1*       |1*       |*    prev|                     |
+|                      |line star|line end |change   |         |word back|para down|para up  |find next|find prev|find sub |                     |
+|                      |         |         |         |         |         |         |         |         |         |     next|                     |
 +----------------------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------------------+
 
 [1] = default changes selection; SHIFT extends selection
