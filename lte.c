@@ -466,8 +466,8 @@ void DrawFile(struct string* print) {
         int jump = 0;
         while (true) {
                 if (screenLine <= 0) break;
-                index = SelectLineUp(lte.file.text, lte.file.len, index);
                 if (index <= 0) break;
+                index = SelectLineUp(lte.file.text, lte.file.len, index);
                 --screenLine;
         }
         DrawBlankLines(print, screenLine);
