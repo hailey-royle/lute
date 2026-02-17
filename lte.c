@@ -452,20 +452,25 @@ void WriteFile() {
         fclose(file);
 }
 
+void DrawBlankLines(struct string* print, int count) {
+        char* newline = "~\n";
+        while (count > 0) {
+                StringInsert(print, print->len, newline, 2);
+                --count;
+        }
+}
+
 void DrawFile(struct string* print) {
         int index = lte.cursor;
         int screenLine = lte.rows / 2;
         int jump = 0;
         while (true) {
                 if (screenLine <= 0) break;
-                if (index <= 0) break;
                 index = SelectLineUp(lte.file.text, lte.file.len, index);
+                if (index <= 0) break;
                 --screenLine;
         }
-        for (int i = screenLine; i >= 0; --i) {
-                char* newline = "~\n";
-                StringInsert(print, print->len, newline, 2);
-        }
+        DrawBlankLines(print, screenLine);
         if (index > SelectLower()) {
                 StringInsert(print, print->len, START_HIGHLIGHT, sizeof(START_HIGHLIGHT));
         }
@@ -490,13 +495,14 @@ void DrawFile(struct string* print) {
                 ++jump;
         }
         StringInsert(print, print->len, &lte.file.text[index], jump);
-        StringInsert(print, print->len, END_HIGHLIGHT, sizeof(END_HIGHLIGHT));
-        for (int i = screenLine; i < lte.rows - 1; ++i) {
-                char* newline = "~\n";
-                StringInsert(print, print->len, newline, 2);
+        if (index + jump < SelectHigher()) {
+                StringInsert(print, print->len, END_HIGHLIGHT, sizeof(END_HIGHLIGHT));
         }
-        char tilde = '~';
-        StringInsert(print, print->len, &tilde, 1);
+        if (lte.rows - screenLine > 0) {
+                char tilde = '~';
+                DrawBlankLines(print, lte.rows - screenLine - 1);
+                StringInsert(print, print->len, &tilde, 1);
+        }
 }
 
 void DrawCursor(struct string* print) {
