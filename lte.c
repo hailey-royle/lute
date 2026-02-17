@@ -596,10 +596,10 @@ void PasteSelection() {
 
 void EnterEditMode() {
         StringErase(&lte.clipboard);
-        UndoNewUndo();
         lte.commandCount = 0;
         lte.anchor = lte.cursor;
         lte.mode = EDIT_MODE;
+        UndoNewUndo();
 }
 
 void ProsessKey(char key) {
@@ -663,10 +663,9 @@ void ProsessKey(char key) {
                 lte.cursor = SelectLineNumber(lte.file.text, lte.file.len, lte.commandCount);
                 lte.commandCount = 0;
         } else if (key == 'i') {
-                lte.cursor = SelectLower();
                 EnterEditMode();
-        } else if (key == 'a') {
-                lte.cursor = SelectHigher();
+        } else if (key == 'I') {
+                lte.cursor = lte.anchor;
                 EnterEditMode();
         } else if (key == 'o') {
                 char newline = '\n';
