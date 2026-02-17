@@ -42,8 +42,6 @@ select all
 
 macro/repeat support
 
-open empty file
-
 open non-existant file
 
 select all
@@ -54,7 +52,7 @@ subsitute in selection command
 
 refactor DrawScreen() to cashe lines
 
-# bugs
+## bugs
 
 everyting gets fucked for line longer then screen
 
