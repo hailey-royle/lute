@@ -587,9 +587,9 @@ void PasteSelection() {
 }
 
 void EnterEditMode() {
+        assert(lte.cursor == lte.anchor);
         StringErase(&lte.clipboard);
         lte.commandCount = 0;
-        lte.anchor = lte.cursor;
         lte.mode = EDIT_MODE;
         UndoNewUndo();
 }
@@ -655,6 +655,7 @@ void ProsessKey(char key) {
                 lte.cursor = SelectLineNumber(lte.file.text, lte.file.len, lte.commandCount);
                 lte.commandCount = 0;
         } else if (key == 'i') {
+                lte.anchor = lte.cursor;
                 EnterEditMode();
         } else if (key == 'I') {
                 lte.cursor = lte.anchor;
@@ -662,12 +663,14 @@ void ProsessKey(char key) {
         } else if (key == 'o') {
                 char newline = '\n';
                 lte.cursor = SelectLineEnd(lte.file.text, lte.file.len, lte.cursor);
+                lte.anchor = lte.cursor;
                 EnterEditMode();
                 ProsessEdit(newline);
         } else if (key == 'O') {
                 char newline = '\n';
                 lte.cursor = SelectLineStart(lte.file.text, lte.file.len, lte.cursor);
                 --lte.cursor;
+                lte.anchor = lte.cursor;
                 EnterEditMode();
                 ProsessEdit(newline);
         } else if (key == 'd') {
