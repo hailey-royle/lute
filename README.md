@@ -53,3 +53,7 @@ find in selection command
 subsitute in selection command
 
 refactor DrawScreen() to cashe lines
+
+# bugs
+
+everyting gets fucked for line longer then screen
