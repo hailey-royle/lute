@@ -464,11 +464,15 @@ void DrawFile(struct string* print) {
         int index = lte.cursor;
         int screenLine = lte.rows / 2;
         int jump = 0;
-        while (true) {
-                if (screenLine <= 0) break;
-                if (index <= 0) break;
-                index = SelectLineUp(lte.file.text, lte.file.len, index);
-                --screenLine;
+        if (SelectLineStart(lte.file.text, lte.file.len, index) == 0) {
+                index = 0;
+        } else {
+                while (true) {
+                        if (screenLine <= 0) break;
+                        if (index <= 0) break;
+                        index = SelectLineUp(lte.file.text, lte.file.len, index);
+                        --screenLine;
+                }
         }
         DrawBlankLines(print, screenLine);
         if (index > SelectLower()) {
@@ -669,10 +673,10 @@ void ProsessKey(char key) {
         } else if (key == 'O') {
                 char newline = '\n';
                 lte.cursor = SelectLineStart(lte.file.text, lte.file.len, lte.cursor);
-                --lte.cursor;
                 lte.anchor = lte.cursor;
                 EnterEditMode();
                 ProsessEdit(newline);
+                --lte.cursor;
         } else if (key == 'd') {
                 ClipboardSelection();
                 DeleteSelection();
