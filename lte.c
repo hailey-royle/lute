@@ -419,13 +419,20 @@ void LoadFile() {
         fseek(file, 0L, SEEK_END);
         lte.file.len = ftell(file);
         fseek(file, 0L, SEEK_SET);
+        if (lte.file.len < 0) {
+                printf("Could not read file\n");
+                exit(1);
+        }
         if (lte.file.len > 0) {
                 lte.file.text = realloc(lte.file.text, lte.file.len);
-                if (lte.file.text == NULL) {
-                        printf("realloc failed\n");
-                        exit(1);
-                }
+                assert(lte.file.text != NULL);
                 fread(lte.file.text, lte.file.len, 1, file);
+        }
+        if (lte.file.len == 0) {
+                lte.file.len = 1;
+                lte.file.text = realloc(lte.file.text, lte.file.len);
+                assert(lte.file.text != NULL);
+                lte.file.text[0] = '\n';
         }
         fclose(file);
 }
@@ -485,9 +492,11 @@ void DrawFile(struct string* print) {
         StringInsert(print, print->len, &lte.file.text[index], jump);
         StringInsert(print, print->len, END_HIGHLIGHT, sizeof(END_HIGHLIGHT));
         for (int i = screenLine; i < lte.rows - 1; ++i) {
-                char* newline = "\n~";
+                char* newline = "~\n";
                 StringInsert(print, print->len, newline, 2);
         }
+        char tilde = '~';
+        StringInsert(print, print->len, &tilde, 1);
 }
 
 void DrawCursor(struct string* print) {
