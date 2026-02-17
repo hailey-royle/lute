@@ -589,7 +589,7 @@ void DeleteSelection() {
 
 void PasteSelection() {
         UndoNewUndo();
-        UndoInsert(&lte.file.text[lte.anchor], lte.clipboard.len);
+        UndoInsert(&lte.file.text[lte.cursor], lte.clipboard.len);
         StringInsert(&lte.file, lte.cursor, lte.clipboard.text, lte.clipboard.len);
         lte.cursor += lte.clipboard.len;
 }
@@ -708,13 +708,11 @@ void ProsessKey(char key) {
                 ClipboardSelection();
         } else if (key == 'p') {
                 if (lte.clipboard.text == NULL) return;
-                lte.cursor = SelectHigher();
                 lte.anchor = lte.cursor;
                 PasteSelection();
         } else if (key == 'P') {
                 if (lte.clipboard.text == NULL) return;
-                lte.cursor = SelectLower();
-                lte.anchor = lte.cursor;
+                lte.cursor = lte.anchor;
                 PasteSelection();
         } else if (key == 'u') {
                 UndoExecuteUndo();
