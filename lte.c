@@ -311,7 +311,7 @@ int SelectLineNumber(char* text, int len, int line) {
         assert(line >= 0);
         int cursor = 0;
         if (text == NULL) return cursor;
-        while (line > 0) {
+        while (line > 1) {
                 if (cursor >= len - 1) break;
                 if (text[cursor] == '\n') {
                         --line;

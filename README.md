@@ -46,6 +46,5 @@ lte is usable, but unfinished
 ### bugs
 
 - something with redo and paste
-- goto overshoots by one
 - everyting gets fucked for line longer then screen
 - tabs
