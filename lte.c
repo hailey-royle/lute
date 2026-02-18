@@ -598,7 +598,7 @@ void EnterEditMode() {
         UndoNewUndo();
 }
 
-void ProsessKey(char key) {
+void ProsessCommand(char key) {
         if (key >= '0' && key <= '9') {
                 lte.commandCount *= 10;
                 lte.commandCount += key & 0xf;
@@ -725,7 +725,7 @@ void GetInput() {
         if (lte.mode == EDIT_MODE) {
                 ProsessEdit(key);
         } else if (lte.mode == COMMAND_MODE) {
-                ProsessKey(key);
+                ProsessCommand(key);
         }
 }
 
