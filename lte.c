@@ -599,9 +599,7 @@ void EnterEditMode() {
 }
 
 void ProsessKey(char key) {
-        if (lte.mode == EDIT_MODE) {
-                ProsessEdit(key);
-        } else if (key >= '0' && key <= '9') {
+        if (key >= '0' && key <= '9') {
                 lte.commandCount *= 10;
                 lte.commandCount += key & 0xf;
         } else if (key == 'w') {
@@ -724,7 +722,11 @@ void GetInput() {
         char key = 0;
         read(STDIN_FILENO, &key, sizeof(char));
         if (key == LINEFEED_KEY) key = NEWLINE_KEY;
-        ProsessKey(key);
+        if (lte.mode == EDIT_MODE) {
+                ProsessEdit(key);
+        } else if (lte.mode == COMMAND_MODE) {
+                ProsessKey(key);
+        }
 }
 
 int main(int argc, char** argv) {

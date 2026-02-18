@@ -49,6 +49,8 @@ subsitute in selection command
 
 refactor DrawScreen() to cashe lines
 
+lte -h
+
 ## bugs
 
 everyting gets fucked for line longer then screen
