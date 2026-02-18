@@ -34,13 +34,11 @@ struct edit {
 enum mode {
         COMMAND_MODE,
         EDIT_MODE,
-        FIND_MODE,
 };
 
 struct lte {
         struct string file;
         struct string clipboard;
-        struct string find;
         struct edit* history;
         char* fileName;
         int cursor;
@@ -778,21 +776,12 @@ void ProsessCommand(char key) {
         }
 }
 
-void ProsessFind(char key) {
-        if (key == ESCAPE_KEY) {
-                StringErase(&lte.find);
-                lte.mode = COMMAND_MODE;
-        }
-}
-
 void ProsessInput() {
         char key = GetInput();
         if (lte.mode == EDIT_MODE) {
                 ProsessEdit(key);
         } else if (lte.mode == COMMAND_MODE) {
                 ProsessCommand(key);
-        } else if (lte.mode == FIND_MODE) {
-                ProsessFind(key);
         }
 }
 
