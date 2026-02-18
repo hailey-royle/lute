@@ -34,11 +34,13 @@ struct edit {
 enum mode {
         COMMAND_MODE,
         EDIT_MODE,
+        FIND_MODE,
 };
 
 struct lte {
         struct string file;
         struct string clipboard;
+        struct string find;
         struct edit* history;
         char* fileName;
         int cursor;
@@ -273,6 +275,32 @@ int SelectParaDown(char* text, int len, int cursor) {
                         }
                 }
                 ++cursor;
+        }
+        return cursor;
+}
+
+int SelectFindPrev(char* text, int len, int cursor, char find) {
+        assert(len >= 0);
+        assert(len >= cursor);
+        assert(cursor >= 0);
+        if (text == NULL) return cursor;
+        while (true) {
+                if (cursor <= 0) break;
+                --cursor;
+                if (text[cursor] == find) break;
+        }
+        return cursor;
+}
+
+int SelectFindNext(char* text, int len, int cursor, char find) {
+        assert(len >= 0);
+        assert(len >= cursor);
+        assert(cursor >= 0);
+        if (text == NULL) return cursor;
+        while (true) {
+                if (cursor >= len - 1) break;
+                ++cursor;
+                if (text[cursor] == find) break;
         }
         return cursor;
 }
@@ -527,6 +555,13 @@ void DrawFrame() {
         StringErase(&print);
 }
 
+char GetInput() {
+        char key = 0;
+        read(STDIN_FILENO, &key, sizeof(char));
+        if (key == LINEFEED_KEY) key = NEWLINE_KEY;
+        return key;
+}
+
 void ProsessEdit(char key) {
         if (key == ESCAPE_KEY) {
                 lte.mode = COMMAND_MODE;
@@ -565,6 +600,19 @@ void ProsessSelect(int (*Call)(char*, int, int), bool extend) {
                         lte.anchor = lte.cursor;
                 }
                 lte.cursor = Call(lte.file.text, lte.file.len, lte.cursor);
+                --lte.commandCount;
+        }
+}
+
+void ProsessSelectFind(int (*Call)(char*, int, int, char), char key, bool extend) {
+        if (lte.commandCount == 0) {
+                lte.commandCount = 1;
+        }
+        while (lte.commandCount > 0) {
+                if (extend == false) {
+                        lte.anchor = lte.cursor;
+                }
+                lte.cursor = Call(lte.file.text, lte.file.len, lte.cursor, key);
                 --lte.commandCount;
         }
 }
@@ -649,6 +697,14 @@ void ProsessCommand(char key) {
                 ProsessSelect(SelectParaDown, false);
         } else if (key == 'N') {
                 ProsessSelect(SelectParaDown, true);
+        } else if (key == ',') {
+                ProsessSelectFind(SelectFindNext, GetInput(), false);
+        } else if (key == '<') {
+                ProsessSelectFind(SelectFindNext, GetInput(), true);
+        } else if (key == '.') {
+                ProsessSelectFind(SelectFindPrev, GetInput(), false);
+        } else if (key == '>') {
+                ProsessSelectFind(SelectFindPrev, GetInput(), true);
         } else if (key == 'g') {
                 lte.anchor = lte.cursor;
                 lte.cursor = SelectLineNumber(lte.file.text, lte.file.len, lte.commandCount);
@@ -718,14 +774,21 @@ void ProsessCommand(char key) {
         }
 }
 
-void GetInput() {
-        char key = 0;
-        read(STDIN_FILENO, &key, sizeof(char));
-        if (key == LINEFEED_KEY) key = NEWLINE_KEY;
+void ProsessFind(char key) {
+        if (key == ESCAPE_KEY) {
+                StringErase(&lte.find);
+                lte.mode = COMMAND_MODE;
+        }
+}
+
+void ProsessInput() {
+        char key = GetInput();
         if (lte.mode == EDIT_MODE) {
                 ProsessEdit(key);
         } else if (lte.mode == COMMAND_MODE) {
                 ProsessCommand(key);
+        } else if (lte.mode == FIND_MODE) {
+                ProsessFind(key);
         }
 }
 
@@ -735,7 +798,7 @@ int main(int argc, char** argv) {
         LoadScreen();
         while (true) {
                 DrawFrame();
-                GetInput();
+                ProsessInput();
         }
         return 0;
 }
