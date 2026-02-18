@@ -1,7 +1,7 @@
 
 ## lte text editor
 
-**L**uddite **T**ext **E**ditor  
+**L**uddite **T**ext **E**ditor
 
 lte is made for my personal use, it is not ment to cater to a general audience
 lte is inspired by vi and kakoune
@@ -11,7 +11,7 @@ lte is usable, but unfinished
 
 ```
 +---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+--------------+
-|         |         |         |         |         |*swap a c|         |         |         |         |         |         |         |              |
+|         |         |         |         |         |*swap a c|         |         |* sel all|         |         |         |         |              |
 |         |         |         |         |         |         |         |         |         |         |         |         |         |              |
 |         |    1    |    2    |    3    |    4    |    5    |    6    |    7    |    8    |    9    |    0    |         |         |              |
 +---------+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+---------+
@@ -19,46 +19,33 @@ lte is usable, but unfinished
 |              |         |         |word     |replace  |         |yank     |         |edit     |open     |paste    |         |         |         |
 |              |   w quit|    write|         |         |         |         |     undo|   cursor|    below|   cursor|         |         |         |
 +--------------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+---------+
-|                 |         |*     all|2        |         |1        |1        |1        |1        |1        |   record|         |                |
-|                 |         |replace s|delete   |         |goto     |left     |down     |up       |right    |macro*   |         |                |
+|                 |         |      all|2        |         |1        |1        |1        |1        |1        |   record|         |                |
+|                 |         |f/r str* |delete   |         |goto     |left     |down     |up       |right    |macro*   |         |                |
 |                 |         |    first|         |         |         |         |         |         |         |  execute|         |                |
 +----------------------+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----------------+
-|                      |1        |1        |2        |         |1        |1        |1        |1*       |1*       |*    prev|                     |
-|                      |line star|line end |change   |         |word back|para down|para up  |find prev|find next|find sub |                     |
-|                      |         |         |         |         |         |         |         |         |         |     next|                     |
+|                      |1        |1        |2        |         |1        |1        |1        |1        |1        |         |                     |
+|                      |line star|line end |change   |         |word back|para down|para up  |find prev|find next|         |                     |
+|                      |         |         |         |         |         |         |         |         |         |         |                     |
 +----------------------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------------------+
 
 [1] = default changes selection; SHIFT extends selection
 [2] = default effects selection; SHIFT effects line
 [*] = not yet implmented
-
-select all
 ```
 
-## todo  
+### todo
 
-macro/repeat support
+- macro/repeat support
+- open non-existant file
+- swap anchor and cursor
+- select all
+- find/replace in selection command
+- lte -h
+- resize terminal
 
-open non-existant file
+### bugs
 
-select all
-
-find in selection command
-
-subsitute in selection command
-
-refactor DrawScreen() to cashe lines
-
-lte -h
-
-## bugs
-
-something with redo and paste
-
-goto overshoots by one
-
-everyting gets fucked for line longer then screen
-
-tabs
-
-resize terminal
+- something with redo and paste
+- goto overshoots by one
+- everyting gets fucked for line longer then screen
+- tabs

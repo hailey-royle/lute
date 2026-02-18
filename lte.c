@@ -605,6 +605,10 @@ void ProsessSelect(int (*Call)(char*, int, int), bool extend) {
 }
 
 void ProsessSelectFind(int (*Call)(char*, int, int, char), char key, bool extend) {
+        if (key == ESCAPE_KEY) {
+                lte.commandCount == 0;
+                return;
+        }
         if (lte.commandCount == 0) {
                 lte.commandCount = 1;
         }
