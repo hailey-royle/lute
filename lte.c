@@ -700,13 +700,13 @@ void ProsessCommand(char key) {
         } else if (key == 'N') {
                 ProsessSelect(SelectParaDown, true);
         } else if (key == ',') {
-                ProsessSelectFind(SelectFindNext, GetInput(), false);
-        } else if (key == '<') {
-                ProsessSelectFind(SelectFindNext, GetInput(), true);
-        } else if (key == '.') {
                 ProsessSelectFind(SelectFindPrev, GetInput(), false);
-        } else if (key == '>') {
+        } else if (key == '<') {
                 ProsessSelectFind(SelectFindPrev, GetInput(), true);
+        } else if (key == '.') {
+                ProsessSelectFind(SelectFindNext, GetInput(), false);
+        } else if (key == '>') {
+                ProsessSelectFind(SelectFindNext, GetInput(), true);
         } else if (key == 'g') {
                 lte.anchor = lte.cursor;
                 lte.cursor = SelectLineNumber(lte.file.text, lte.file.len, lte.commandCount);
