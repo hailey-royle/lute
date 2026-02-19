@@ -13,7 +13,7 @@ lte is usable, but unfinished
 +-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-----------+
 |       |       |       |       |       |*  swap|       |       |*selall|       |       |       |       |           |
 |       |       |       |       |       |       |       |       |       |       |       |       |       |           |
-|       |   1   |   2   |  3    |   4   |   5   |   6   |   7   |   8   |   9   |   0   |       |       |           |
+|       |   1   |   2   |   3   |   4   |   5   |   6   |   7   |   8   |   9   |   0   |       |       |           |
 +-------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+-------+
 |           |   quit|       |1      |2      |       |2      |   redo| anchor|  above| anchor|       |       |       |
 |           |       |       |w next |replace|       |yank   |       |edit   |open   |paste  |       |       |       |
@@ -40,7 +40,6 @@ lte is usable, but unfinished
 - swap anchor and cursor
 - select all
 - find/replace in selection command
-- lte -h
 - resize terminal
 
 ### bugs
