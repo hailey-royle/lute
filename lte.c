@@ -411,13 +411,48 @@ void UndoDelete(int count) {
 // control
 //==============================================================
 
+void PrintHelp() {
+        printf("Usage: lte [options|file]\n\nOptions:\n");
+        printf("        -h  Print the help message and exit\n");
+        printf("        -k  Print the current keymap and exit\n");
+}
+
+void PrintKeymap() {
+        printf("+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-----------+\n");
+        printf("|       |       |       |       |       |       |       |       |       |       |       |       |       |           |\n");
+        printf("|       |       |       |       |       |       |       |       |       |       |       |       |       |           |\n");
+        printf("|       |   1   |   2   |  3    |   4   |   5   |   6   |   7   |   8   |   9   |   0   |       |       |           |\n");
+        printf("+-------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+-------+\n");
+        printf("|           |   quit|       |1      |2      |       |2      |   redo| anchor|  above| anchor|       |       |       |\n");
+        printf("|           |       |       |w next |replace|       |yank   |       |edit   |open   |paste  |       |       |       |\n");
+        printf("|           |write q|  write|       |       |       |       |   undo| cursor|  below| cursor|       |       |       |\n");
+        printf("+-----------+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+-------+\n");
+        printf("|              |       |       |2      |       |1      |1      |1      |1      |1      |       |       |            |\n");
+        printf("|              |       |       |delete |       |goto   |c prev |l down |l up   |c next |       |       |            |\n");
+        printf("|              |       |       |       |       |       |       |       |       |       |       |       |            |\n");
+        printf("+--------------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+----------------+\n");
+        printf("|                  |1      |1      |2      |       |1      |1      |1      |1      |1      |       |                |\n");
+        printf("|                  |l start|l end  |change |       |w back |p down |p up   |f prev |f next |       |                |\n");
+        printf("|                  |       |       |       |       |       |       |       |       |       |       |                |\n");
+        printf("+------------------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+----------------+\n\n");
+        printf("[1] = default changes selection; SHIFT extends selection\n");
+        printf("[2] = default effects selection; SHIFT effects line\n");
+}
+
 void LoadArgs(int argc, char** argv) {
-        if (argc == 2) {
-                lte.fileName = argv[1];
-        } else {
-                printf("Usage: lte [file]\n");
-                exit(1);
+        if (argc != 2) {
+                PrintHelp();
+                exit(0);
         }
+        if (strcmp(argv[1], "-h") == 0) {
+                PrintHelp();
+                exit(0);
+        }
+        if (strcmp(argv[1], "-k") == 0) {
+                PrintKeymap();
+                exit(0);
+        }
+        lte.fileName = argv[1];
 }
 
 void DisableRawMode() {
