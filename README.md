@@ -11,7 +11,7 @@ lte is usable, but unfinished
 
 ```
 +-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-----------+
-|       |       |       |       |       |*  swap|       |       |*selall|       |       |       |       |           |
+|       |       |       |       |       |       |       |swap ac|*selall|       |       |       |       |           |
 |       |       |       |       |       |       |       |       |       |       |       |       |       |           |
 |       |   1   |   2   |   3   |   4   |   5   |   6   |   7   |   8   |   9   |   0   |       |       |           |
 +-------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+-------+
@@ -37,7 +37,6 @@ lte is usable, but unfinished
 
 - macro/repeat support
 - open non-existant file
-- swap anchor and cursor
 - select all
 - find/replace in selection command
 - resize terminal

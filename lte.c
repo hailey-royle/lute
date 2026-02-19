@@ -419,7 +419,7 @@ void PrintHelp() {
 
 void PrintKeymap() {
         printf("+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-----------+\n");
-        printf("|       |       |       |       |       |       |       |       |       |       |       |       |       |           |\n");
+        printf("|       |       |       |       |       |       |       |swap ac|       |       |       |       |       |           |\n");
         printf("|       |       |       |       |       |       |       |       |       |       |       |       |       |           |\n");
         printf("|       |   1   |   2   |   3   |   4   |   5   |   6   |   7   |   8   |   9   |   0   |       |       |           |\n");
         printf("+-------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+-------+\n");
@@ -808,6 +808,10 @@ void ProsessCommand(char key) {
                 UndoExecuteUndo();
         } else if (key == 'U') {
                 UndoExecuteRedo();
+        } else if (key == '&') {
+                lte.cursor = lte.cursor ^ lte.anchor;
+                lte.anchor = lte.cursor ^ lte.anchor;
+                lte.cursor = lte.cursor ^ lte.anchor;
         }
 }
 
