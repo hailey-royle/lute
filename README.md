@@ -20,7 +20,7 @@ lte is usable, but unfinished
 |           | w quit|  write|       |       |       |       |   undo| cursor|  below| cursor|       |       |       |
 +-----------+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+-------+
 |              |       |    all|2      |       |1      |1      |1      |1      |1      | record|       |            |
-|              |       |fr str*|delete |       |goto   |c prev |l down |l up   |c next |macro* |       |            |
+|              |       |fr str*|delete |       |goto   |c prev |l down |l up   |c next |macro  |       |            |
 |              |       |  first|       |       |       |       |       |       |       |execute|       |            |
 +--------------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+----------------+
 |                  |1      |1      |2      |       |1      |1      |1      |1      |1      |       |                |
@@ -35,7 +35,6 @@ lte is usable, but unfinished
 
 ### todo
 
-- macro/repeat support
 - open non-existant file
 - find/replace in selection command
 - resize terminal

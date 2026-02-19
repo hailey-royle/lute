@@ -36,9 +36,15 @@ enum mode {
         EDIT_MODE,
 };
 
+enum record {
+        RECORD_OFF,
+        RECORD_ON,
+};
+
 struct lte {
         struct string file;
         struct string clipboard;
+        struct string macro;
         struct edit* history;
         char* fileName;
         int cursor;
@@ -49,6 +55,7 @@ struct lte {
         int undoCount;
         int redoCount;
         enum mode mode;
+        enum record record;
 };
 
 struct lte lte = { 0 };
@@ -427,9 +434,9 @@ void PrintKeymap() {
         printf("|           |       |       |w next |replace|       |yank   |       |edit   |open   |paste  |       |       |       |\n");
         printf("|           |write q|  write|       |       |       |       |   undo| cursor|  below| cursor|       |       |       |\n");
         printf("+-----------+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+-------+\n");
-        printf("|              |       |       |2      |       |1      |1      |1      |1      |1      |       |       |            |\n");
-        printf("|              |       |       |delete |       |goto   |c prev |l down |l up   |c next |       |       |            |\n");
-        printf("|              |       |       |       |       |       |       |       |       |       |       |       |            |\n");
+        printf("|              |       |       |2      |       |1      |1      |1      |1      |1      | record|       |            |\n");
+        printf("|              |       |       |delete |       |goto   |c prev |l down |l up   |c next |macro  |       |            |\n");
+        printf("|              |       |       |       |       |       |       |       |       |       |execute|       |            |\n");
         printf("+--------------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+----------------+\n");
         printf("|                  |1      |1      |2      |       |1      |1      |1      |1      |1      |       |                |\n");
         printf("|                  |l start|l end  |change |       |w back |p down |p up   |f prev |f next |       |                |\n");
@@ -683,6 +690,14 @@ void EnterEditMode() {
         UndoNewUndo();
 }
 
+void ProsessInput(char key);
+
+void ExecuteMacro() {
+        for (int i = 0; i < lte.macro.len; ++i) {
+                ProsessInput(lte.macro.text[i]);
+        }
+}
+
 void ProsessCommand(char key) {
         if (key >= '0' && key <= '9') {
                 lte.commandCount *= 10;
@@ -808,6 +823,19 @@ void ProsessCommand(char key) {
                 UndoExecuteUndo();
         } else if (key == 'U') {
                 UndoExecuteRedo();
+        } else if (key == ';') {
+                if (lte.record == RECORD_OFF) {
+                        ExecuteMacro();
+                } else {
+                        lte.record = RECORD_OFF;
+                }
+        } else if (key == ':') {
+                if (lte.record == RECORD_OFF) {
+                        StringErase(&lte.macro);
+                        lte.record = RECORD_ON;
+                } else {
+                        lte.record = RECORD_OFF;
+                }
         } else if (key == '&') {
                 lte.cursor = lte.cursor ^ lte.anchor;
                 lte.anchor = lte.cursor ^ lte.anchor;
@@ -818,8 +846,12 @@ void ProsessCommand(char key) {
         }
 }
 
-void ProsessInput() {
-        char key = GetInput();
+void ProsessInput(char key) {
+        if (lte.record == RECORD_ON) {
+                if (key != ':' && key != ';') {
+                        StringInsert(&lte.macro, lte.macro.len, &key, 1);
+                }
+        }
         if (lte.mode == EDIT_MODE) {
                 ProsessEdit(key);
         } else if (lte.mode == COMMAND_MODE) {
@@ -833,7 +865,8 @@ int main(int argc, char** argv) {
         LoadScreen();
         while (true) {
                 DrawFrame();
-                ProsessInput();
+                char key = GetInput();
+                ProsessInput(key);
         }
         return 0;
 }
