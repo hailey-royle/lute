@@ -4,10 +4,8 @@
 **L**uddite **T**ext **E**ditor
 
 lte is made for my personal use, it is not ment to cater to a general audience
-lte is usable, but unfinished
 lte is inspired by vi and kakoune
 lte is usable, but unfinished
-lte is made for my personal use, it is not ment to cater to a general audience
 
 ### keybinds
 
