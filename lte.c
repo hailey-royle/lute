@@ -419,7 +419,7 @@ void PrintHelp() {
 
 void PrintKeymap() {
         printf("+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-----------+\n");
-        printf("|       |       |       |       |       |       |       |swap ac|       |       |       |       |       |           |\n");
+        printf("|       |       |       |       |       |       |       |swap ac|sel all|       |       |       |       |           |\n");
         printf("|       |       |       |       |       |       |       |       |       |       |       |       |       |           |\n");
         printf("|       |   1   |   2   |   3   |   4   |   5   |   6   |   7   |   8   |   9   |   0   |       |       |           |\n");
         printf("+-------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+-------+\n");
@@ -812,6 +812,9 @@ void ProsessCommand(char key) {
                 lte.cursor = lte.cursor ^ lte.anchor;
                 lte.anchor = lte.cursor ^ lte.anchor;
                 lte.cursor = lte.cursor ^ lte.anchor;
+        } else if (key == '*') {
+                lte.cursor = 0;
+                lte.anchor = lte.file.len - 1;
         }
 }
 
