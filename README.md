@@ -36,8 +36,11 @@ lte is usable, but unfinished
 ### todo
 
 - open non-existant file
-- find/replace in selection command
 - resize terminal
+- find/replace in selection command
+- generic key prosessing
+- figure out commandCount placmnet
+- .config keybinds
 
 ### bugs
 
