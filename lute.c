@@ -510,7 +510,6 @@ void LoadScreen() {
         ioctl(STDOUT_FILENO, TIOCGWINSZ, &winsize);
         l.cols = winsize.ws_col;
         l.rows = winsize.ws_row;
-        EnableRawMode();
 }
 
 void WriteFile() {
@@ -872,8 +871,9 @@ void ProsessInput(char key) {
 int main(int argc, char** argv) {
         LoadArgs(argc, argv);
         LoadFile();
-        LoadScreen();
+        EnableRawMode();
         while (true) {
+                LoadScreen();
                 DrawFrame();
                 char key = GetInput();
                 ProsessInput(key);

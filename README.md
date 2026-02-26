@@ -36,7 +36,6 @@ lute is usable, but unfinished
 ### todo
 
 - open non-existant file
-- resize terminal
 - find/replace in selection command
 - generic key prosessing
 - figure out commandCount placmnet
