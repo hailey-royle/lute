@@ -532,6 +532,7 @@ void DrawFile(struct string* print) {
         int index = l.cursor;
         int screenLine = l.rows / 2;
         int jump = 0;
+        int lastNewline = 0;
         if (SelectLineStart(l.file.text, l.file.len, index) == 0) {
                 index = 0;
         } else {
@@ -548,7 +549,15 @@ void DrawFile(struct string* print) {
         }
         while (true) {
                 if (index + jump >= l.file.len) break;
+                if (lastNewline > l.cols) {
+                        StringInsert(print, print->len, &l.file.text[index], jump);
+                        index += jump;
+                        jump = 0;
+                        index = SelectLineDown(l.file.text, l.file.len, index);
+                        --index;
+                }
                 if (l.file.text[index + jump] == '\n') {
+                        lastNewline = 0;
                         ++screenLine;
                         if (screenLine >= l.rows) break;
                 }
@@ -565,6 +574,7 @@ void DrawFile(struct string* print) {
                         jump = 0;
                 }
                 ++jump;
+                ++lastNewline;
         }
         StringInsert(print, print->len, &l.file.text[index], jump);
         if (index + jump < SelectHigher()) {

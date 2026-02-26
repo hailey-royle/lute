@@ -40,9 +40,7 @@ lute is usable, but unfinished
 - find/replace in selection command
 - generic key prosessing
 - figure out commandCount placmnet
-- .config keybinds
 
 ### bugs
 
-- everyting gets fucked for line longer then screen
 - tabs
