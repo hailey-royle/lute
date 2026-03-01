@@ -8,10 +8,11 @@
 
 #define START_ALT_SCREEN "\x1b[?1049h"
 #define END_ALT_SCREEN "\x1b[?1049l"
-#define ERASE_SCREEN "\x1b[2J"
 #define CURSOR_HOME "\x1b[1;1H"
-#define START_HIGHLIGHT "\x1b[41m"
-#define END_HIGHLIGHT "\x1b[49m"
+#define CURSOR_HIDDEN "\x1b[?25l"
+#define CURSOR_SHOW "\x1b[?25h"
+#define HIGHLIGHT_START "\x1b[41m"
+#define HIGHLIGHT_END "\x1b[49m"
 
 #define TAB_KEY 9
 #define NEWLINE_KEY 10
@@ -519,71 +520,55 @@ void WriteFile() {
         fclose(file);
 }
 
-void DrawBlankLines(struct string* print, int count) {
-        char* newline = "~\n";
-        while (count > 0) {
-                StringInsert(print, print->len, newline, 2);
-                --count;
+void DrawScreen(struct string* print) {
+        char screen[l.cols * l.rows];
+        int drawIndex = l.cursor;
+        int drawLine = l.rows / 2;
+        int drawCol = 0;
+        int drawHighlightStart = 0;
+        int drawHighlightEnd = l.cols * l.rows;
+        for (int i = 0; i < l.cols * l.rows; ++i) {
+                screen[i] = ' ';
         }
-}
-
-void DrawFile(struct string* print) {
-        int index = l.cursor;
-        int screenLine = l.rows / 2;
-        int jump = 0;
-        int lastNewline = 0;
-        if (SelectLineStart(l.file.text, l.file.len, index) == 0) {
-                index = 0;
-        } else {
+        if (SelectLineStart(l.file.text, l.file.len, drawIndex) != 0) {
                 while (true) {
-                        if (screenLine <= 0) break;
-                        if (index <= 0) break;
-                        index = SelectLineUp(l.file.text, l.file.len, index);
-                        --screenLine;
+                        if (drawLine <= 0) break;
+                        if (drawIndex <= 0) break;
+                        drawIndex = SelectLineUp(l.file.text, l.file.len, drawIndex);
+                        --drawLine;
                 }
         }
-        DrawBlankLines(print, screenLine);
-        if (index > SelectLower()) {
-                StringInsert(print, print->len, START_HIGHLIGHT, sizeof(START_HIGHLIGHT));
+        for (int i = 0; i < drawLine; ++i) {
+                screen[i * l.cols] = '~';
         }
-        while (true) {
-                if (index + jump >= l.file.len) break;
-                if (lastNewline > l.cols) {
-                        StringInsert(print, print->len, &l.file.text[index], jump);
-                        index += jump;
-                        jump = 0;
-                        index = SelectLineDown(l.file.text, l.file.len, index);
-                        --index;
+        while (drawLine < l.rows) {
+                if (drawIndex == SelectLower()) {
+                        drawHighlightStart = drawLine * l.cols + drawCol;
                 }
-                if (l.file.text[index + jump] == '\n') {
-                        lastNewline = 0;
-                        ++screenLine;
-                        if (screenLine >= l.rows) break;
+                if (drawIndex == SelectHigher()) {
+                        drawHighlightEnd = drawLine * l.cols + drawCol;
                 }
-                if (index + jump == SelectLower()) {
-                        StringInsert(print, print->len, &l.file.text[index], jump);
-                        StringInsert(print, print->len, START_HIGHLIGHT, sizeof(START_HIGHLIGHT));
-                        index += jump;
-                        jump = 0;
+                if (drawIndex >= l.file.len) break;
+                if (drawCol >= l.cols) {
+                        drawIndex = SelectLineDown(l.file.text, l.file.len, drawIndex);
                 }
-                if (index + jump == SelectHigher()) {
-                        StringInsert(print, print->len, &l.file.text[index], jump);
-                        StringInsert(print, print->len, END_HIGHLIGHT, sizeof(END_HIGHLIGHT));
-                        index += jump;
-                        jump = 0;
+                if (l.file.text[drawIndex] == '\n') {
+                        drawCol = 0;
+                        ++drawIndex;
+                        ++drawLine;
+                        continue;
                 }
-                ++jump;
-                ++lastNewline;
+                screen[drawLine * l.cols + drawCol] = l.file.text[drawIndex];
+                ++drawCol;
+                ++drawIndex;
         }
-        StringInsert(print, print->len, &l.file.text[index], jump);
-        if (index + jump < SelectHigher()) {
-                StringInsert(print, print->len, END_HIGHLIGHT, sizeof(END_HIGHLIGHT));
+        while (drawLine < l.rows) {
+                screen[drawLine * l.cols] = '~';
+                ++drawLine;
         }
-        if (l.rows - screenLine > 0) {
-                char tilde = '~';
-                DrawBlankLines(print, l.rows - screenLine - 1);
-                StringInsert(print, print->len, &tilde, 1);
-        }
+        StringInsert(print, print->len, screen, l.rows * l.cols);
+        StringInsert(print, drawHighlightEnd, HIGHLIGHT_END, sizeof(HIGHLIGHT_END));
+        StringInsert(print, drawHighlightStart, HIGHLIGHT_START, sizeof(HIGHLIGHT_START));
 }
 
 void DrawCursor(struct string* print) {
@@ -593,13 +578,12 @@ void DrawCursor(struct string* print) {
 }
 
 void DrawFrame() {
-        struct string print;
-        print.text = NULL;
-        print.len = 0;
-        StringInsert(&print, print.len, CURSOR_HOME, sizeof(CURSOR_HOME));
-        StringInsert(&print, print.len, ERASE_SCREEN, sizeof(ERASE_SCREEN));
-        DrawFile(&print);
+        struct string print = { 0 };
+        DrawScreen(&print);
+        StringInsert(&print, 0, CURSOR_HOME, sizeof(CURSOR_HOME));
+        StringInsert(&print, 0, CURSOR_HIDDEN, sizeof(CURSOR_HIDDEN));
         DrawCursor(&print);
+        StringInsert(&print, print.len, CURSOR_SHOW, sizeof(CURSOR_SHOW));
         write(STDOUT_FILENO, print.text, print.len);
         StringErase(&print);
 }
