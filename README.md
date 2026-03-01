@@ -35,11 +35,14 @@ lute is usable, but unfinished
 
 ### todo
 
-- open non-existant file
 - find/replace in selection command
+- tabs
 - generic key prosessing
 - figure out commandCount placmnet
+- open non-existant file
 
 ### bugs
 
-- tabs
+- edit at start of file
+- paste newline(?) has stroke
+- highlight when cursor if off screen
