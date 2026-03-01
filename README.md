@@ -43,6 +43,5 @@ lute is usable, but unfinished
 
 ### bugs
 
-- edit at start of file
 - paste newline(?) has stroke
 - highlight when cursor if off screen

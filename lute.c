@@ -530,7 +530,9 @@ void DrawScreen(struct string* print) {
         for (int i = 0; i < l.cols * l.rows; ++i) {
                 screen[i] = ' ';
         }
-        if (SelectLineStart(l.file.text, l.file.len, drawIndex) != 0) {
+        if (SelectLineStart(l.file.text, l.file.len, drawIndex) == 0) {
+                drawIndex = 0;
+        } else {
                 while (true) {
                         if (drawLine <= 0) break;
                         if (drawIndex <= 0) break;
