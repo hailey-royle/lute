@@ -40,6 +40,7 @@ lute is usable, but unfinished
 - generic key prosessing
 - figure out commandCount placmnet
 - open non-existant file
+- see foward in overextended line
 
 ### bugs
 
