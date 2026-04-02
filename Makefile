@@ -1,5 +1,5 @@
 build: lute.c
-	gcc -o lute lute.c -Og -Wall -Werror -Wextra -Wpedantic -fanalyzer -fsanitize=address
+	gcc -o lute lute.c -Og -ggdb -Wall -Werror -Wextra -Wpedantic -fanalyzer -fsanitize=address
 run: build
 	./lute README.md
 prod: lute.c

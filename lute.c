@@ -6,6 +6,8 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 
+#include "string.h"
+
 #define START_ALT_SCREEN "\x1b[?1049h"
 #define END_ALT_SCREEN "\x1b[?1049l"
 #define CURSOR_HOME "\x1b[1;1H"
@@ -21,14 +23,9 @@
 #define SPACE_KEY 32
 #define DELETE_KEY 127
 
-struct string {
-        char* text;
-        int len;
-};
-
 struct edit {
-        struct string insert;
-        struct string delete;
+        struct String insert;
+        struct String delete;
         int cursor;
 };
 
@@ -43,9 +40,9 @@ enum record {
 };
 
 struct lute {
-        struct string file;
-        struct string clipboard;
-        struct string macro;
+        struct String file;
+        struct String clipboard;
+        struct String macro;
         struct edit* history;
         char* fileName;
         int cursor;
@@ -61,46 +58,6 @@ struct lute {
 
 struct lute l = { 0 };
 struct termios initTermios;
-
-//==============================================================
-// String
-//==============================================================
-
-void StringInsert(struct string* string, int index, char* src, int count) {
-        assert(string != NULL);
-        assert(string->len >= 0);
-        assert(index >= 0);
-        assert(count >= 0);
-        if (src == NULL) return;
-        if (count == 0) return;
-        char* tmp = realloc(string->text, string->len + count);
-        assert(tmp != NULL);
-        memmove(&tmp[index + count], &tmp[index], string->len - index);
-        memmove(&tmp[index], src, count);
-        string->text = tmp;
-        string->len += count;
-}
-
-void StringDelete(struct string* string, int index, int count) {
-        assert(string != NULL);
-        assert(string->text != NULL);
-        assert(string->len >= index + count);
-        if (count == 0) return;
-        memmove(&string->text[index], &string->text[index + count], string->len - count - index);
-        string->text = realloc(string->text, string->len - count);
-        if (string->len - count != 0) {
-                assert(string->text != NULL);
-        }
-        string->len -= count;
-}
-
-void StringErase(struct string* string) {
-        assert(string != NULL);
-        if (string->text == NULL) return;
-        free(string->text);
-        string->text = NULL;
-        string->len = 0;
-}
 
 //==============================================================
 // select
@@ -339,15 +296,15 @@ void SelectLineAll() {
         }
 }
 
-int SelectLower() {
+size_t SelectLower() {
         return (l.cursor > l.anchor ? l.anchor : l.cursor);
 }
 
-int SelectHigher() {
+size_t SelectHigher() {
         return (l.cursor > l.anchor ? l.cursor : l.anchor);
 }
 
-int SelectLen() {
+size_t SelectLen() {
         return SelectHigher() - SelectLower();
 }
 
@@ -360,8 +317,8 @@ void UndoNewUndo() {
                 return;
         }
         for (; l.redoCount > 0; --l.redoCount) {
-                StringErase(&l.history[l.undoCount + l.redoCount - 1].insert);
-                StringErase(&l.history[l.undoCount + l.redoCount - 1].delete);
+                StringFree(&l.history[l.undoCount + l.redoCount - 1].insert);
+                StringFree(&l.history[l.undoCount + l.redoCount - 1].delete);
         }
         ++l.undoCount;
         struct edit* tmp = realloc(l.history, l.undoCount * sizeof(struct edit));
@@ -402,8 +359,7 @@ void UndoInsert(char* src, int count) {
         StringInsert(&l.history[l.undoCount - 1].insert, l.history[l.undoCount - 1].insert.len, src, count);
 }
 
-void UndoDelete(int count) {
-        assert(count >= 0);
+void UndoDelete(size_t count) {
         assert(l.redoCount == 0);
         if (l.history[l.undoCount - 1].insert.len >= count) {
                 StringDelete(&l.history[l.undoCount - 1].insert, l.history[l.undoCount - 1].insert.len - count, count);
@@ -486,22 +442,19 @@ void LoadFile() {
                 exit(1);
         }
         fseek(file, 0L, SEEK_END);
-        l.file.len = ftell(file);
+        ssize_t length = ftell(file);
         fseek(file, 0L, SEEK_SET);
-        if (l.file.len < 0) {
+        if ( length < 0) {
                 printf("Could not read file\n");
                 exit(1);
-        }
-        if (l.file.len > 0) {
-                l.file.text = realloc(l.file.text, l.file.len);
-                assert(l.file.text != NULL);
-                fread(l.file.text, l.file.len, 1, file);
-        }
-        if (l.file.len == 0) {
-                l.file.len = 1;
-                l.file.text = realloc(l.file.text, l.file.len);
-                assert(l.file.text != NULL);
-                l.file.text[0] = '\n';
+        } else if ( length > 0) {
+                assert( StringAlloc( &l.file, length + 1 ) );
+                fread(l.file.text, length, 1, file);
+                l.file.len = length;
+        } else if ( length == 0) {
+                assert( StringAppend( &l.file, "\n", 1 ) );
+        } else {
+                assert( false );
         }
         fclose(file);
 }
@@ -520,9 +473,9 @@ void WriteFile() {
         fclose(file);
 }
 
-void DrawScreen(struct string* print) {
+void DrawScreen(struct String* print) {
         char screen[l.cols * l.rows];
-        int drawIndex = l.cursor;
+        size_t drawIndex = l.cursor;
         int drawLine = l.rows / 2;
         int drawCol = 0;
         int drawHighlightStart = 0;
@@ -568,26 +521,26 @@ void DrawScreen(struct string* print) {
                 screen[drawLine * l.cols] = '~';
                 ++drawLine;
         }
-        StringInsert(print, print->len, screen, l.rows * l.cols);
-        StringInsert(print, drawHighlightEnd, HIGHLIGHT_END, sizeof(HIGHLIGHT_END));
-        StringInsert(print, drawHighlightStart, HIGHLIGHT_START, sizeof(HIGHLIGHT_START));
+        assert( StringInsert(print, print->len, screen, l.rows * l.cols ) );
+        assert( StringInsert(print, drawHighlightEnd, HIGHLIGHT_END, sizeof(HIGHLIGHT_END) ) );
+        assert( StringInsert(print, drawHighlightStart, HIGHLIGHT_START, sizeof(HIGHLIGHT_START) ) );
 }
 
-void DrawCursor(struct string* print) {
+void DrawCursor(struct String* print) {
         char cursorMove[27] = { 0 };
         sprintf(cursorMove, "\x1b[%d;%dH", l.rows / 2 + 1, l.cursor - SelectLineStart(l.file.text, l.file.len, l.cursor) + 1);
-        StringInsert(print, print->len, cursorMove, sizeof(cursorMove));
+        assert( StringInsert(print, print->len, cursorMove, sizeof(cursorMove) ) );
 }
 
 void DrawFrame() {
-        struct string print = { 0 };
+        struct String print = { 0 };
         DrawScreen(&print);
-        StringInsert(&print, 0, CURSOR_HOME, sizeof(CURSOR_HOME));
-        StringInsert(&print, 0, CURSOR_HIDDEN, sizeof(CURSOR_HIDDEN));
+        assert( StringInsert(&print, 0, CURSOR_HOME, sizeof(CURSOR_HOME) ) );
+        assert( StringInsert(&print, 0, CURSOR_HIDDEN, sizeof(CURSOR_HIDDEN) ) );
         DrawCursor(&print);
-        StringInsert(&print, print.len, CURSOR_SHOW, sizeof(CURSOR_SHOW));
+        assert( StringInsert(&print, print.len, CURSOR_SHOW, sizeof(CURSOR_SHOW) ) );
         write(STDOUT_FILENO, print.text, print.len);
-        StringErase(&print);
+        StringFree(&print);
 }
 
 char GetInput() {
@@ -657,7 +610,7 @@ void ProsessSelectFind(int (*Call)(char*, int, int, char), char key, bool extend
 }
 
 void ClipboardSelection() {
-        StringErase(&l.clipboard);
+        StringFree(&l.clipboard);
         StringInsert(&l.clipboard, l.clipboard.len, &l.file.text[SelectLower()], SelectLen());
 }
 
@@ -679,7 +632,7 @@ void PasteSelection() {
 
 void EnterEditMode() {
         assert(l.cursor == l.anchor);
-        StringErase(&l.clipboard);
+        StringFree(&l.clipboard);
         l.commandCount = 0;
         l.mode = EDIT_MODE;
         UndoNewUndo();
@@ -688,7 +641,7 @@ void EnterEditMode() {
 void ProsessInput(char key);
 
 void ExecuteMacro() {
-        for (int i = 0; i < l.macro.len; ++i) {
+        for (size_t i = 0; i < l.macro.len; ++i) {
                 ProsessInput(l.macro.text[i]);
         }
 }
@@ -826,7 +779,7 @@ void ProsessCommand(char key) {
                 }
         } else if (key == ':') {
                 if (l.record == RECORD_OFF) {
-                        StringErase(&l.macro);
+                        StringFree(&l.macro);
                         l.record = RECORD_ON;
                 } else {
                         l.record = RECORD_OFF;
