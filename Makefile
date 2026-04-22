@@ -1,8 +1,4 @@
 build: lute.c
-	gcc -o lute lute.c -Og -ggdb -Wall -Werror -Wextra -Wpedantic -fanalyzer -fsanitize=address
+	gcc lute.c -o lute -Og -ggdb -Wall -Wextra -Wpedantic -fanalyzer -fsanitize=address -fsanitize=leak -fsanitize=undefined
 run: build
 	./lute README.md
-prod: lute.c
-	gcc -o lute lute.c -O3 -Wall -Werror -Wextra -Wpedantic
-clean:
-	rm lute
