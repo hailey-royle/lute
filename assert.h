@@ -3,14 +3,24 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
-#define Assert( expr, message ) if (!(expr)) { \
-        fprintf( stderr, "%s:%d: %s: Assertion \"%s\" failed. %s\n", \
-        __FILE__, __LINE__, __func__, #expr, #message ); \
-        abort(); }
+#define Assert( expr, ... ){ \
+        if( !( expr )){ \
+                fprintf( stderr, "%s:%d: %s: Assertion \"%s\" failed. ", __FILE__, __LINE__, __func__, #expr ); \
+                fprintf( stderr, __VA_ARGS__ ); \
+                fprintf( stderr, "\r\n" ); \
+                fflush( stderr ); \
+                abort(); \
+        } \
+}
 
 #define Unreachable() Assert( 0, "Unreachable." );
 
-#define Todo( message ) Assert( 0, message );
+#define DebugPrintf( ... ){ \
+        fprintf( stderr, "%s:%d: %s ", __FILE__, __LINE__, __func__ ); \
+        fprintf( stderr, __VA_ARGS__ ); \
+        fflush( stderr ); \
+} 
 
 #endif

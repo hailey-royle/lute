@@ -1,823 +1,613 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <unistd.h>
 #include <termios.h>
 #include <sys/ioctl.h>
 
 #include "string.h"
+#include "assert.h"
 
 #define START_ALT_SCREEN "\x1b[?1049h"
 #define END_ALT_SCREEN "\x1b[?1049l"
-#define CURSOR_HOME "\x1b[1;1H"
 #define CURSOR_HIDDEN "\x1b[?25l"
 #define CURSOR_SHOW "\x1b[?25h"
+#define CURSOR_HOME "\x1b[1;1H"
 #define HIGHLIGHT_START "\x1b[41m"
 #define HIGHLIGHT_END "\x1b[49m"
+#define INVERSE_START "\x1b[7m"
+#define INVERSE_END "\x1b[27m"
+#define ERASE_LINE "\x1b[2K"
 
 #define TAB_KEY 9
 #define NEWLINE_KEY 10
 #define LINEFEED_KEY 13
 #define ESCAPE_KEY 27
-#define SPACE_KEY 32
 #define DELETE_KEY 127
 
-struct edit {
+struct Screen{
+        size_t cols;
+        size_t rows;
+};
+
+struct Selection{
+        struct String clipboard;
+        size_t cursor;
+        size_t anchor;
+};
+
+struct SelectionArray{
+        struct Selection* data;
+        size_t count;
+};
+
+struct EditSelection{
         struct String insert;
         struct String delete;
-        int cursor;
+        size_t index;
 };
 
-enum mode {
-        COMMAND_MODE,
-        EDIT_MODE,
+struct EditSelectionArray{
+        struct EditSelection* data;
+        size_t count;
 };
 
-enum record {
-        RECORD_OFF,
-        RECORD_ON,
+struct EditArray{
+        struct EditSelectionArray* data;
+        size_t undo_count;
+        size_t redo_count;
 };
 
-struct lute {
-        struct String file;
-        struct String clipboard;
-        struct String macro;
-        struct edit* history;
-        char* fileName;
-        int cursor;
-        int anchor;
-        int cols;
-        int rows;
-        int commandCount;
-        int undoCount;
-        int redoCount;
-        enum mode mode;
-        enum record record;
-};
-
-struct lute l = { 0 };
 struct termios initTermios;
 
-//==============================================================
-// select
-//==============================================================
+struct SelectionArray selection = { 0 };
+struct EditArray edit = { 0 };
+struct Screen screen = { 0 };
+struct String file = { 0 };
+char* file_name = NULL;
+bool edit_mode = false;
+bool anchor_pinned = false;
 
-int SelectCharLeft(char* text, int len, int cursor) {
-        assert(len >= 0);
-        assert(len >= cursor);
-        assert(cursor >= 0);
-        if (text == NULL) return cursor;
-        if (cursor == 0) return cursor;
-        --cursor;
-        if (text[cursor] == '\n') {
-                ++cursor;
+void LoadArgs( int argc, char** argv ){
+        if( argc != 2 ){
+                printf( "Usage: lute <filename>\n" );
+                exit( 0 );
         }
-        return cursor;
+        file_name = argv[1];
 }
 
-int SelectCharRight(char* text, int len, int cursor) {
-        assert(len >= 0);
-        assert(len >= cursor);
-        assert(cursor >= 0);
-        if (text == NULL) return cursor;
-        if (cursor >= len - 1) return cursor;
-        if (text[cursor] == '\n') return cursor;
-        return ++cursor;
+void DisableRawMode(){
+        int err = tcsetattr( STDIN_FILENO, TCSAFLUSH, &initTermios );
+        Assert( err != -1, "tcsetattr failed." );
+        write( STDOUT_FILENO, END_ALT_SCREEN, sizeof( END_ALT_SCREEN ));
+        write( STDOUT_FILENO, CURSOR_SHOW, sizeof( CURSOR_SHOW ) );
 }
 
-int SelectWordLeft(char* text, int len, int cursor) {
-        assert(len >= 0);
-        assert(len >= cursor);
-        assert(cursor >= 0);
-        if (text == NULL) return cursor;
-        while (true) {
-                if (cursor <= 0) return cursor;
-                --cursor;
-                if (text[cursor] == '\n') {
-                        ++cursor;
-                        break;
-                }
-                if (text[cursor] != ' ') break;
-        }
-        while (true) {
-                if (cursor <= 0) return cursor;
-                --cursor;
-                if (text[cursor] == '\n') {
-                        ++cursor;
-                        break;
-                }
-                if (text[cursor] == ' ') {
-                        ++cursor;
-                        break;
-                }
-        }
-        return cursor;
-}
-
-int SelectWordRight(char* text, int len, int cursor) {
-        assert(len >= 0);
-        assert(len >= cursor);
-        assert(cursor >= 0);
-        if (text == NULL) return cursor;
-        while (true) {
-                if (cursor >= len - 1) break;
-                if (text[cursor] == '\n') break;
-                if (text[cursor] == ' ') break;
-                ++cursor;
-        }
-        while (true) {
-                if (cursor >= len - 1) break;
-                if (text[cursor] == '\n') break;
-                if (text[cursor] != ' ') break;
-                ++cursor;
-        }
-        return cursor;
-}
-
-int SelectLineStart(char* text, int len, int cursor) {
-        assert(len >= 0);
-        assert(len >= cursor);
-        assert(cursor >= 0);
-        if (text == NULL) return cursor;
-        while (true) {
-                if (cursor <= 0) break;
-                --cursor;
-                if (text[cursor] == '\n') {
-                        ++cursor;
-                        break;
-                }
-        }
-        return cursor;
-}
-
-int SelectLineEnd(char* text, int len, int cursor) {
-        assert(len >= 0);
-        assert(len >= cursor);
-        assert(cursor >= 0);
-        if (text == NULL) return cursor;
-        while (true) {
-                if (cursor >= len - 1) break;
-                if (text[cursor] == '\n') break;
-                ++cursor;
-        }
-        return cursor;
-}
-
-int SelectLineUp(char* text, int len, int cursor) {
-        assert(len >= 0);
-        assert(len >= cursor);
-        assert(cursor >= 0);
-        if (text == NULL) return cursor;
-        while (true) {
-                if (cursor <= 0) return cursor;
-                --cursor;
-                if (text[cursor] == '\n') break;
-        }
-        while (true) {
-                if (cursor <= 0) break;
-                --cursor;
-                if (text[cursor] == '\n') {
-                        ++cursor;
-                        break;
-                }
-        }
-        return cursor;
-}
-
-int SelectLineDown(char* text, int len, int cursor) {
-        assert(len >= 0);
-        assert(len >= cursor);
-        assert(cursor >= 0);
-        if (text == NULL) return cursor;
-        while (true) {
-                if (cursor >= len - 1) break;
-                if (text[cursor] == '\n') {
-                        if (cursor >= len - 1) break;
-                        ++cursor;
-                        break;
-                }
-                ++cursor;
-        }
-        return cursor;
-}
-
-int SelectParaUp(char* text, int len, int cursor) {
-        assert(len >= 0);
-        assert(len >= cursor);
-        assert(cursor >= 0);
-        if (text == NULL) return cursor;
-        while (true) {
-                if (cursor <= 0) break;
-                --cursor;
-                if (text[cursor] == '\n') {
-                        if (cursor <= 0) break;
-                        if (cursor >= len - 1) break;
-                        --cursor;
-                        if (text[cursor] == '\n') {
-                                ++cursor;
-                                break;
-                        }
-                }
-        }
-        return cursor;
-}
-
-int SelectParaDown(char* text, int len, int cursor) {
-        assert(len >= 0);
-        assert(len >= cursor);
-        assert(cursor >= 0);
-        if (text == NULL) return cursor;
-        while (true) {
-                if (cursor >= len - 1) break;
-                if (text[cursor] == '\n') {
-                        if (cursor >= len - 1) break;
-                        ++cursor;
-                        if (text[cursor] == '\n') {
-                                break;
-                        }
-                }
-                ++cursor;
-        }
-        return cursor;
-}
-
-int SelectFindPrev(char* text, int len, int cursor, char find) {
-        assert(len >= 0);
-        assert(len >= cursor);
-        assert(cursor >= 0);
-        if (text == NULL) return cursor;
-        while (true) {
-                if (cursor <= 0) break;
-                --cursor;
-                if (text[cursor] == find) break;
-        }
-        return cursor;
-}
-
-int SelectFindNext(char* text, int len, int cursor, char find) {
-        assert(len >= 0);
-        assert(len >= cursor);
-        assert(cursor >= 0);
-        if (text == NULL) return cursor;
-        while (true) {
-                if (cursor >= len - 1) break;
-                ++cursor;
-                if (text[cursor] == find) break;
-        }
-        return cursor;
-}
-
-int SelectLineNumber(char* text, int len, int line) {
-        assert(text != NULL);
-        assert(len > 0);
-        assert(line >= 0);
-        int cursor = 0;
-        if (text == NULL) return cursor;
-        while (line > 1) {
-                if (cursor >= len - 1) break;
-                if (text[cursor] == '\n') {
-                        --line;
-                }
-                ++cursor;
-        }
-        return cursor;
-}
-
-void SelectLineAll() {
-        if (l.cursor >= l.anchor) {
-                l.anchor = SelectLineStart(l.file.data, l.file.len, l.anchor);
-                l.cursor = SelectLineEnd(l.file.data, l.file.len, l.cursor);
-                ++l.cursor;
-        } else {
-                l.cursor = SelectLineStart(l.file.data, l.file.len, l.cursor);
-                l.anchor = SelectLineEnd(l.file.data, l.file.len, l.anchor);
-                ++l.anchor;
-        }
-}
-
-size_t SelectLower() {
-        return (l.cursor > l.anchor ? l.anchor : l.cursor);
-}
-
-size_t SelectHigher() {
-        return (l.cursor > l.anchor ? l.cursor : l.anchor);
-}
-
-size_t SelectLen() {
-        return SelectHigher() - SelectLower();
-}
-
-//==============================================================
-// undo
-//==============================================================
-
-void UndoNewUndo() {
-        if (l.undoCount > 0 && l.history[l.undoCount - 1].insert.len == 0 && l.history[l.undoCount - 1].delete.len == 0) {
-                return;
-        }
-        for (; l.redoCount > 0; --l.redoCount) {
-                StringFree(&l.history[l.undoCount + l.redoCount - 1].insert);
-                StringFree(&l.history[l.undoCount + l.redoCount - 1].delete);
-        }
-        ++l.undoCount;
-        struct edit* tmp = realloc(l.history, l.undoCount * sizeof(struct edit));
-        assert(tmp != NULL);
-        l.redoCount = 0;
-        tmp[l.undoCount - 1].insert.data = NULL;
-        tmp[l.undoCount - 1].insert.cap = 0;
-        tmp[l.undoCount - 1].insert.len = 0;
-        tmp[l.undoCount - 1].delete.data = NULL;
-        tmp[l.undoCount - 1].delete.cap = 0;
-        tmp[l.undoCount - 1].delete.len = 0;
-        tmp[l.undoCount - 1].cursor = l.cursor;
-        l.history = tmp;
-}
-
-void UndoExecuteUndo() {
-        if (l.undoCount == 0) return;
-        l.cursor = l.history[l.undoCount - 1].cursor;
-        l.anchor = l.history[l.undoCount - 1].delete.len + l.cursor;
-        StringDelete(&l.file, l.cursor, l.history[l.undoCount - 1].insert.len);
-        StringInsert(&l.file, l.cursor, l.history[l.undoCount - 1].delete.data, l.history[l.undoCount - 1].delete.len);
-        --l.undoCount;
-        ++l.redoCount;
-}
-
-void UndoExecuteRedo() {
-        if (l.redoCount == 0) return;
-        l.cursor = l.history[l.undoCount].cursor;
-        l.anchor = l.history[l.undoCount].insert.len + l.cursor;
-        StringDelete(&l.file, l.cursor, l.history[l.undoCount].delete.len);
-        StringInsert(&l.file, l.cursor, l.history[l.undoCount].insert.data, l.history[l.undoCount].insert.len);
-        --l.redoCount;
-        ++l.undoCount;
-}
-
-void UndoInsert(char* src, int count) {
-        assert(src != NULL);
-        assert(count >= 0);
-        assert(l.redoCount == 0);
-        StringAppend(&l.history[l.undoCount - 1].insert, src, count);
-}
-
-void UndoDelete(size_t count) {
-        assert(l.redoCount == 0);
-        if (l.history[l.undoCount - 1].insert.len >= count) {
-                StringDelete(&l.history[l.undoCount - 1].insert, l.history[l.undoCount - 1].insert.len - count, count);
-        } else if (l.history[l.undoCount - 1].insert.len == 0) {
-                StringInsert(&l.history[l.undoCount - 1].delete, 0, &l.file.data[SelectLower()], count);
-                l.history[l.undoCount - 1].cursor = SelectLower();
-        } else {
-                assert(false);
-        }
-}
-
-//==============================================================
-// control
-//==============================================================
-
-void PrintHelp() {
-        printf("Usage: lute [options|file]\n\nOptions:\n");
-        printf("        -h  Print the help message and exit\n");
-        printf("        -k  Print the current keymap and exit\n");
-}
-
-void PrintKeymap() {
-        printf("+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-----------+\n");
-        printf("|       |       |       |       |       |       |       |swap ac|sel all|       |       |       |       |           |\n");
-        printf("|       |       |       |       |       |       |       |       |       |       |       |       |       |           |\n");
-        printf("|       |   1   |   2   |   3   |   4   |   5   |   6   |   7   |   8   |   9   |   0   |       |       |           |\n");
-        printf("+-------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+-------+\n");
-        printf("|           |   quit|       |1      |2      |       |2      |   redo| anchor|  above| anchor|       |       |       |\n");
-        printf("|           |       |       |w next |replace|       |yank   |       |edit   |open   |paste  |       |       |       |\n");
-        printf("|           |write q|  write|       |       |       |       |   undo| cursor|  below| cursor|       |       |       |\n");
-        printf("+-----------+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+-------+\n");
-        printf("|              |       |       |2      |       |1      |1      |1      |1      |1      | record|       |            |\n");
-        printf("|              |       |       |delete |       |goto   |c prev |l down |l up   |c next |macro  |       |            |\n");
-        printf("|              |       |       |       |       |       |       |       |       |       |execute|       |            |\n");
-        printf("+--------------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+----------------+\n");
-        printf("|                  |1      |1      |2      |       |1      |1      |1      |1      |1      |       |                |\n");
-        printf("|                  |l start|l end  |change |       |w back |p down |p up   |f prev |f next |       |                |\n");
-        printf("|                  |       |       |       |       |       |       |       |       |       |       |                |\n");
-        printf("+------------------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+----------------+\n\n");
-        printf("[1] = default changes selection; SHIFT extends selection\n");
-        printf("[2] = default effects selection; SHIFT effects line\n");
-}
-
-void LoadArgs(int argc, char** argv) {
-        if (argc != 2) {
-                PrintHelp();
-                exit(0);
-        }
-        if (strcmp(argv[1], "-h") == 0) {
-                PrintHelp();
-                exit(0);
-        }
-        if (strcmp(argv[1], "-k") == 0) {
-                PrintKeymap();
-                exit(0);
-        }
-        l.fileName = argv[1];
-}
-
-void DisableRawMode() {
-        tcsetattr(STDIN_FILENO, TCSAFLUSH, &initTermios);
-        write(STDOUT_FILENO, END_ALT_SCREEN, sizeof(END_ALT_SCREEN));
-}
-
-void EnableRawMode() {
-        write(STDOUT_FILENO, START_ALT_SCREEN, sizeof(START_ALT_SCREEN));
-        tcgetattr(STDIN_FILENO, &initTermios);
+void EnableRawMode(){
+        write( STDOUT_FILENO, START_ALT_SCREEN, sizeof( START_ALT_SCREEN ));
+        write( STDOUT_FILENO, CURSOR_HIDDEN, sizeof( CURSOR_HIDDEN ));
+        int err = tcgetattr( STDIN_FILENO, &initTermios );
+        Assert( err != -1, "tcgetattr failed." );
         struct termios rawTermios = initTermios;
-        rawTermios.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+//        rawTermios.c_oflag &= ~OPOST; // turns off /n into /r/n
+        rawTermios.c_iflag &= ~( IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON );
+        rawTermios.c_lflag &= ~( ECHO | ECHONL | ICANON | ISIG | IEXTEN );
+        rawTermios.c_cflag &= ~( CSIZE | PARENB );
         rawTermios.c_cflag |= CS8;
-        rawTermios.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
-        tcsetattr(STDIN_FILENO, TCSAFLUSH, &rawTermios);
-        atexit(DisableRawMode);
+        rawTermios.c_cc[ VMIN ] = 0;
+        rawTermios.c_cc[ VTIME ] = 1;
+        err = tcsetattr( STDIN_FILENO, TCSAFLUSH, &rawTermios );
+        Assert( err != -1, "tcsetattr failed." );
+        atexit( DisableRawMode );
 }
 
-void LoadFile() {
-        FILE* file = fopen(l.fileName, "r");
-        if (file == NULL) {
-                printf("Could not open file\n");
-                exit(1);
-        }
-        fseek(file, 0L, SEEK_END);
-        ssize_t length = ftell(file);
-        fseek(file, 0L, SEEK_SET);
-        if ( length < 0) {
-                printf("Could not read file\n");
-                exit(1);
-        } else if ( length > 0) {
-                assert( StringAlloc( &l.file, length + 1 ) );
-                fread(l.file.data, length, 1, file);
-                l.file.len = length;
-        } else if ( length == 0) {
-                assert( StringAppend( &l.file, "\n", 1 ) );
-        } else {
-                assert( false );
-        }
-        fclose(file);
-}
-
-void LoadScreen() {
+void LoadScreen(){
         struct winsize winsize;
-        ioctl(STDOUT_FILENO, TIOCGWINSZ, &winsize);
-        l.cols = winsize.ws_col;
-        l.rows = winsize.ws_row;
+        int err = ioctl( STDOUT_FILENO, TIOCGWINSZ, &winsize );
+        Assert( err != -1, "ioctl failed." );
+        screen.cols = winsize.ws_col;
+        screen.rows = winsize.ws_row;
 }
 
-void WriteFile() {
-        FILE* file = fopen(l.fileName, "w");
-        assert(file != NULL);
-        fwrite(l.file.data, sizeof(*l.file.data), l.file.len, file);
-        fclose(file);
+size_t DrawLine( struct String* print, size_t start_index, bool* highlight ){
+        size_t real_end_index = StringSelectLineEnd( &file, start_index ) + 1;
+        size_t cliped_end_index = real_end_index;
+        size_t real_line_length = real_end_index - start_index;
+        size_t cliped_line_length = real_line_length;
+        if( cliped_line_length >= screen.cols ){
+                cliped_line_length = screen.cols;
+                cliped_end_index = start_index + screen.cols;
+        }
+        if( *highlight == true ){
+                StringAppend( print, HIGHLIGHT_START, sizeof( HIGHLIGHT_START ));
+        }
+        for( size_t i = start_index; i < cliped_end_index; i++ ){
+                bool inverse_flag = false;
+                for( size_t j = 0; j < selection.count; j++ ){
+                        if( selection.data[ j ].anchor == i ){
+                                if( *highlight == false ){
+                                        StringAppend( print, HIGHLIGHT_START, sizeof( HIGHLIGHT_START ));
+                                        *highlight = true;
+                                } else {
+                                        StringAppend( print, HIGHLIGHT_END, sizeof( HIGHLIGHT_END ));
+                                        *highlight = false;
+                                }
+                        }
+                        if( selection.data[ j ].cursor == i ){
+                                if( *highlight == false ){
+                                        StringAppend( print, HIGHLIGHT_START, sizeof( HIGHLIGHT_START ));
+                                        *highlight = true;
+                                } else {
+                                        StringAppend( print, HIGHLIGHT_END, sizeof( HIGHLIGHT_END ));
+                                        *highlight = false;
+                                }
+                                StringAppend( print, INVERSE_START, sizeof( INVERSE_START ));
+                                inverse_flag = true;
+                        }
+                }
+                if( file.data[ i ] == '\n' ){
+                        StringAppend( print, " ", 1 );
+                        if( inverse_flag ){
+                                StringAppend( print, INVERSE_END, sizeof( INVERSE_END ));
+                        }
+                        break;
+                } else if( file.data[ i ] == '\t' ){
+                        StringAppend( print, "        ", 8 );
+                        if( cliped_line_length >= screen.cols - 7 ){
+                                cliped_line_length -= screen.cols - 7;
+                                cliped_end_index -= screen.cols - 7;
+                        }
+                        if( inverse_flag ){
+                                StringAppend( print, INVERSE_END, sizeof( INVERSE_END ));
+                        }
+                } else {
+                        StringAppend( print, &file.data[ i ], 1 );
+                        if( inverse_flag ){
+                                StringAppend( print, INVERSE_END, sizeof( INVERSE_END ));
+                        }
+                }
+        }
+        StringAppend( print, HIGHLIGHT_END, sizeof( HIGHLIGHT_END ));
+        for( size_t i = cliped_end_index; i < real_end_index; i++ ){
+                for( size_t j = 0; j < selection.count; j++ ){
+                        if( selection.data[ j ].anchor == i ){
+                                if( *highlight == false ){
+                                        *highlight = true;
+                                } else {
+                                        *highlight = false;
+                                }
+                        }
+                        if( selection.data[ j ].cursor == i ){
+                                if( *highlight == false ){
+                                        *highlight = true;
+                                } else {
+                                        *highlight = false;
+                                }
+                        }
+                }
+        }
+        return real_end_index;
 }
 
-void DrawScreen(struct String* print) {
-        char screen[l.cols * l.rows];
-        size_t drawIndex = l.cursor;
-        int drawLine = l.rows / 2;
-        int drawCol = 0;
-        int drawHighlightStart = 0;
-        int drawHighlightEnd = l.cols * l.rows;
-        for (int i = 0; i < l.cols * l.rows; ++i) {
-                screen[i] = ' ';
-        }
-        if (SelectLineStart(l.file.data, l.file.len, drawIndex) == 0) {
-                drawIndex = 0;
-        } else {
-                while (true) {
-                        if (drawLine <= 0) break;
-                        if (drawIndex <= 0) break;
-                        drawIndex = SelectLineUp(l.file.data, l.file.len, drawIndex);
-                        --drawLine;
-                }
-        }
-        for (int i = 0; i < drawLine; ++i) {
-                screen[i * l.cols] = '~';
-        }
-        while (drawLine < l.rows) {
-                if (drawIndex == SelectLower()) {
-                        drawHighlightStart = drawLine * l.cols + drawCol;
-                }
-                if (drawIndex == SelectHigher()) {
-                        drawHighlightEnd = drawLine * l.cols + drawCol;
-                }
-                if (drawIndex >= l.file.len) break;
-                if (drawCol >= l.cols) {
-                        drawIndex = SelectLineDown(l.file.data, l.file.len, drawIndex);
-                }
-                if (l.file.data[drawIndex] == '\n') {
-                        drawCol = 0;
-                        ++drawIndex;
-                        ++drawLine;
-                        continue;
-                }
-                screen[drawLine * l.cols + drawCol] = l.file.data[drawIndex];
-                ++drawCol;
-                ++drawIndex;
-        }
-        while (drawLine < l.rows) {
-                screen[drawLine * l.cols] = '~';
-                ++drawLine;
-        }
-        assert( StringInsert(print, print->len, screen, l.rows * l.cols ) );
-        assert( StringInsert(print, drawHighlightEnd, HIGHLIGHT_END, sizeof(HIGHLIGHT_END) ) );
-        assert( StringInsert(print, drawHighlightStart, HIGHLIGHT_START, sizeof(HIGHLIGHT_START) ) );
-}
-
-void DrawCursor(struct String* print) {
-        char cursorMove[27] = { 0 };
-        sprintf(cursorMove, "\x1b[%d;%dH", l.rows / 2 + 1, l.cursor - SelectLineStart(l.file.data, l.file.len, l.cursor) + 1);
-        assert( StringInsert(print, print->len, cursorMove, sizeof(cursorMove) ) );
-}
-
-void DrawFrame() {
+void DrawScreen(){
         struct String print = { 0 };
-        DrawScreen(&print);
-        assert( StringInsert(&print, 0, CURSOR_HOME, sizeof(CURSOR_HOME) ) );
-        assert( StringInsert(&print, 0, CURSOR_HIDDEN, sizeof(CURSOR_HIDDEN) ) );
-        DrawCursor(&print);
-        assert( StringInsert(&print, print.len, CURSOR_SHOW, sizeof(CURSOR_SHOW) ) );
+        bool highlight = false;
+        int drawLine = 0;
+        size_t drawIndex = StringSelectLineStart( &file, selection.data[ 0 ].cursor );
+        for( size_t i = 0; i < screen.rows / 2; i++ ){
+                if( drawIndex > 0 ){
+                        drawIndex = StringSelectLinePrev( &file, drawIndex );
+                } else {
+                        drawLine--;
+                }
+        }
+        StringAppend( &print, CURSOR_HOME, sizeof( CURSOR_HOME ));
+        for( size_t j = 0; j < selection.count; j++ ){
+                if( selection.data[ j ].anchor < drawIndex ){
+                        if( highlight == false ){
+                                highlight = true;
+                        } else {
+                                highlight = false;
+                        }
+                }
+                if( selection.data[ j ].cursor < drawIndex ){
+                        if( highlight == false ){
+                                highlight = true;
+                        } else {
+                                highlight = false;
+                        }
+                }
+        }
+        for( size_t i = 0; i < screen.rows; i++ ){
+                if( i != 0 ) {
+                        StringAppend( &print, "\r\n", 2 );
+                }
+                StringAppend( &print, ERASE_LINE, sizeof( ERASE_LINE ));
+                if( drawLine < 0 || drawIndex >= file.len ){
+                        StringAppend( &print, "~", 1 );
+                        drawLine++;
+                } else {
+                        drawIndex = DrawLine( &print, drawIndex, &highlight );
+                        drawLine++;
+                }
+        }
         write(STDOUT_FILENO, print.data, print.len);
-        StringFree(&print);
+        StringFree( &print );
 }
 
-char GetInput() {
+void SelectionNew( size_t index ){
+        selection.count++;
+        selection.data = realloc( selection.data, selection.count * sizeof( selection.data[ 0 ]));
+        Assert( selection.data != NULL, "Alloc failed." );
+        selection.data[ selection.count - 1 ].cursor = index;
+        selection.data[ selection.count - 1 ].anchor = index ;
+        selection.data[ selection.count - 1 ].clipboard.data = NULL;
+        selection.data[ selection.count - 1 ].clipboard.len = 0;
+        selection.data[ selection.count - 1 ].clipboard.cap = 0;
+}
+
+void SelectionFree( size_t index ){
+        Assert( index < selection.count, " " );
+        StringFree( &selection.data[ index ].clipboard );
+        for( size_t i = index; i < selection.count - 1; i++ ){
+                selection.data[ i ].cursor = selection.data[ i + 1 ].cursor;
+                selection.data[ i ].anchor = selection.data[ i + 1 ].anchor;
+                selection.data[ i ].clipboard.data = selection.data[ i + 1 ].clipboard.data;
+                selection.data[ i ].clipboard.len = selection.data[ i + 1 ].clipboard.len;
+                selection.data[ i ].clipboard.cap = selection.data[ i + 1 ].clipboard.cap;
+        }
+        selection.count--;
+}
+
+void EditNew(){
+        edit.undo_count++;
+        edit.redo_count = 0;
+        edit.data = realloc( edit.data, edit.undo_count * sizeof( edit.data[ 0 ]));
+        Assert( edit.data != NULL, "Alloc failed." );
+        edit.data[ edit.undo_count - 1 ].count = selection.count;
+        edit.data[ edit.undo_count - 1 ].data = NULL;
+        edit.data[ edit.undo_count - 1 ].data = realloc( edit.data[ edit.undo_count - 1 ].data, edit.data[ edit.undo_count - 1 ].count * sizeof( edit.data[ edit.undo_count - 1 ].data[ 0 ] ));
+        Assert( edit.data[ edit.undo_count - 1 ].data != NULL, "Alloc failed." );
+        memset( edit.data[ edit.undo_count - 1 ].data, 0, edit.data[ edit.undo_count - 1 ].count * sizeof( edit.data[ edit.undo_count - 1 ].data[ 0 ] ));
+}
+
+void EditModeInit(){
+        edit_mode = true;
+        for( size_t i = 0; i < selection.count; i++ ){
+                StringFree( &selection.data[ i ].clipboard );
+        }
+//        EditNew();
+}
+
+void SelectCursorLine(){
+        for( size_t i = 0; i < selection.count; i++ ){
+                selection.data[ i ].cursor = StringSelectLineStart( &file, selection.data[ i ].cursor );
+                selection.data[ i ].anchor = StringSelectLineNext( &file, selection.data[ i ].cursor );
+        }
+}
+
+void DeleteSelection(){
+        for( size_t i = 0; i < selection.count; i++ ){
+                if( selection.data[ i ].cursor > selection.data[ i ].anchor ){
+                        StringDelete( &file, selection.data[ i ].anchor, selection.data[ i ].cursor - selection.data[ i ].anchor );
+                        for( size_t j = 0; j < selection.count; j++ ){
+                                if( selection.data[ j ].cursor > selection.data[ i ].cursor ){
+                                        selection.data[ j ].cursor -= selection.data[ i ].cursor - selection.data[ i ].anchor;
+                                        selection.data[ j ].anchor -= selection.data[ i ].cursor - selection.data[ i ].anchor;
+                                }
+                        }
+                        selection.data[ i ].cursor = selection.data[ i ].anchor;
+                } else if( selection.data[ i ].anchor > selection.data[ i ].cursor ){
+                        StringDelete( &file, selection.data[ i ].cursor, selection.data[ i ].anchor - selection.data[ i ].cursor );
+                        for( size_t j = 0; j < selection.count; j++ ){
+                                if( selection.data[ j ].cursor > selection.data[ i ].cursor ){
+                                        selection.data[ j ].cursor -= selection.data[ i ].anchor - selection.data[ i ].cursor;
+                                        selection.data[ j ].anchor -= selection.data[ i ].anchor - selection.data[ i ].cursor;
+                                }
+                        }
+                        selection.data[ i ].anchor = selection.data[ i ].cursor;
+                }
+        }
+}
+
+void CopySelection(){
+        for( size_t i = 0; i < selection.count; i++ ){
+                StringFree( &selection.data[ i ].clipboard );
+                if( selection.data[ i ].cursor > selection.data[ i ].anchor ){
+                        StringAppend( &selection.data[ i ].clipboard, &file.data[ selection.data[ i ].anchor ], selection.data[ i ].cursor - selection.data[ i ].anchor );
+                } else if( selection.data[ i ].anchor > selection.data[ i ].cursor ){
+                        StringAppend( &selection.data[ i ].clipboard, &file.data[ selection.data[ i ].cursor ], selection.data[ i ].anchor - selection.data[ i ].cursor );
+                }
+        }
+}
+
+void PasteSelection(){
+        for( size_t i = 0; i < selection.count; i++ ){
+                if( selection.data[ i ].clipboard.data != NULL ){
+                        StringInsert( &file, selection.data[ i ].cursor, selection.data[ i ].clipboard.data, selection.data[ i ].clipboard.len );
+                }
+                for( size_t j = 0; j < selection.count; j++ ){
+                        if( selection.data[ j ].cursor > selection.data[ i ].cursor ){
+                                selection.data[ j ].cursor += selection.data[ i ].clipboard.len;
+                                selection.data[ j ].anchor += selection.data[ i ].clipboard.len;
+                        }
+                }
+                selection.data[ i ].anchor = selection.data[ i ].cursor;
+                selection.data[ i ].cursor = selection.data[ i ].cursor + selection.data[ i ].clipboard.len;
+        }
+}
+
+char GetNextInput(){
         char key = 0;
-        read(STDIN_FILENO, &key, sizeof(char));
-        if (key == LINEFEED_KEY) key = NEWLINE_KEY;
+        read( STDIN_FILENO, &key, 1 );
+        if( key == LINEFEED_KEY ){
+                key = NEWLINE_KEY;
+        }
         return key;
 }
 
-void ProsessEdit(char key) {
-        if (key == ESCAPE_KEY) {
-                l.mode = COMMAND_MODE;
-                l.anchor = l.cursor;
-        } else if (key == DELETE_KEY) {
-                if (l.cursor == 0) return;
-                --l.cursor;
-                UndoDelete(1);
-                StringDelete(&l.file, l.cursor, 1);
-                l.anchor = l.cursor;
-                if (l.clipboard.len > 0) {
-                        StringDelete(&l.clipboard, l.clipboard.len - 1, 1);
+char GetNextInputWait(){
+        char key = 0;
+        while( key == '\0' ){
+                read( STDIN_FILENO, &key, 1 );
+                if( key == LINEFEED_KEY ){
+                        key = NEWLINE_KEY;
                 }
-        } else if (key == NEWLINE_KEY || (key >= SPACE_KEY && key < DELETE_KEY)) {
-                StringInsert(&l.file, l.cursor, &key, 1);
-                ++l.cursor;
-                l.anchor = l.cursor;
-                StringInsert(&l.clipboard, l.clipboard.len, &key, 1);
-                UndoInsert(&key, 1);
-        } else if (key == TAB_KEY) {
-                char* tab = "        ";
-                StringInsert(&l.file, l.cursor, tab, 8);
-                l.cursor += 8;
-                l.anchor = l.cursor;
-                StringInsert(&l.clipboard, l.clipboard.len, tab, 8);
-                UndoInsert(tab, 8);
+        }
+        return key;
+}
+
+#define ProsessSelectionMove( func ){\
+        for( size_t i = 0; i < selection.count; i++ ){ \
+                if( !anchor_pinned ){ \
+                        selection.data[ i ].anchor = selection.data[ i ].cursor; \
+                } \
+                selection.data[ i ].cursor = func( &file, selection.data[ i ].cursor ); \
+        } \
+}
+
+#define ProsessSelectionMoveChar( func, dst ){\
+        for( size_t i = 0; i < selection.count; i++ ){ \
+                if( !anchor_pinned ){ \
+                        selection.data[ i ].anchor = selection.data[ i ].cursor; \
+                } \
+                selection.data[ i ].cursor = func( &file, selection.data[ i ].cursor, dst ); \
+        } \
+}
+
+void ProsessCommand( char key ){
+        if( key == 'q' ){
+                StringToFile( &file, file_name );
+                exit( 0 );
+        } else if( key == 'Q' ){
+                exit( 0 );
+        } else if( key == 'w' ){
+                StringToFile( &file, file_name );
+        } else if( key == 'i' ){
+                EditModeInit();
+        } else if( key == 'u' ){
+//                EditUndo();
+        } else if( key == 'U' ){
+//                EditRedo();
+        } else if( key == 'a' ){
+                if( anchor_pinned ){ 
+                        anchor_pinned = false;
+                } else {
+                        anchor_pinned = true;
+                }
+        } else if( key == 'A' ){
+                for( size_t i = 0; i < selection.count; i++ ){ \
+                        size_t tmp = selection.data[ i ].cursor;
+                        selection.data[ i ].cursor = selection.data[ i ].anchor;
+                        selection.data[ i ].anchor = tmp;
+                }
+        } else if( key == 'h' ){
+                ProsessSelectionMove( StringSelectCharPrev );
+        } else if( key == 'l' ){
+                ProsessSelectionMove( StringSelectCharNext );
+        } else if( key == 'b' ){
+                ProsessSelectionMove( StringSelectWordPrev );
+        } else if( key == 'e' ){
+                ProsessSelectionMove( StringSelectWordNext );
+        } else if( key == 'k' ){
+                ProsessSelectionMove( StringSelectLinePrev );
+        } else if( key == 'j' ){
+                ProsessSelectionMove( StringSelectLineNext );
+        } else if( key == 'm' ){
+                ProsessSelectionMove( StringSelectParagraphPrev );
+        } else if( key == 'n' ){
+                ProsessSelectionMove( StringSelectParagraphNext );
+        } else if( key == 'F' ){
+                ProsessSelectionMoveChar( StringSelectFindCharPrev, GetNextInputWait() );
+        } else if( key == 'f' ){
+                ProsessSelectionMoveChar( StringSelectFindCharNext, GetNextInputWait() );
+        } else if( key == 'z' ){
+                ProsessSelectionMove( StringSelectLineStart );
+        } else if( key == 'x' ){
+                ProsessSelectionMove( StringSelectLineEnd );
+        } else if( key == 'T' ){
+                for( size_t i = 0; i < selection.count; i++ ){
+                        if( !anchor_pinned ){
+                                selection.data[ i ].anchor = 0;
+                        }
+                        selection.data[ i ].cursor = 0;
+                }
+        } else if( key == 't' ){
+                for( size_t i = 0; i < selection.count; i++ ){
+                        if( !anchor_pinned ){
+                                selection.data[ i ].anchor = file.len - 1;
+                        }
+                        selection.data[ i ].cursor = file.len - 1;
+                }
+        } else if( key == 'y' ){
+                CopySelection();
+        } else if( key == 'Y' ){
+                SelectCursorLine();
+                CopySelection();
+        } else if( key == 'd' ){
+                CopySelection();
+                DeleteSelection();
+        } else if( key == 'D' ){
+                SelectCursorLine();
+                CopySelection();
+                DeleteSelection();
+        } else if( key == 'c' ){
+                CopySelection();
+                DeleteSelection();
+                EditModeInit();
+        } else if( key == 'C' ){
+                SelectCursorLine();
+                CopySelection();
+                DeleteSelection();
+                EditModeInit();
+        } else if( key == 'p' ){
+                PasteSelection();
+        } else if( key == 'r' ){
+                DeleteSelection();
+                PasteSelection();
+        } else if( key == 'R' ){
+                SelectCursorLine();
+                DeleteSelection();
+                PasteSelection();
+        } else if( key == ';' ){
+                for( size_t i = 1; selection.count > 1; ){
+                        SelectionFree( i );
+                }
+        } else if( key == ':' ){
+                for( size_t i = 1; selection.count > 1; ){
+                        SelectionFree( i );
+                }
+                if( selection.data[ 0 ].cursor > selection.data[ 0 ].anchor ){
+                        size_t new_selection_index = ( file.data[ selection.data[ 0 ].cursor ] == '\n' ) ?
+                                selection.data[ 0 ].cursor :
+                                StringSelectFindCharNext( &file, selection.data[ 0 ].cursor, '\n' );
+                        if( new_selection_index >= selection.data[ 0 ].anchor ){
+                                size_t selection_min = selection.data[ 0 ].anchor;
+                                selection.data[ 0 ].cursor = new_selection_index;
+                                selection.data[ 0 ].anchor = new_selection_index;
+                                while( true ){
+                                        new_selection_index = StringSelectFindCharPrev( &file, new_selection_index, '\n' );
+                                        if( new_selection_index < selection_min ){
+                                                break;
+                                        }
+                                        if( new_selection_index == 0 ){
+                                                SelectionNew( new_selection_index );
+                                                break;
+                                        }
+                                        SelectionNew( new_selection_index );
+                                }
+                        }
+                } else {
+                        size_t new_selection_index = ( file.data[ selection.data[ 0 ].cursor ] == '\n' ) ?
+                                selection.data[ 0 ].cursor :
+                                StringSelectFindCharNext( &file, selection.data[ 0 ].cursor, '\n' );
+                        if( new_selection_index <= selection.data[ 0 ].anchor ){
+                                size_t selection_max = selection.data[ 0 ].anchor;
+                                selection.data[ 0 ].cursor = new_selection_index;
+                                selection.data[ 0 ].anchor = new_selection_index;
+                                while( true ){
+                                        new_selection_index = StringSelectFindCharNext( &file, new_selection_index, '\n' );
+                                        if( new_selection_index > selection_max ){
+                                                break;
+                                        }
+                                        if( new_selection_index == file.len - 1 ){
+                                                SelectionNew( new_selection_index );
+                                                break;
+                                        }
+                                        SelectionNew( new_selection_index );
+                                }
+                        }
+                } 
         }
 }
 
-void ProsessSelect(int (*Call)(char*, int, int), bool extend) {
-        if (l.commandCount == 0) {
-                l.commandCount = 1;
-        }
-        while (l.commandCount > 0) {
-                if (extend == false) {
-                        l.anchor = l.cursor;
+void ProsessEdit( char key ){
+        if( key == ESCAPE_KEY ){
+                edit_mode = false;
+        } else if( key == TAB_KEY || key == NEWLINE_KEY || ( key >= ' ' && key < DELETE_KEY )){
+                for( size_t i = 0; i < selection.count; i++ ){
+                        StringAppend( &edit.data[ edit.undo_count - 1].data[ i ].insert, &key, 1 ); 
+                        StringAppend( &selection.data[ i ].clipboard, &key, 1 );
+                        StringInsert( &file, selection.data[ i ].cursor, &key, 1 );
+                        selection.data[ i ].cursor++;
+                        selection.data[ i ].anchor = selection.data[ i ].cursor;
+                        for( size_t j = 0; j < selection.count; j++ ){
+                                if( selection.data[ j ].cursor > selection.data[ i ].cursor ){
+                                        selection.data[ j ].cursor++;
+                                        selection.data[ j ].anchor = selection.data[ j ].cursor;
+                                }
+                        }
                 }
-                l.cursor = Call(l.file.data, l.file.len, l.cursor);
-                --l.commandCount;
+        } else if( key == DELETE_KEY ){
+                for( size_t i = 0; i < selection.count; i++ ){
+                        if( selection.data[ i ].cursor == 0 ){
+                                break;
+                        }
+                        if( edit.data[ edit.undo_count - 1 ].data[ i ].insert.len > 0 ){
+                                StringDeduct( &edit.data[ edit.undo_count - 1 ].data[ i ].insert, 1 ); 
+                        } else {
+                                StringInsert( &edit.data[ edit.undo_count - 1 ].data[ i ].delete, 0, &file.data[ selection.data[ i ].cursor ], 1 ); 
+                        }
+                        selection.data[ i ].cursor--;
+                        if( selection.data[ i ].clipboard.len > 0 ){
+                                        StringDeduct( &selection.data[ i ].clipboard, 1 );
+                        }
+                        StringDelete( &file, selection.data[ i ].cursor, 1 );
+                        selection.data[ i ].anchor = selection.data[ i ].cursor;
+                        for( size_t j = 0; j < selection.count; j++ ){
+                                if( selection.data[ j ].cursor > selection.data[ i ].cursor ){
+                                        selection.data[ j ].cursor--;
+                                        selection.data[ j ].anchor = selection.data[ j ].cursor;
+                                }
+                        }
+                }
         }
 }
 
-void ProsessSelectFind(int (*Call)(char*, int, int, char), char key, bool extend) {
-        if (key == ESCAPE_KEY) {
-                l.commandCount = 0;
+void ProsessInput(){
+        char key = GetNextInput();
+        if( key == '\0' ){
                 return;
         }
-        if (l.commandCount == 0) {
-                l.commandCount = 1;
-        }
-        while (l.commandCount > 0) {
-                if (extend == false) {
-                        l.anchor = l.cursor;
-                }
-                l.cursor = Call(l.file.data, l.file.len, l.cursor, key);
-                --l.commandCount;
+        if( edit_mode == false ){
+                ProsessCommand( key );
+        } else {
+                ProsessEdit( key );
         }
 }
 
-void ClipboardSelection() {
-        StringFree(&l.clipboard);
-        StringInsert(&l.clipboard, l.clipboard.len, &l.file.data[SelectLower()], SelectLen());
-}
-
-void DeleteSelection() {
-        if (SelectLen() == 0) return;
-        UndoNewUndo();
-        UndoDelete(SelectLen());
-        StringDelete(&l.file, SelectLower(), SelectLen());
-        l.cursor = SelectLower();
-        l.anchor = l.cursor;
-}
-
-void PasteSelection() {
-        UndoNewUndo();
-        StringInsert(&l.file, l.cursor, l.clipboard.data, l.clipboard.len);
-        UndoInsert(&l.file.data[l.cursor], l.clipboard.len);
-        l.cursor += l.clipboard.len;
-}
-
-void EnterEditMode() {
-        assert(l.cursor == l.anchor);
-        StringFree(&l.clipboard);
-        l.commandCount = 0;
-        l.mode = EDIT_MODE;
-        UndoNewUndo();
-}
-
-void ProsessInput(char key);
-
-void ExecuteMacro() {
-        for (size_t i = 0; i < l.macro.len; ++i) {
-                ProsessInput(l.macro.data[i]);
-        }
-}
-
-void ProsessCommand(char key) {
-        if (key >= '0' && key <= '9') {
-                l.commandCount *= 10;
-                l.commandCount += key & 0xf;
-        } else if (key == 'w') {
-                WriteFile();
-        } else if (key == 'q') {
-                WriteFile();
-                exit(0);
-        } else if (key == 'Q') {
-                exit(0);
-        } else if (key == 'h') {
-                ProsessSelect(SelectCharLeft, false);
-        } else if (key == 'H') {
-                ProsessSelect(SelectCharLeft, true);
-        } else if (key == 'l') {
-                ProsessSelect(SelectCharRight, false);
-        } else if (key == 'L') {
-                ProsessSelect(SelectCharRight, true);
-        } else if (key == 'b') {
-                ProsessSelect(SelectWordLeft, false);
-        } else if (key == 'B') {
-                ProsessSelect(SelectWordLeft, true);
-        } else if (key == 'e') {
-                ProsessSelect(SelectWordRight, false);
-        } else if (key == 'E') {
-                ProsessSelect(SelectWordRight, true);
-        } else if (key == 'z') {
-                ProsessSelect(SelectLineStart, false);
-        } else if (key == 'Z') {
-                ProsessSelect(SelectLineStart, true);
-        } else if (key == 'x') {
-                ProsessSelect(SelectLineEnd, false);
-        } else if (key == 'X') {
-                ProsessSelect(SelectLineEnd, true);
-        } else if (key == 'k') {
-                ProsessSelect(SelectLineUp, false);
-        } else if (key == 'K') {
-                ProsessSelect(SelectLineUp, true);
-        } else if (key == 'j') {
-                ProsessSelect(SelectLineDown, false);
-        } else if (key == 'J') {
-                ProsessSelect(SelectLineDown, true);
-        } else if (key == 'm') {
-                ProsessSelect(SelectParaUp, false);
-        } else if (key == 'M') {
-                ProsessSelect(SelectParaUp, true);
-        } else if (key == 'n') {
-                ProsessSelect(SelectParaDown, false);
-        } else if (key == 'N') {
-                ProsessSelect(SelectParaDown, true);
-        } else if (key == ',') {
-                ProsessSelectFind(SelectFindPrev, GetInput(), false);
-        } else if (key == '<') {
-                ProsessSelectFind(SelectFindPrev, GetInput(), true);
-        } else if (key == '.') {
-                ProsessSelectFind(SelectFindNext, GetInput(), false);
-        } else if (key == '>') {
-                ProsessSelectFind(SelectFindNext, GetInput(), true);
-        } else if (key == 'g') {
-                l.anchor = l.cursor;
-                l.cursor = SelectLineNumber(l.file.data, l.file.len, l.commandCount);
-                l.commandCount = 0;
-        } else if (key == 'G') {
-                l.cursor = SelectLineNumber(l.file.data, l.file.len, l.commandCount);
-                l.commandCount = 0;
-        } else if (key == 'i') {
-                l.anchor = l.cursor;
-                EnterEditMode();
-        } else if (key == 'I') {
-                l.cursor = l.anchor;
-                EnterEditMode();
-        } else if (key == 'o') {
-                char newline = '\n';
-                l.cursor = SelectLineEnd(l.file.data, l.file.len, l.cursor);
-                l.anchor = l.cursor;
-                EnterEditMode();
-                ProsessEdit(newline);
-        } else if (key == 'O') {
-                char newline = '\n';
-                l.cursor = SelectLineStart(l.file.data, l.file.len, l.cursor);
-                l.anchor = l.cursor;
-                EnterEditMode();
-                ProsessEdit(newline);
-                --l.cursor;
-        } else if (key == 'd') {
-                ClipboardSelection();
-                DeleteSelection();
-        } else if (key == 'D') {
-                SelectLineAll();
-                ClipboardSelection();
-                DeleteSelection();
-        } else if (key == 'c') {
-                ClipboardSelection();
-                DeleteSelection();
-                EnterEditMode();
-        } else if (key == 'C') {
-                SelectLineAll();
-                ClipboardSelection();
-                DeleteSelection();
-                EnterEditMode();
-        } else if (key == 'r') {
-                DeleteSelection();
-                PasteSelection();
-        } else if (key == 'R') {
-                SelectLineAll();
-                DeleteSelection();
-                PasteSelection();
-        } else if (key == 'y') {
-                ClipboardSelection();
-        } else if (key == 'Y') {
-                SelectLineAll();
-                ClipboardSelection();
-        } else if (key == 'p') {
-                if (l.clipboard.data == NULL) return;
-                l.anchor = l.cursor;
-                PasteSelection();
-        } else if (key == 'P') {
-                if (l.clipboard.data == NULL) return;
-                l.cursor = l.anchor;
-                PasteSelection();
-        } else if (key == 'u') {
-                UndoExecuteUndo();
-        } else if (key == 'U') {
-                UndoExecuteRedo();
-        } else if (key == ';') {
-                if (l.record == RECORD_OFF) {
-                        ExecuteMacro();
-                } else {
-                        l.record = RECORD_OFF;
-                }
-        } else if (key == ':') {
-                if (l.record == RECORD_OFF) {
-                        StringFree(&l.macro);
-                        l.record = RECORD_ON;
-                } else {
-                        l.record = RECORD_OFF;
-                }
-        } else if (key == '&') {
-                l.cursor = l.cursor ^ l.anchor;
-                l.anchor = l.cursor ^ l.anchor;
-                l.cursor = l.cursor ^ l.anchor;
-        } else if (key == '*') {
-                l.cursor = 0;
-                l.anchor = l.file.len - 1;
-        }
-}
-
-void ProsessInput(char key) {
-        if (l.record == RECORD_ON) {
-                if (key != ':' && key != ';') {
-                        StringInsert(&l.macro, l.macro.len, &key, 1);
+void ValidateSelection(){
+        for( size_t i = 0; i < selection.count; i++ ){
+                size_t selection_min = ( selection.data[ i ].cursor > selection.data[ i ].anchor ) ? selection.data[ i ].anchor : selection.data[ i ].cursor;
+                size_t selection_max = ( selection.data[ i ].cursor > selection.data[ i ].anchor ) ? selection.data[ i ].cursor : selection.data[ i ].anchor;
+                for( size_t j = selection.count - 1; j < selection.count; j-- ){
+                        if( i == j ){
+                                continue;
+                        }
+                        bool cursor_inside = ( selection.data[ j ].cursor >= selection_min && selection.data[ j ].cursor <= selection_max ) ? true : false;
+                        bool anchor_inside = ( selection.data[ j ].anchor >= selection_min && selection.data[ j ].anchor <= selection_max ) ? true : false;
+                        if( cursor_inside && anchor_inside ){
+                                SelectionFree( j );
+                        } else if( cursor_inside ){
+                                selection.data[ i ].anchor = selection.data[ j ].cursor;
+                        }
                 }
         }
-        if (l.mode == EDIT_MODE) {
-                ProsessEdit(key);
-        } else if (l.mode == COMMAND_MODE) {
-                ProsessCommand(key);
-        }
 }
 
-int main(int argc, char** argv) {
+int main( int argc, char** argv ){
         LoadArgs(argc, argv);
-        LoadFile();
+        StringFromFile( &file, file_name );
+        if( file.len == 0 || file.data[ file.len - 1 ] != '\n' ){
+                StringAppend( &file, "\n", 1 );
+        }
         EnableRawMode();
-        while (true) {
+        SelectionNew( 0 );
+        while( true ){
                 LoadScreen();
-                DrawFrame();
-                char key = GetInput();
-                ProsessInput(key);
+                DrawScreen();
+                ProsessInput();
+                ValidateSelection();
         }
         return 0;
 }
