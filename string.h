@@ -132,7 +132,9 @@ void StringToFile( struct String* string, char* filename ){
         Assert( filename != NULL, "Malformed args" );
         struct stat stat_buffer = { 0 };
         int stat_err = stat( filename, &stat_buffer );
-        Assert( stat_err != -1 && ( stat_buffer.st_mode & S_IFMT ) == S_IFREG, "Can only write to a regular file." );
+        if( stat_err != -1 ){
+                Assert(( stat_buffer.st_mode & S_IFMT ) == S_IFREG, "Can only write to a regular file." );
+        }
         FILE* file = fopen( filename, "w" );
         Assert( file != NULL, "fopen failed" );
         size_t fwrite_res = fwrite( string->data, 1, string->len, file );

@@ -1,5 +1,5 @@
 
-## lute text editor
+# lute text editor
 
 **Lu**ddite **T**ext **E**ditor
 

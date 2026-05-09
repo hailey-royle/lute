@@ -264,11 +264,55 @@ void EditNew(){
         edit.redo_count = 0;
         edit.data = realloc( edit.data, edit.undo_count * sizeof( edit.data[ 0 ]));
         Assert( edit.data != NULL, "Alloc failed." );
-        edit.data[ edit.undo_count - 1 ].count = selection.count;
-        edit.data[ edit.undo_count - 1 ].data = NULL;
-        edit.data[ edit.undo_count - 1 ].data = realloc( edit.data[ edit.undo_count - 1 ].data, edit.data[ edit.undo_count - 1 ].count * sizeof( edit.data[ edit.undo_count - 1 ].data[ 0 ] ));
-        Assert( edit.data[ edit.undo_count - 1 ].data != NULL, "Alloc failed." );
-        memset( edit.data[ edit.undo_count - 1 ].data, 0, edit.data[ edit.undo_count - 1 ].count * sizeof( edit.data[ edit.undo_count - 1 ].data[ 0 ] ));
+        struct EditSelectionArray* new_edit = &edit.data[ edit.undo_count - 1 ];
+        new_edit->count = selection.count;
+        new_edit->data = NULL;
+        new_edit->data = realloc( new_edit->data, new_edit->count * sizeof( new_edit->data[ 0 ] ));
+        Assert( new_edit->data != NULL, "Alloc failed." );
+        memset( new_edit->data, 0, new_edit->count * sizeof( new_edit->data[ 0 ] ));
+        for( size_t i = 0; i < new_edit->count; i++ ){
+                new_edit->data[ i ].index = selection.data[ i ].cursor;
+        }
+}
+
+void EditUndo(){
+        if( edit.undo_count <= 0 ){
+                return;
+        }
+        struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
+        for( size_t i = 0; i < undo->count; i++ ){
+                StringDelete( &file, undo->data[ i ].index, undo->data[ i ].insert.len );
+                if( undo->data[ i ].delete.len > 0 ){
+                        StringInsert( &file, undo->data[ i ].index, undo->data[ i ].delete.data, undo->data[ i ].delete.len );
+                }
+                selection.data[ i ].anchor = undo->data[ i ].index + undo->data[ i ].delete.len;
+                selection.data[ i ].cursor = undo->data[ i ].index;
+                for( size_t j = 0; j < undo->count; j++ ){
+                        if( undo->data[ j ].index > undo->data[ i ].index ){
+                                undo->data[ j ].index -= undo->data[ i ].insert.len;
+                                undo->data[ j ].index += undo->data[ i ].delete.len;
+                        }
+                }
+        }
+        edit.undo_count--;
+        edit.redo_count++;
+}
+
+void EditRedo(){
+        if( edit.redo_count <= 0 ){
+                return;
+        }
+        struct EditSelectionArray* undo = &edit.data[ edit.undo_count ];
+        for( size_t i = 0; i < undo->count; i++ ){
+                StringDelete( &file, undo->data[ i ].index, undo->data[ i ].delete.len );
+                if( undo->data[ i ].insert.len > 0 ){
+                        StringInsert( &file, undo->data[ i ].index, undo->data[ i ].insert.data, undo->data[ i ].insert.len );
+                }
+                selection.data[ i ].anchor = undo->data[ i ].index + undo->data[ i ].delete.len;
+                selection.data[ i ].cursor = undo->data[ i ].index;
+        }
+        edit.undo_count++;
+        edit.redo_count--;
 }
 
 void EditModeInit(){
@@ -276,7 +320,7 @@ void EditModeInit(){
         for( size_t i = 0; i < selection.count; i++ ){
                 StringFree( &selection.data[ i ].clipboard );
         }
-//        EditNew();
+        EditNew();
 }
 
 void SelectCursorLine(){
@@ -386,9 +430,9 @@ void ProsessCommand( char key ){
         } else if( key == 'i' ){
                 EditModeInit();
         } else if( key == 'u' ){
-//                EditUndo();
+                EditUndo();
         } else if( key == 'U' ){
-//                EditRedo();
+                EditRedo();
         } else if( key == 'a' ){
                 if( anchor_pinned ){ 
                         anchor_pinned = false;
@@ -491,7 +535,9 @@ void ProsessCommand( char key ){
                                                 break;
                                         }
                                         if( new_selection_index == 0 ){
-                                                SelectionNew( new_selection_index );
+                                                if( file.data[ new_selection_index ] == '\n' ){
+                                                        SelectionNew( new_selection_index );
+                                                }
                                                 break;
                                         }
                                         SelectionNew( new_selection_index );
@@ -522,11 +568,17 @@ void ProsessCommand( char key ){
 }
 
 void ProsessEdit( char key ){
+        struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
         if( key == ESCAPE_KEY ){
                 edit_mode = false;
         } else if( key == TAB_KEY || key == NEWLINE_KEY || ( key >= ' ' && key < DELETE_KEY )){
                 for( size_t i = 0; i < selection.count; i++ ){
-                        StringAppend( &edit.data[ edit.undo_count - 1].data[ i ].insert, &key, 1 ); 
+                        StringAppend( &undo->data[ i ].insert, &key, 1 ); 
+                        for( size_t j = 0; j < undo->count; j++ ){
+                                if( undo->data[ j ].index > undo->data[ i ].index ){
+                                        undo->data[ j ].index++;
+                                }
+                        }
                         StringAppend( &selection.data[ i ].clipboard, &key, 1 );
                         StringInsert( &file, selection.data[ i ].cursor, &key, 1 );
                         selection.data[ i ].cursor++;
@@ -543,17 +595,18 @@ void ProsessEdit( char key ){
                         if( selection.data[ i ].cursor == 0 ){
                                 break;
                         }
+                        selection.data[ i ].cursor--;
+                        selection.data[ i ].anchor = selection.data[ i ].cursor;
                         if( edit.data[ edit.undo_count - 1 ].data[ i ].insert.len > 0 ){
                                 StringDeduct( &edit.data[ edit.undo_count - 1 ].data[ i ].insert, 1 ); 
                         } else {
                                 StringInsert( &edit.data[ edit.undo_count - 1 ].data[ i ].delete, 0, &file.data[ selection.data[ i ].cursor ], 1 ); 
+                                edit.data[ edit.undo_count - 1 ].data[ i ].index--; 
                         }
-                        selection.data[ i ].cursor--;
                         if( selection.data[ i ].clipboard.len > 0 ){
                                         StringDeduct( &selection.data[ i ].clipboard, 1 );
                         }
                         StringDelete( &file, selection.data[ i ].cursor, 1 );
-                        selection.data[ i ].anchor = selection.data[ i ].cursor;
                         for( size_t j = 0; j < selection.count; j++ ){
                                 if( selection.data[ j ].cursor > selection.data[ i ].cursor ){
                                         selection.data[ j ].cursor--;
