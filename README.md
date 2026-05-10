@@ -7,9 +7,39 @@ lute is made for my personal use, it is not ment to cater to a general audience
 lute is inspired by vi and kakoune
 lute is usable, but unfinished
 
+## notes
+
+ next need to add undo info to c d r p commands
+ maybe just UndoNew() at start and add info in nSelection() functions
+ maybe also create generic delete and insert functions
+
 ### keybinds
 
 ```
++-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-----------+
+|       |       |       |       |       |       |       |       |       |       |       |       |       |           |
+|       |       |       |       |       |       |       |       |       |       |       |       |       |           |
+|       |   1   |   2   |   3   |   4   |   5   |   6   |   7   |   8   |   9   |   0   |       |       |           |
++-------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+-------+
+|           |   quit|       |       |l repla|f start| l yank|   redo|       |la*open|       |       |       |       |
+|           |       |       |       |       |       |       |       |       |       |       |       |       |       |
+|           | w quit|  write| w next|replace|  f end|   yank|   undo|   edit|lb*open|  paste|       |       |       |
++-----------+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+-------+
+|              |ac swap|       |l delet|fc prev|       |       |       |       |       |l split|       |            |
+|              |       |       |       |       |       |       |       |       |       |       |       |            |
+|              |a u/pin|       | delete|fc next|  *goto| c prev| l next| l prev| c next|unsplit|       |            |
++--------------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+----------------+
+|                  |       |       |l chang|       |       |       |       |       |       |       |                |
+|                  |       |       |       |       |       |       |       |       |       |       |                |
+|                  |l start|  l end| chagne|       | w prev| p next| p prev|       |       |       |                |
++----------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+--------+-------+
+|          |       |       |       |                                       |       |       |       |        |       |
+|          |       |       |       |                                       |       |       |       +--------+       |
+|          |       |       |       |                                       |       |       |       |        |       |
++----------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+--------+-------+
+
+### ??
+
 +-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-----------+
 |       |       |       |       |       |       |       |       |       |       |       |       |       |           |
 |       |       |       |       |       |       |       |       |       |       |       |       |       |           |
@@ -31,15 +61,14 @@ lute is usable, but unfinished
 |          |       |       |       |                                       |       |       |       +--------+       |
 |          |       |       |       |                                   edit|       |       |       |        |       |
 +----------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+--------+-------+
+
 [*] = not yet implmented
 ```
 
 ### todo
 
-- split cursor line
 - split cursor word
 - split cursor string
-- undo/redo
 - compounds
 - - open line
 - - select all
