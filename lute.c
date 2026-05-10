@@ -567,16 +567,16 @@ void ProsessCommand( char key ){
         } else if( key == 'T' ){
                 for( size_t i = 0; i < selection.count; i++ ){
                         if( !anchor_pinned ){
-                                selection.data[ i ].anchor = 0;
+                                selection.data[ i ].anchor = file.len - 1;
                         }
-                        selection.data[ i ].cursor = 0;
+                        selection.data[ i ].cursor = file.len - 1;
                 }
         } else if( key == 't' ){
                 for( size_t i = 0; i < selection.count; i++ ){
                         if( !anchor_pinned ){
-                                selection.data[ i ].anchor = file.len - 1;
+                                selection.data[ i ].anchor = 0;
                         }
-                        selection.data[ i ].cursor = file.len - 1;
+                        selection.data[ i ].cursor = 0;
                 }
         } else if( key == 'y' ){
                 CopySelection();
