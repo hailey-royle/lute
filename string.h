@@ -429,6 +429,55 @@ size_t StringSelectFindCharNext( struct String* string, size_t index, char key )
         return index;
 }
 
+size_t StringSelectSubStringPrev( struct String* string, size_t index, char* key, size_t sub_len ){
+        Assert( string != NULL, "Malformed args" );
+        Assert( string->cap > string->len || string->len <= 0, "Malformed internal string data" );
+        Assert( string->len >= index, "Malformed args" );
+        Assert( string->data != NULL, "Malformed args" );
+        Assert( key != NULL, "Malformed args" );
+        size_t i = sub_len - 1;
+        while( true ){
+                if( index <= 0 ){
+                        break;
+                }
+                index--;
+                if( string->data[ index ] == key[ i ] ){
+                        if( i == 0 ){
+                                break;
+                        }
+                        i--;
+                } else {
+                        i = sub_len - 1;
+                }
+        }
+        return index;
+}
+
+size_t StringSelectSubStringNext( struct String* string, size_t index, char* key, size_t key_len ){
+        Assert( string != NULL, "Malformed args" );
+        Assert( string->cap > string->len || string->len <= 0, "Malformed internal string data" );
+        Assert( string->len >= index, "Malformed args" );
+        Assert( string->data != NULL, "Malformed args" );
+        Assert( key != NULL, "Malformed args" );
+        size_t i = 0;
+        while( true ){
+                if( index >= string->len - 1 ){
+                        break;
+                }
+                index++;
+                if( string->data[ index ] == key[ i ] ){
+                        i++;
+                        if( i == key_len ){
+                                index -= key_len - 1;
+                                break;
+                        }
+                } else {
+                        i = 0;
+                }
+        }
+        return index;
+}
+
 #undef ALLOC_MULTIPLIER
 
 #endif

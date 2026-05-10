@@ -436,24 +436,6 @@ char GetNextInputWait(){
         return key;
 }
 
-#define ProsessSelectionMove( func ){\
-        for( size_t i = 0; i < selection.count; i++ ){ \
-                if( !anchor_pinned ){ \
-                        selection.data[ i ].anchor = selection.data[ i ].cursor; \
-                } \
-                selection.data[ i ].cursor = func( &file, selection.data[ i ].cursor ); \
-        } \
-}
-
-#define ProsessSelectionMoveChar( func, dst ){\
-        for( size_t i = 0; i < selection.count; i++ ){ \
-                if( !anchor_pinned ){ \
-                        selection.data[ i ].anchor = selection.data[ i ].cursor; \
-                } \
-                selection.data[ i ].cursor = func( &file, selection.data[ i ].cursor, dst ); \
-        } \
-}
-
 void ProsessEdit( char key ){
         struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
         if( key == ESCAPE_KEY ){
@@ -501,6 +483,24 @@ void ProsessEdit( char key ){
                         StringDelete( &file, selection.data[ i ].cursor, 1 );
                 }
         }
+}
+
+#define ProsessSelectionMove( func ){\
+        for( size_t i = 0; i < selection.count; i++ ){ \
+                if( !anchor_pinned ){ \
+                        selection.data[ i ].anchor = selection.data[ i ].cursor; \
+                } \
+                selection.data[ i ].cursor = func( &file, selection.data[ i ].cursor ); \
+        } \
+}
+
+#define ProsessSelectionMoveChar( func, dst ){\
+        for( size_t i = 0; i < selection.count; i++ ){ \
+                if( !anchor_pinned ){ \
+                        selection.data[ i ].anchor = selection.data[ i ].cursor; \
+                } \
+                selection.data[ i ].cursor = func( &file, selection.data[ i ].cursor, dst ); \
+        } \
 }
 
 void ProsessCommand( char key ){
@@ -628,7 +628,63 @@ void ProsessCommand( char key ){
                 for( size_t i = 1; selection.count > 1; ){
                         SelectionFree( i );
                 }
-        } else if( key == ':' ){
+        } else if( key == 's' ){
+                struct String search = { 0 };
+                while( true ){
+                        char input_key = GetNextInputWait();
+                        if( input_key == '\n' ){
+                                break;
+                        }
+                        if( input_key == ESCAPE_KEY ){
+                                StringFree( &search );
+                                break;
+                        }
+                        StringAppend( &search, &input_key, 1 );
+                }
+                if( search.len > 0 ){
+                        for( size_t i = 1; selection.count > 1; ){
+                                SelectionFree( i );
+                        }
+                        if( selection.data[ 0 ].cursor > selection.data[ 0 ].anchor ){
+                                size_t new_selection_index = StringSelectSubStringPrev( &file, selection.data[ 0 ].cursor, search.data, search.len );
+                                if( new_selection_index >= selection.data[ 0 ].anchor ){
+                                        size_t selection_min = selection.data[ 0 ].anchor;
+                                        selection.data[ 0 ].cursor = new_selection_index;
+                                        selection.data[ 0 ].anchor = new_selection_index + search.len;
+                                        while( true ){
+                                                new_selection_index = StringSelectSubStringPrev( &file, new_selection_index, search.data, search.len );
+                                                if( new_selection_index < selection_min ){
+                                                        break;
+                                                }
+                                                if( new_selection_index == 0 ){
+                                                        break;
+                                                }
+                                                SelectionNew( new_selection_index );
+                                                selection.data[ selection.count - 1 ].anchor = new_selection_index + search.len;
+                                        }
+                                }
+                        } else {
+                                size_t new_selection_index = StringSelectSubStringNext( &file, selection.data[ 0 ].cursor, search.data, search.len );
+                                if( new_selection_index <= selection.data[ 0 ].anchor ){
+                                        size_t selection_max = selection.data[ 0 ].anchor;
+                                        selection.data[ 0 ].cursor = new_selection_index;
+                                        selection.data[ 0 ].anchor = new_selection_index + search.len;
+                                        while( true ){
+                                                new_selection_index = StringSelectSubStringNext( &file, new_selection_index, search.data, search.len );
+                                                if( new_selection_index > selection_max ){
+                                                        break;
+                                                }
+                                                if( new_selection_index == file.len - 1 ){
+                                                        break;
+                                                }
+                                                SelectionNew( new_selection_index );
+                                                selection.data[ selection.count - 1 ].anchor = new_selection_index + search.len;
+                                        }
+                                }
+                        }
+                }
+                StringFree( &search );
+        } else if( key == 'S' ){
                 for( size_t i = 1; selection.count > 1; ){
                         SelectionFree( i );
                 }
@@ -674,7 +730,7 @@ void ProsessCommand( char key ){
                                         SelectionNew( new_selection_index );
                                 }
                         }
-                } 
+                }
         }
 }
 

@@ -19,9 +19,9 @@ lute is usable, but unfinished
 |           |       |       |       |       |       |       |       |       |       |       |       |       |       |
 |           | w quit|  write| w next|replace|f start|   yank|   undo|   edit| l open|  paste|       |       |       |
 +-----------+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+-------+
-|              |ac swap|       |l delet|fc prev|f selec|       |       |       |       |l split|       |            |
+|              |ac swap|l split|l delet|fc prev|f selec|       |       |       |       |       |       |            |
 |              |       |       |       |       |       |       |       |       |       |       |       |            |
-|              |a u/pin|       | delete|fc next|  *goto| c prev| l next| l prev| c next|unsplit|       |            |
+|              |a u/pin|s split| delete|fc next|  *goto| c prev| l next| l prev| c next|unsplit|       |            |
 +--------------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+----------------+
 |                  |       |       |l chang|       |       |       |       |uninden| indent|       |                |
 |                  |       |       |       |       |       |       |       |       |       |       |                |
@@ -61,8 +61,6 @@ lute is usable, but unfinished
 
 ### todo
 
-- split cursor word
-- split cursor string
 - compounds
 - - open line above
 - - select inside ( { [ ' "
