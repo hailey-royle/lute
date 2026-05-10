@@ -47,7 +47,7 @@ lute is usable, but unfinished
 |              |anchor |       |       |       |       |       |       |       |       |       |       |            |
 |              | un/pin|l start| l prev| c prev|*goto c|f start| c next| l next|  l end|       |       |            |
 +--------------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+----------------+
-|                  |       |       |       |       |       |       |       |       |       |       |                |
+|                  |       |       |       |       |       |       |       |uninden| indent|       |                |
 |                  |       |       |       |       |       |       |       |       |       |       |                |
 |                  |       |       |       |       |       |       |       |       |       |       |                |
 +----------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+--------+-------+
@@ -67,7 +67,6 @@ lute is usable, but unfinished
 - - open line above
 - - select all
 - - select inside ( { [ ' "
-- - indent
 - repete command
 - command count
 - goto line

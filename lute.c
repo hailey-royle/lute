@@ -610,6 +610,15 @@ void ProsessCommand( char key ){
                 EditNew();
                 DeleteSelection();
                 PasteSelection();
+        } else if( key == '<' ){
+                ProsessSelectionMove( StringSelectLineStart );
+                EditNew();
+                ProsessSelectionMove( StringSelectCharNext );
+                ProsessEdit( DELETE_KEY );
+        } else if( key == '>' ){
+                ProsessSelectionMove( StringSelectLineStart );
+                EditNew();
+                ProsessEdit( '\t' );
         } else if( key == ';' ){
                 for( size_t i = 1; selection.count > 1; ){
                         SelectionFree( i );
