@@ -7,12 +7,6 @@ lute is made for my personal use, it is not ment to cater to a general audience
 lute is inspired by vi and kakoune
 lute is usable, but unfinished
 
-## notes
-
- next need to add undo info to c d r p commands
- maybe just UndoNew() at start and add info in nSelection() functions
- maybe also create generic delete and insert functions
-
 ### keybinds
 
 ```
@@ -23,7 +17,7 @@ lute is usable, but unfinished
 +-------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+-------+
 |           |   quit|       |       |l repla|f start| l yank|   redo|       |la*open|       |       |       |       |
 |           |       |       |       |       |       |       |       |       |       |       |       |       |       |
-|           | w quit|  write| w next|replace|  f end|   yank|   undo|   edit|lb*open|  paste|       |       |       |
+|           | w quit|  write| w next|replace|  f end|   yank|   undo|   edit| l open|  paste|       |       |       |
 +-----------+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+-------+
 |              |ac swap|       |l delet|fc prev|       |       |       |       |       |l split|       |            |
 |              |       |       |       |       |       |       |       |       |       |       |       |            |
@@ -70,7 +64,7 @@ lute is usable, but unfinished
 - split cursor word
 - split cursor string
 - compounds
-- - open line
+- - open line above
 - - select all
 - - select inside ( { [ ' "
 - - indent
