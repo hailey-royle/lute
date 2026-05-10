@@ -280,17 +280,27 @@ void EditUndo(){
                 return;
         }
         struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
+        while( selection.count < undo->count ){
+                SelectionNew( 0 );
+        }
+        while( selection.count > undo->count ){
+                SelectionFree( undo->count );
+        }
         for( size_t i = 0; i < undo->count; i++ ){
                 StringDelete( &file, undo->data[ i ].index, undo->data[ i ].insert.len );
                 if( undo->data[ i ].delete.len > 0 ){
                         StringInsert( &file, undo->data[ i ].index, undo->data[ i ].delete.data, undo->data[ i ].delete.len );
                 }
-                selection.data[ i ].anchor = undo->data[ i ].index + undo->data[ i ].delete.len;
-                selection.data[ i ].cursor = undo->data[ i ].index;
+                selection.data[ i ].cursor = undo->data[ i ].index + undo->data[ i ].delete.len;
+                selection.data[ i ].anchor = undo->data[ i ].index;
                 for( size_t j = 0; j < undo->count; j++ ){
                         if( undo->data[ j ].index > undo->data[ i ].index ){
                                 undo->data[ j ].index -= undo->data[ i ].insert.len;
                                 undo->data[ j ].index += undo->data[ i ].delete.len;
+                                selection.data[ j ].cursor -= undo->data[ i ].insert.len;
+                                selection.data[ j ].cursor += undo->data[ i ].delete.len;
+                                selection.data[ j ].anchor -= undo->data[ i ].insert.len;
+                                selection.data[ j ].anchor += undo->data[ i ].delete.len;
                         }
                 }
         }
@@ -303,13 +313,29 @@ void EditRedo(){
                 return;
         }
         struct EditSelectionArray* undo = &edit.data[ edit.undo_count ];
+        while( selection.count < undo->count ){
+                SelectionNew( 0 );
+        }
+        while( selection.count > undo->count ){
+                SelectionFree( undo->count );
+        }
         for( size_t i = 0; i < undo->count; i++ ){
                 StringDelete( &file, undo->data[ i ].index, undo->data[ i ].delete.len );
                 if( undo->data[ i ].insert.len > 0 ){
                         StringInsert( &file, undo->data[ i ].index, undo->data[ i ].insert.data, undo->data[ i ].insert.len );
                 }
-                selection.data[ i ].anchor = undo->data[ i ].index + undo->data[ i ].delete.len;
-                selection.data[ i ].cursor = undo->data[ i ].index;
+                selection.data[ i ].cursor = undo->data[ i ].index + undo->data[ i ].insert.len;
+                selection.data[ i ].anchor = undo->data[ i ].index;
+                for( size_t j = 0; j < undo->count; j++ ){
+                        if( undo->data[ j ].index > undo->data[ i ].index ){
+                                undo->data[ j ].index += undo->data[ i ].insert.len;
+                                undo->data[ j ].index -= undo->data[ i ].delete.len;
+                                selection.data[ j ].cursor += undo->data[ i ].insert.len;
+                                selection.data[ j ].cursor -= undo->data[ i ].delete.len;
+                                selection.data[ j ].anchor += undo->data[ i ].insert.len;
+                                selection.data[ j ].anchor -= undo->data[ i ].delete.len;
+                        }
+                }
         }
         edit.undo_count++;
         edit.redo_count--;
@@ -573,46 +599,45 @@ void ProsessEdit( char key ){
                 edit_mode = false;
         } else if( key == TAB_KEY || key == NEWLINE_KEY || ( key >= ' ' && key < DELETE_KEY )){
                 for( size_t i = 0; i < selection.count; i++ ){
-                        StringAppend( &undo->data[ i ].insert, &key, 1 ); 
-                        for( size_t j = 0; j < undo->count; j++ ){
+                        Assert( undo->count == selection.count, "you fucked up" );
+                        for( size_t j = 0; j < selection.count; j++ ){
                                 if( undo->data[ j ].index > undo->data[ i ].index ){
                                         undo->data[ j ].index++;
-                                }
-                        }
-                        StringAppend( &selection.data[ i ].clipboard, &key, 1 );
-                        StringInsert( &file, selection.data[ i ].cursor, &key, 1 );
-                        selection.data[ i ].cursor++;
-                        selection.data[ i ].anchor = selection.data[ i ].cursor;
-                        for( size_t j = 0; j < selection.count; j++ ){
-                                if( selection.data[ j ].cursor > selection.data[ i ].cursor ){
                                         selection.data[ j ].cursor++;
                                         selection.data[ j ].anchor = selection.data[ j ].cursor;
                                 }
                         }
+                        StringAppend( &undo->data[ i ].insert, &key, 1 ); 
+                        StringAppend( &selection.data[ i ].clipboard, &key, 1 );
+                        StringInsert( &file, selection.data[ i ].cursor, &key, 1 );
+                        selection.data[ i ].cursor++;
+                        selection.data[ i ].anchor = selection.data[ i ].cursor;
                 }
         } else if( key == DELETE_KEY ){
                 for( size_t i = 0; i < selection.count; i++ ){
+                        Assert( undo->count == selection.count, "you fucked up" );
                         if( selection.data[ i ].cursor == 0 ){
                                 break;
                         }
                         selection.data[ i ].cursor--;
                         selection.data[ i ].anchor = selection.data[ i ].cursor;
-                        if( edit.data[ edit.undo_count - 1 ].data[ i ].insert.len > 0 ){
-                                StringDeduct( &edit.data[ edit.undo_count - 1 ].data[ i ].insert, 1 ); 
-                        } else {
-                                StringInsert( &edit.data[ edit.undo_count - 1 ].data[ i ].delete, 0, &file.data[ selection.data[ i ].cursor ], 1 ); 
-                                edit.data[ edit.undo_count - 1 ].data[ i ].index--; 
-                        }
-                        if( selection.data[ i ].clipboard.len > 0 ){
-                                        StringDeduct( &selection.data[ i ].clipboard, 1 );
-                        }
-                        StringDelete( &file, selection.data[ i ].cursor, 1 );
                         for( size_t j = 0; j < selection.count; j++ ){
-                                if( selection.data[ j ].cursor > selection.data[ i ].cursor ){
+                                if( undo->data[ j ].index > undo->data[ i ].index ){
+                                        undo->data[ j ].index--;
                                         selection.data[ j ].cursor--;
                                         selection.data[ j ].anchor = selection.data[ j ].cursor;
                                 }
                         }
+                        if( undo->data[ i ].insert.len > 0 ){
+                                StringDeduct( &undo->data[ i ].insert, 1 ); 
+                        } else {
+                                StringInsert( &undo->data[ i ].delete, 0, &file.data[ selection.data[ i ].cursor ], 1 ); 
+                                undo->data[ i ].index--; 
+                        }
+                        if( selection.data[ i ].clipboard.len > 0 ){
+                                StringDeduct( &selection.data[ i ].clipboard, 1 );
+                        }
+                        StringDelete( &file, selection.data[ i ].cursor, 1 );
                 }
         }
 }
