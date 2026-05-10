@@ -19,7 +19,7 @@ lute is usable, but unfinished
 |           |       |       |       |       |       |       |       |       |       |       |       |       |       |
 |           | w quit|  write| w next|replace|  f end|   yank|   undo|   edit| l open|  paste|       |       |       |
 +-----------+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+-------+
-|              |ac swap|       |l delet|fc prev|       |       |       |       |       |l split|       |            |
+|              |ac swap|       |l delet|fc prev|f selec|       |       |       |       |l split|       |            |
 |              |       |       |       |       |       |       |       |       |       |       |       |            |
 |              |a u/pin|       | delete|fc next|  *goto| c prev| l next| l prev| c next|unsplit|       |            |
 +--------------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+----------------+
@@ -65,7 +65,6 @@ lute is usable, but unfinished
 - split cursor string
 - compounds
 - - open line above
-- - select all
 - - select inside ( { [ ' "
 - repete command
 - command count

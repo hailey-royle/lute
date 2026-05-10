@@ -535,6 +535,11 @@ void ProsessCommand( char key ){
                         selection.data[ i ].cursor = selection.data[ i ].anchor;
                         selection.data[ i ].anchor = tmp;
                 }
+        } else if( key == 'G' ){
+                for( size_t i = 0; i < selection.count; i++ ){
+                        selection.data[ i ].cursor = 0;
+                        selection.data[ i ].anchor = file.len - 1;
+                }
         } else if( key == 'h' ){
                 ProsessSelectionMove( StringSelectCharPrev );
         } else if( key == 'l' ){
