@@ -32,7 +32,18 @@ lute is usable, but unfinished
 |          |       |       |       |                                       |       |       |       |        |       |
 +----------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+--------+-------+
 
-### ??
+[*] = not yet implmented
+```
+
+### todo
+
+- compounds
+- - open line above
+- - select inside ( { [ ' "
+- repete command
+- goto line
+- key escape code cull
+- utf8?
 
 +-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-----------+
 |       |       |       |       |       |       |       |       |       |       |       |       |       |           |
@@ -55,17 +66,3 @@ lute is usable, but unfinished
 |          |       |       |       |                                       |       |       |       +--------+       |
 |          |       |       |       |                                   edit|       |       |       |        |       |
 +----------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+--------+-------+
-
-[*] = not yet implmented
-```
-
-### todo
-
-- compounds
-- - open line above
-- - select inside ( { [ ' "
-- repete command
-- command count
-- goto line
-- key escape code cull
-- utf8?

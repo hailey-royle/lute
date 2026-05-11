@@ -65,6 +65,7 @@ struct EditArray edit = { 0 };
 struct Screen screen = { 0 };
 struct String file = { 0 };
 char* file_name = NULL;
+size_t command_count = 0;
 bool edit_mode = false;
 bool anchor_pinned = false;
 
@@ -486,20 +487,31 @@ void ProsessEdit( char key ){
 }
 
 #define ProsessSelectionMove( func ){\
+        if( command_count == 0 ){ \
+                command_count = 1; \
+        } \
         for( size_t i = 0; i < selection.count; i++ ){ \
-                if( !anchor_pinned ){ \
-                        selection.data[ i ].anchor = selection.data[ i ].cursor; \
+                while( command_count > 0 ){ \
+                        command_count--; \
+                        if( !anchor_pinned ){ \
+                                selection.data[ i ].anchor = selection.data[ i ].cursor; \
+                        } \
+                        selection.data[ i ].cursor = func( &file, selection.data[ i ].cursor ); \
                 } \
-                selection.data[ i ].cursor = func( &file, selection.data[ i ].cursor ); \
         } \
 }
 
 #define ProsessSelectionMoveChar( func, dst ){\
+        if( command_count == 0 ){ \
+                command_count = 1; \
+        } \
         for( size_t i = 0; i < selection.count; i++ ){ \
-                if( !anchor_pinned ){ \
-                        selection.data[ i ].anchor = selection.data[ i ].cursor; \
+                while( command_count > 0 ){ \
+                        if( !anchor_pinned ){ \
+                                selection.data[ i ].anchor = selection.data[ i ].cursor; \
+                        } \
+                        selection.data[ i ].cursor = func( &file, selection.data[ i ].cursor, dst ); \
                 } \
-                selection.data[ i ].cursor = func( &file, selection.data[ i ].cursor, dst ); \
         } \
 }
 
@@ -510,36 +522,50 @@ void ProsessCommand( char key ){
         } else if( key == 'Q' ){
                 exit( 0 );
         } else if( key == 'w' ){
+                command_count = 0;
                 StringToFile( &file, file_name );
         } else if( key == 'i' ){
+                command_count = 0;
                 EditModeInit();
                 EditNew();
         } else if( key == 'o' ){
+                command_count = 0;
                 ProsessSelectionMove( StringSelectLineEnd );
                 EditModeInit();
                 EditNew();
                 ProsessEdit( '\n' );
         } else if( key == 'u' ){
+                command_count = 0;
                 EditUndo();
         } else if( key == 'U' ){
+                command_count = 0;
                 EditRedo();
         } else if( key == 'a' ){
+                command_count = 0;
                 if( anchor_pinned ){ 
                         anchor_pinned = false;
                 } else {
                         anchor_pinned = true;
                 }
         } else if( key == 'A' ){
+                command_count = 0;
                 for( size_t i = 0; i < selection.count; i++ ){
                         size_t tmp = selection.data[ i ].cursor;
                         selection.data[ i ].cursor = selection.data[ i ].anchor;
                         selection.data[ i ].anchor = tmp;
                 }
+        } else if( key == 'g' ){
+                for( size_t i = 0; i < selection.count; i++ ){
+                        selection.data[ i ].cursor = StringSelectLineNumber( &file, command_count );
+                        selection.data[ i ].anchor = selection.data[ i ].cursor;
+                }
+                command_count = 0;
         } else if( key == 'G' ){
                 for( size_t i = 0; i < selection.count; i++ ){
                         selection.data[ i ].cursor = 0;
                         selection.data[ i ].anchor = file.len - 1;
                 }
+                command_count = 0;
         } else if( key == 'h' ){
                 ProsessSelectionMove( StringSelectCharPrev );
         } else if( key == 'l' ){
@@ -565,6 +591,7 @@ void ProsessCommand( char key ){
         } else if( key == 'x' ){
                 ProsessSelectionMove( StringSelectLineEnd );
         } else if( key == 'T' ){
+                command_count = 0;
                 for( size_t i = 0; i < selection.count; i++ ){
                         if( !anchor_pinned ){
                                 selection.data[ i ].anchor = file.len - 1;
@@ -572,6 +599,7 @@ void ProsessCommand( char key ){
                         selection.data[ i ].cursor = file.len - 1;
                 }
         } else if( key == 't' ){
+                command_count = 0;
                 for( size_t i = 0; i < selection.count; i++ ){
                         if( !anchor_pinned ){
                                 selection.data[ i ].anchor = 0;
@@ -579,56 +607,69 @@ void ProsessCommand( char key ){
                         selection.data[ i ].cursor = 0;
                 }
         } else if( key == 'y' ){
+                command_count = 0;
                 CopySelection();
         } else if( key == 'Y' ){
+                command_count = 0;
                 SelectCursorLine();
                 CopySelection();
         } else if( key == 'd' ){
+                command_count = 0;
                 EditNew();
                 CopySelection();
                 DeleteSelection();
         } else if( key == 'D' ){
+                command_count = 0;
                 SelectCursorLine();
                 EditNew();
                 CopySelection();
                 DeleteSelection();
         } else if( key == 'c' ){
+                command_count = 0;
                 EditNew();
                 CopySelection();
                 DeleteSelection();
                 EditModeInit();
         } else if( key == 'C' ){
+                command_count = 0;
                 SelectCursorLine();
                 EditNew();
                 CopySelection();
                 DeleteSelection();
                 EditModeInit();
         } else if( key == 'p' ){
+                command_count = 0;
                 EditNew();
                 PasteSelection();
         } else if( key == 'r' ){
+                command_count = 0;
                 EditNew();
                 DeleteSelection();
                 PasteSelection();
         } else if( key == 'R' ){
+                command_count = 0;
                 SelectCursorLine();
                 EditNew();
                 DeleteSelection();
                 PasteSelection();
         } else if( key == '<' ){
+                command_count = 0;
                 ProsessSelectionMove( StringSelectLineStart );
                 EditNew();
                 ProsessSelectionMove( StringSelectCharNext );
                 ProsessEdit( DELETE_KEY );
         } else if( key == '>' ){
+                command_count = 0;
                 ProsessSelectionMove( StringSelectLineStart );
                 EditNew();
                 ProsessEdit( '\t' );
         } else if( key == ';' ){
+                command_count = 0;
                 for( size_t i = 1; selection.count > 1; ){
                         SelectionFree( i );
                 }
         } else if( key == 's' ){
+                command_count = 0;
                 struct String search = { 0 };
                 while( true ){
                         char input_key = GetNextInputWait();
@@ -685,6 +726,7 @@ void ProsessCommand( char key ){
                 }
                 StringFree( &search );
         } else if( key == 'S' ){
+                command_count = 0;
                 for( size_t i = 1; selection.count > 1; ){
                         SelectionFree( i );
                 }
@@ -731,6 +773,11 @@ void ProsessCommand( char key ){
                                 }
                         }
                 }
+        } else if( key >= '0' && key <= '9' ){
+                command_count *= 10;
+                command_count += key & 0xf;
+                DebugPrintf( "%ld", command_count );
+                sleep( 1 );
         }
 }
 

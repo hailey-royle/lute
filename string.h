@@ -333,15 +333,14 @@ size_t StringSelectLineNumber( struct String* string, size_t line ){
         Assert( string->data != NULL, "Malformed args" );
         size_t index = 0;
         while( true ){
-                if( line <= 0 ){
+                if( line <= 1 ){
                         break;
                 }
-                if( index >= string->len ){
+                if( index >= string->len - 1 ){
                         break;
                 }
                 if( string->data[ index ] == '\n' ){
                         line--;
-                        break;
                 }
                 index++;
         }
