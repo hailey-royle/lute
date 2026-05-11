@@ -401,6 +401,9 @@ void CopySelection(){
 void PasteSelection(){
         struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
         for( size_t i = 0; i < selection.count; i++ ){
+                if( selection.data[ i ].clipboard.len == 0 ){
+                        continue;
+                }
                 for( size_t j = 0; j < selection.count; j++ ){
                         if( selection.data[ j ].cursor > selection.data[ i ].cursor ){
                                 undo->data[ j ].index += selection.data[ i ].clipboard.len;
