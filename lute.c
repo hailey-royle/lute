@@ -779,8 +779,6 @@ void ProsessCommand( char key ){
         } else if( key >= '0' && key <= '9' ){
                 command_count *= 10;
                 command_count += key & 0xf;
-                DebugPrintf( "%ld", command_count );
-                sleep( 1 );
         }
 }
 

@@ -21,7 +21,7 @@ lute is usable, but unfinished
 +-----------+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+-------+
 |              |ac swap|l split|l delet|fc prev|f selec|       |       |       |       |       |       |            |
 |              |       |       |       |       |       |       |       |       |       |       |       |            |
-|              |a u/pin|s split| delete|fc next|  *goto| c prev| l next| l prev| c next|unsplit|       |            |
+|              |a u/pin|s split| delete|fc next|   goto| c prev| l next| l prev| c next|unsplit|       |            |
 +--------------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+----------------+
 |                  |       |       |l chang|       |       |       |       |uninden| indent|       |                |
 |                  |       |       |       |       |       |       |       |       |       |       |                |
@@ -41,7 +41,6 @@ lute is usable, but unfinished
 - - open line above
 - - select inside ( { [ ' "
 - repete command
-- goto line
 - key escape code cull
 - utf8?
 
