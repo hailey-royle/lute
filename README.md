@@ -43,6 +43,10 @@ lute is usable, but unfinished
 - repete command
 - key escape code cull
 - utf8?
+- horizontal scroll
+- main selection rotate
+- redo memory leak
+- -k/-h
 
 +-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-----------+
 |       |       |       |       |       |       |       |       |       |       |       |       |       |           |
