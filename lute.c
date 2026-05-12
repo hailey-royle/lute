@@ -501,7 +501,7 @@ void ProsessEdit( char key ){
                         selection.data[ i ].cursor = func( &file, selection.data[ i ].cursor ); \
                 } \
         } \
-	command_count = 0;
+	command_count = 0; \
 }
 
 #define ProsessSelectionMoveChar( func, dst ){\
@@ -516,7 +516,7 @@ void ProsessEdit( char key ){
                         selection.data[ i ].cursor = func( &file, selection.data[ i ].cursor, dst ); \
                 } \
         } \
-	command_count = 0;
+	command_count = 0; \
 }
 
 void ProsessCommand( char key ){
