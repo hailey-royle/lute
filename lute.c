@@ -74,7 +74,7 @@ void LoadArgs( int argc, char** argv ){
 		printf( "Usage: lute <filename>\n" );
 		exit( 0 );
 	}
-	file_name = argv[1];
+	file_name = argv[ 1 ];
 }
 
 void DisableRawMode(){
@@ -261,7 +261,21 @@ void SelectionFree( size_t index ){
 }
 
 void EditNew(){
-	for( size_t i = edit.undo_count; i > edit.undo_count + edit.redo_count; i++ ){
+	if( edit.undo_count > 0 ){
+		for( size_t i = 0; i <= edit.data[ edit.undo_count - 1 ].count; i++ ){
+			if( i == edit.data[ edit.undo_count - 1 ].count ){
+				return;
+			}
+			if( edit.data[ edit.undo_count - 1 ].data[ i ].insert.len != 0 || edit.data[ edit.undo_count - 1 ].data[ i ].delete.len != 0 ){
+				break;
+			}
+		}
+	}
+	for( size_t i = edit.undo_count; i < edit.undo_count + edit.redo_count; i++ ){
+		for( size_t j = 0; j < edit.data[ i ].count; j++ ){
+			StringFree( &edit.data[ i ].data[ j ].insert );
+			StringFree( &edit.data[ i ].data[ j ].delete );
+		}
 		free( edit.data[ i ].data );
 	}
 	edit.undo_count++;

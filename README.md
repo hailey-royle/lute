@@ -44,9 +44,6 @@ lute is usable, but unfinished
 - key escape code cull
 - utf8?
 - horizontal scroll
-- -k/-h
-- no new undo if current undo is empty
-- memory leak sometimes
 - config.h
 
 +-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-----------+
