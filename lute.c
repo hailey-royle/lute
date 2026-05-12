@@ -508,7 +508,7 @@ void ProsessEdit( char key ){
 	}
 }
 
-#define ProsessSelectionMove( func ){\
+#define ProsessSelectionMove( func ){ \
 	if( command_count == 0 ){ \
 		command_count = 1; \
 	} \
@@ -523,7 +523,7 @@ void ProsessEdit( char key ){
 	command_count = 0; \
 }
 
-#define ProsessSelectionMoveChar( func, dst ){\
+#define ProsessSelectionMoveChar( func, dst ){ \
 	if( command_count == 0 ){ \
 		command_count = 1; \
 	} \
@@ -536,6 +536,46 @@ void ProsessEdit( char key ){
 		} \
 	} \
 	command_count = 0; \
+}
+
+#define ProsessSelectionInside( lower, upper, left, right ){ \
+	for( size_t i = 0; i < selection.count; i++ ){ \
+		size_t lower_index = selection.data[ i ].cursor; \
+		size_t upper_index = selection.data[ i ].cursor - 1; \
+		size_t j = 0; \
+		while( true ){ \
+			size_t left_index = StringSelectFindCharPrev( &file, lower_index, left ); \
+			size_t right_index = StringSelectFindCharPrev( &file, lower_index, right ); \
+			if( right_index <= left_index ){ \
+				lower_index = left_index; \
+				if( j == 0 ){ \
+					break; \
+				} \
+				j--; \
+			} else { \
+				lower_index = right_index; \
+				j++; \
+			} \
+		} \
+		while( true ){ \
+			size_t left_index = StringSelectFindCharNext( &file, upper_index, left ); \
+			size_t right_index = StringSelectFindCharNext( &file, upper_index, right ); \
+			if( right_index <= left_index ){ \
+				upper_index = right_index; \
+				if( j == 0 ){ \
+					break; \
+				} \
+				j--; \
+			} else { \
+				upper_index = left_index; \
+				j++; \
+			} \
+		} \
+		if( file.data[ lower_index ] == left && file.data[ upper_index ] == right ){ \
+			upper = upper_index + 1; \
+			lower = lower_index; \
+		} \
+	} \
 }
 
 void ProsessCommand( char key ){
@@ -686,6 +726,30 @@ void ProsessCommand( char key ){
 		ProsessSelectionMove( StringSelectLineStart );
 		EditNew();
 		ProsessEdit( '\t' );
+	} else if( key == '(' ){
+		command_count = 0;
+		ProsessSelectionInside( selection.data[ i ].cursor, selection.data[ i ].anchor, '(', ')' );
+	} else if( key == ')' ){
+		command_count = 0;
+		ProsessSelectionInside( selection.data[ i ].anchor, selection.data[ i ].cursor, '(', ')' );
+	} else if( key == '[' ){
+		command_count = 0;
+		ProsessSelectionInside( selection.data[ i ].cursor, selection.data[ i ].anchor, '[', ']' );
+	} else if( key == ']' ){
+		command_count = 0;
+		ProsessSelectionInside( selection.data[ i ].anchor, selection.data[ i ].cursor, '[', ']' );
+	} else if( key == '{' ){
+		command_count = 0;
+		ProsessSelectionInside( selection.data[ i ].cursor, selection.data[ i ].anchor, '{', '}' );
+	} else if( key == '}' ){
+		command_count = 0;
+		ProsessSelectionInside( selection.data[ i ].anchor, selection.data[ i ].cursor, '{', '}' );
+	} else if( key == '\'' ){
+		command_count = 0;
+		ProsessSelectionInside( selection.data[ i ].anchor, selection.data[ i ].cursor, '\'', '\'' );
+	} else if( key == '"' ){
+		command_count = 0;
+		ProsessSelectionInside( selection.data[ i ].anchor, selection.data[ i ].cursor, '"', '"' );
 	} else if( key == ';' ){
 		command_count = 0;
 		for( size_t i = 1; selection.count > 1; ){
