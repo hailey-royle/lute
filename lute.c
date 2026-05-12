@@ -261,6 +261,9 @@ void SelectionFree( size_t index ){
 }
 
 void EditNew(){
+	for( size_t i = edit.undo_count; i > edit.undo_count + edit.redo_count; i++ ){
+		free( edit.data[ i ].data );
+	}
         edit.undo_count++;
         edit.redo_count = 0;
         edit.data = realloc( edit.data, edit.undo_count * sizeof( edit.data[ 0 ]));
