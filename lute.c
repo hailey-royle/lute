@@ -271,14 +271,6 @@ void EditNew(){
         new_edit->data = realloc( new_edit->data, new_edit->count * sizeof( new_edit->data[ 0 ] ));
         Assert( new_edit->data != NULL, "Alloc failed." );
         memset( new_edit->data, 0, new_edit->count * sizeof( new_edit->data[ 0 ] ));
-        for( size_t i = 0; i < new_edit->count; i++ ){
-                if( selection.data[ i ].cursor > selection.data[ i ].anchor ){
-                        size_t tmp = selection.data[ i ].anchor;
-                        selection.data[ i ].anchor = selection.data[ i ].cursor;
-                        selection.data[ i ].cursor = tmp;
-                }
-                new_edit->data[ i ].index = selection.data[ i ].cursor;
-        }
 }
 
 void EditUndo(){
@@ -364,6 +356,14 @@ void SelectCursorLine(){
 
 void DeleteSelection(){
         struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
+        for( size_t i = 0; i < undo->count; i++ ){
+                if( selection.data[ i ].cursor > selection.data[ i ].anchor ){
+                        size_t tmp = selection.data[ i ].anchor;
+                        selection.data[ i ].anchor = selection.data[ i ].cursor;
+                        selection.data[ i ].cursor = tmp;
+                }
+                undo->data[ i ].index = selection.data[ i ].cursor;
+        }
         for( size_t i = 0; i < selection.count; i++ ){
                 Assert( selection.data[ i ].anchor >= selection.data[ i ].cursor, "you fucked up" );
                 size_t selection_len = selection.data[ i ].anchor - selection.data[ i ].cursor;
@@ -400,8 +400,11 @@ void CopySelection(){
 
 void PasteSelection(){
         struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
+        for( size_t i = 0; i < undo->count; i++ ){
+                undo->data[ i ].index = selection.data[ i ].cursor;
+        }
         for( size_t i = 0; i < selection.count; i++ ){
-                if( selection.data[ i ].clipboard.len == 0 ){
+                if( selection.data[ i ].clipboard.len == 0 || selection.data[ i ].clipboard.data ==  NULL ){
                         continue;
                 }
                 for( size_t j = 0; j < selection.count; j++ ){
@@ -412,9 +415,7 @@ void PasteSelection(){
                         }
                 }
                 StringAppend( &undo->data[ i ].insert, selection.data[ i ].clipboard.data, selection.data[ i ].clipboard.len ); 
-                if( selection.data[ i ].clipboard.data != NULL ){
-                        StringInsert( &file, selection.data[ i ].cursor, selection.data[ i ].clipboard.data, selection.data[ i ].clipboard.len );
-                }
+		StringInsert( &file, selection.data[ i ].cursor, selection.data[ i ].clipboard.data, selection.data[ i ].clipboard.len );
                 selection.data[ i ].anchor = selection.data[ i ].cursor;
                 selection.data[ i ].cursor = selection.data[ i ].cursor + selection.data[ i ].clipboard.len;
         }
