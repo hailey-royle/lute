@@ -673,6 +673,17 @@ void ProsessCommand( char key ){
                 for( size_t i = 1; selection.count > 1; ){
                         SelectionFree( i );
                 }
+	} else if( key == ':' ){
+		struct Selection tmp = selection.data[ 0 ];
+	        for( size_t i = 1; i < selection.count; i++ ){
+	                selection.data[ i - 1 ].cursor = selection.data[ i ].cursor;
+	                selection.data[ i - 1 ].anchor = selection.data[ i ].anchor;
+	                selection.data[ i - 1 ].clipboard.data = selection.data[ i ].clipboard.data;
+	                selection.data[ i - 1 ].clipboard.len = selection.data[ i ].clipboard.len;
+	                selection.data[ i - 1 ].clipboard.cap = selection.data[ i ].clipboard.cap;
+	        }
+		selection.data[ selection.count - 1 ] = tmp;
+
         } else if( key == 's' ){
                 command_count = 0;
                 struct String search = { 0 };
@@ -730,6 +741,7 @@ void ProsessCommand( char key ){
                         }
                 }
                 StringFree( &search );
+
         } else if( key == 'S' ){
                 command_count = 0;
                 for( size_t i = 1; selection.count > 1; ){

@@ -19,7 +19,7 @@ lute is usable, but unfinished
 |           |       |       |       |       |       |       |       |       |       |       |       |       |       |
 |           | w quit|  write| w next|replace|f start|   yank|   undo|   edit| l open|  paste|       |       |       |
 +-----------+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+-------+
-|              |ac swap|l split|l delet|fc prev|f selec|       |       |       |       |       |       |            |
+|              |ac swap|l split|l delet|fc prev|f selec|       |       |       |       |s rotat|       |            |
 |              |       |       |       |       |       |       |       |       |       |       |       |            |
 |              |a u/pin|s split| delete|fc next|   goto| c prev| l next| l prev| c next|unsplit|       |            |
 +--------------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+----------------+
@@ -44,7 +44,6 @@ lute is usable, but unfinished
 - key escape code cull
 - utf8?
 - horizontal scroll
-- main selection rotate
 - redo memory leak
 - -k/-h
 
