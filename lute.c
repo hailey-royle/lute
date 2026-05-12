@@ -344,6 +344,7 @@ void EditModeInit(){
         for( size_t i = 0; i < selection.count; i++ ){
                 StringFree( &selection.data[ i ].clipboard );
                 selection.data[ i ].anchor = selection.data[ i ].cursor;
+                edit.data[ edit.undo_count - 1 ].data[ i ].index = selection.data[ i ].cursor;
         }
 }
 
@@ -531,13 +532,13 @@ void ProsessCommand( char key ){
                 StringToFile( &file, file_name );
         } else if( key == 'i' ){
                 command_count = 0;
-                EditModeInit();
                 EditNew();
+                EditModeInit();
         } else if( key == 'o' ){
                 command_count = 0;
                 ProsessSelectionMove( StringSelectLineEnd );
-                EditModeInit();
                 EditNew();
+                EditModeInit();
                 ProsessEdit( '\n' );
         } else if( key == 'u' ){
                 command_count = 0;
