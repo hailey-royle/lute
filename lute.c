@@ -494,8 +494,7 @@ void ProsessEdit( char key ){
                 command_count = 1; \
         } \
         for( size_t i = 0; i < selection.count; i++ ){ \
-                while( command_count > 0 ){ \
-                        command_count--; \
+                for( size_t j = 0; j < command_count; j++ ){ \
                         if( !anchor_pinned ){ \
                                 selection.data[ i ].anchor = selection.data[ i ].cursor; \
                         } \
@@ -509,7 +508,7 @@ void ProsessEdit( char key ){
                 command_count = 1; \
         } \
         for( size_t i = 0; i < selection.count; i++ ){ \
-                while( command_count > 0 ){ \
+                for( size_t j = 0; j < command_count; j++ ){ \
                         if( !anchor_pinned ){ \
                                 selection.data[ i ].anchor = selection.data[ i ].cursor; \
                         } \
