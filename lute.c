@@ -25,7 +25,13 @@
 #define ESCAPE_KEY 27
 #define DELETE_KEY 127
 
-#define INPUT_BUFFER_LEN 256
+#define INPUT_BUFFER_CAP 1024
+
+struct Input{
+	char data[ INPUT_BUFFER_CAP ];
+	size_t len;
+	size_t index;
+};
 
 struct Screen{
 	size_t cols;
@@ -65,6 +71,7 @@ struct termios initTermios;
 struct SelectionArray selection = { 0 };
 struct EditArray edit = { 0 };
 struct Screen screen = { 0 };
+struct Input input = { 0 };
 struct String file = { 0 };
 char* file_name = NULL;
 size_t command_count = 0;
@@ -236,6 +243,64 @@ void DrawScreen(){
 	}
 	write(STDOUT_FILENO, print.data, print.len);
 	StringFree( &print );
+}
+
+void InputBufferRead(){
+	Assert( input.index == 0 && input.len == 0, "input data malformed" );
+	ssize_t bytes_read = read( STDIN_FILENO, input.data, INPUT_BUFFER_CAP );
+	Assert( bytes_read >= 0, "read error" );
+	input.len = ( size_t ) bytes_read;
+	for( size_t i = 0; i < input.len; i++ ){
+		Assert( input.data[ i ] != '\0', "read error" );
+		if( input.data[ i ] == LINEFEED_KEY ){
+			input.data[ i ] = NEWLINE_KEY;
+		}
+	}
+}
+
+char GetInputBuffer(){
+	char key = 0;
+	if( input.len == 0 ){
+		return key;
+	}
+	key = input.data[ input.index ];
+	input.index++;
+	if( input.index >= input.len ){
+		input.index = 0;
+		input.len = 0;
+	}
+	return key;
+}
+
+char GetInputBufferRead(){
+	char key = 0;
+	if( input.len == 0 ){
+		InputBufferRead();
+		if( input.len == 0 ){
+			return key;
+		}
+	}
+	key = input.data[ input.index ];
+	input.index++;
+	if( input.index >= input.len ){
+		input.index = 0;
+		input.len = 0;
+	}
+	return key;
+}
+
+char GetInputBufferWait(){
+	char key = 0;
+	while( input.len == 0 ){
+		InputBufferRead();
+	}
+	key = input.data[ input.index ];
+	input.index++;
+	if( input.index >= input.len ){
+		input.index = 0;
+		input.len = 0;
+	}
+	return key;
 }
 
 void SelectionNew( size_t index ){
@@ -441,63 +506,59 @@ void PasteSelection(){
 	}
 }
 
-char GetNextInputWait(){
-	char key = 0;
-	while( key == '\0' ){
-		read( STDIN_FILENO, &key, 1 );
-		if( key == LINEFEED_KEY ){
-			key = NEWLINE_KEY;
+void ProsessEditInsert( char* key, size_t key_len ){
+	Assert( key_len > 0, "Malformed arguments" );
+	Assert( key != NULL, "Malformed arguments" );
+	struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
+	for( size_t i = 0; i < selection.count; i++ ){
+		Assert( undo->count == selection.count, "you fucked up" );
+		for( size_t j = 0; j < selection.count; j++ ){
+			if( undo->data[ j ].index > undo->data[ i ].index ){
+				undo->data[ j ].index += key_len;
+				selection.data[ j ].cursor += key_len;
+				selection.data[ j ].anchor = selection.data[ j ].cursor;
+			}
 		}
+		StringAppend( &undo->data[ i ].insert, key, key_len );
+		StringAppend( &selection.data[ i ].clipboard, key, key_len );
+		StringInsert( &file, selection.data[ i ].cursor, key, key_len );
+		selection.data[ i ].cursor += key_len;
+		selection.data[ i ].anchor = selection.data[ i ].cursor;
 	}
-	return key;
 }
 
-void ProsessEdit( char key ){
+void ProsessEditDelete( size_t delete_len ){
 	struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
-	if( key == ESCAPE_KEY ){
-		edit_mode = false;
-	} else if( key == TAB_KEY || key == NEWLINE_KEY || ( key >= ' ' && key < DELETE_KEY )){
-		for( size_t i = 0; i < selection.count; i++ ){
-			Assert( undo->count == selection.count, "you fucked up" );
-			for( size_t j = 0; j < selection.count; j++ ){
-				if( undo->data[ j ].index > undo->data[ i ].index ){
-					undo->data[ j ].index++;
-					selection.data[ j ].cursor++;
-					selection.data[ j ].anchor = selection.data[ j ].cursor;
-				}
-			}
-			StringAppend( &undo->data[ i ].insert, &key, 1 );
-			StringAppend( &selection.data[ i ].clipboard, &key, 1 );
-			StringInsert( &file, selection.data[ i ].cursor, &key, 1 );
-			selection.data[ i ].cursor++;
-			selection.data[ i ].anchor = selection.data[ i ].cursor;
+	for( size_t i = 0; i < selection.count; i++ ){
+		Assert( undo->count == selection.count, "you fucked up" );
+		if( selection.data[ i ].cursor == 0 ){
+			break;
 		}
-	} else if( key == DELETE_KEY ){
-		for( size_t i = 0; i < selection.count; i++ ){
-			Assert( undo->count == selection.count, "you fucked up" );
-			if( selection.data[ i ].cursor == 0 ){
-				break;
+		selection.data[ i ].cursor -= delete_len ;
+		selection.data[ i ].anchor = selection.data[ i ].cursor;
+		for( size_t j = 0; j < selection.count; j++ ){
+			if( undo->data[ j ].index > undo->data[ i ].index ){
+				undo->data[ j ].index -= delete_len ;
+				selection.data[ j ].cursor -= delete_len ;
+				selection.data[ j ].anchor = selection.data[ j ].cursor;
 			}
-			selection.data[ i ].cursor--;
-			selection.data[ i ].anchor = selection.data[ i ].cursor;
-			for( size_t j = 0; j < selection.count; j++ ){
-				if( undo->data[ j ].index > undo->data[ i ].index ){
-					undo->data[ j ].index--;
-					selection.data[ j ].cursor--;
-					selection.data[ j ].anchor = selection.data[ j ].cursor;
-				}
-			}
-			if( undo->data[ i ].insert.len > 0 ){
-				StringDeduct( &undo->data[ i ].insert, 1 );
-			} else {
-				StringInsert( &undo->data[ i ].delete, 0, &file.data[ selection.data[ i ].cursor ], 1 );
-				undo->data[ i ].index--;
-			}
-			if( selection.data[ i ].clipboard.len > 0 ){
-				StringDeduct( &selection.data[ i ].clipboard, 1 );
-			}
-			StringDelete( &file, selection.data[ i ].cursor, 1 );
 		}
+		if( undo->data[ i ].insert.len > delete_len ){
+			StringDeduct( &undo->data[ i ].insert, delete_len );
+		} else if( undo->data[ i ].insert.len > 0 ){
+			StringDeduct( &undo->data[ i ].insert, undo->data[ i ].insert.len );
+			StringInsert( &undo->data[ i ].delete, 0, &file.data[ selection.data[ i ].cursor ], delete_len - undo->data[ i ].insert.len );
+			undo->data[ i ].index -= delete_len - undo->data[ i ].insert.len;
+		} else {
+			StringInsert( &undo->data[ i ].delete, 0, &file.data[ selection.data[ i ].cursor ], delete_len );
+			undo->data[ i ].index -= delete_len;
+		}
+		if( selection.data[ i ].clipboard.len > delete_len ){
+			StringDeduct( &selection.data[ i ].clipboard, delete_len );
+		} else if( selection.data[ i ].clipboard.len > 0 ){
+			StringDeduct( &selection.data[ i ].clipboard, selection.data[ i ].clipboard.len );
+		}
+		StringDelete( &file, selection.data[ i ].cursor, delete_len );
 	}
 }
 
@@ -589,7 +650,7 @@ void ProsessCommand( char key ){
 		ProsessSelectionMove( StringSelectLineEnd );
 		EditNew();
 		EditModeInit();
-		ProsessEdit( '\n' );
+		ProsessEditInsert( "\n", 1 );
 	} else if( key == 'u' ){
 		command_count = 0;
 		EditUndo();
@@ -639,9 +700,9 @@ void ProsessCommand( char key ){
 	} else if( key == 'n' ){
 		ProsessSelectionMove( StringSelectParagraphNext );
 	} else if( key == 'F' ){
-		ProsessSelectionMoveChar( StringSelectFindCharPrev, GetNextInputWait() );
+		ProsessSelectionMoveChar( StringSelectFindCharPrev, GetInputBufferWait() );
 	} else if( key == 'f' ){
-		ProsessSelectionMoveChar( StringSelectFindCharNext, GetNextInputWait() );
+		ProsessSelectionMoveChar( StringSelectFindCharNext, GetInputBufferWait() );
 	} else if( key == 'z' ){
 		ProsessSelectionMove( StringSelectLineStart );
 	} else if( key == 'x' ){
@@ -713,12 +774,12 @@ void ProsessCommand( char key ){
 		ProsessSelectionMove( StringSelectLineStart );
 		EditNew();
 		ProsessSelectionMove( StringSelectCharNext );
-		ProsessEdit( DELETE_KEY );
+		ProsessEditDelete( 1 );
 	} else if( key == '>' ){
 		command_count = 0;
 		ProsessSelectionMove( StringSelectLineStart );
 		EditNew();
-		ProsessEdit( '\t' );
+		ProsessEditInsert( "\t", 1 );
 	} else if( key == '(' ){
 		command_count = 0;
 		ProsessSelectionInside( selection.data[ i ].cursor, selection.data[ i ].anchor, '(', ')' );
@@ -763,7 +824,7 @@ void ProsessCommand( char key ){
 		command_count = 0;
 		struct String search = { 0 };
 		while( true ){
-			char input_key = GetNextInputWait();
+			char input_key = GetInputBufferWait();
 			if( input_key == '\n' ){
 				break;
 			}
@@ -872,18 +933,32 @@ void ProsessCommand( char key ){
 }
 
 void ProsessInput(){
-	char key[ INPUT_BUFFER_LEN ];
-	ssize_t bytes_read = read( STDIN_FILENO, &key, INPUT_BUFFER_LEN );
-	Assert( bytes_read != -1, "read error" );
-	for( ssize_t i = 0; i < bytes_read; i++ ){
-		Assert( key[ i ] != '\0', "read error" );
-		if( key[ i ]  == LINEFEED_KEY ){
-			key[ i ] = NEWLINE_KEY;
-		}
+	char key = GetInputBufferRead();
+	while( key != '\0' ){
 		if( edit_mode == true ){
-			ProsessEdit( key[ i ] );
+			if( key == ESCAPE_KEY ){
+				edit_mode = false;
+				key = GetInputBuffer();
+			} else if( key == TAB_KEY || key == NEWLINE_KEY || ( key >= ' ' && key < DELETE_KEY )){
+				char data[ INPUT_BUFFER_CAP ] = { 0 };
+				size_t len = 0;
+				do{
+					data[ len ] = key;
+					len++;
+					key = GetInputBuffer();
+				} while( key == TAB_KEY || key == NEWLINE_KEY || ( key >= ' ' && key < DELETE_KEY ));
+				ProsessEditInsert( data, len );
+			} else if( key == DELETE_KEY ){
+				size_t len = 0;
+				do{
+					len++;
+					key = GetInputBuffer();
+				} while( key == DELETE_KEY );
+				ProsessEditDelete( len );
+			}
 		} else {
-			ProsessCommand( key[ i ] );
+			ProsessCommand( key );
+			key = GetInputBuffer();
 		}
 	}
 }
