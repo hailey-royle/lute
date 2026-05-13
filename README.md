@@ -45,6 +45,3 @@ lute is usable, but unfinished
 - config.h
 
 ### bugs
-- string.h:70: StringDelete: Assertion "string->len >= index + count" failed. String length is less than index + count
-    mulit cursor de-indent, the lower of the two selections went to a previous line and did nothing, but the later of the two worked as intended.
-    ? indent fucked up undo data, only got the assert on undo

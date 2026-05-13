@@ -772,13 +772,19 @@ void ProsessCommand( char key ){
 	} else if( key == '<' ){
 		command_count = 0;
 		ProsessSelectionMove( StringSelectLineStart );
-		EditNew();
 		ProsessSelectionMove( StringSelectCharNext );
+		EditNew();
+		for( size_t i = 0; i < selection.count; i++ ){
+			edit.data[ edit.undo_count - 1 ].data[ i ].index = selection.data[ i ].cursor;
+		}
 		ProsessEditDelete( 1 );
 	} else if( key == '>' ){
 		command_count = 0;
 		ProsessSelectionMove( StringSelectLineStart );
 		EditNew();
+		for( size_t i = 0; i < selection.count; i++ ){
+			edit.data[ edit.undo_count - 1 ].data[ i ].index = selection.data[ i ].cursor;
+		}
 		ProsessEditInsert( "\t", 1 );
 	} else if( key == '(' ){
 		command_count = 0;
