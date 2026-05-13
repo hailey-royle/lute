@@ -25,6 +25,8 @@
 #define ESCAPE_KEY 27
 #define DELETE_KEY 127
 
+#define INPUT_BUFFER_LEN 16
+
 struct Screen{
 	size_t cols;
 	size_t rows;
@@ -437,15 +439,6 @@ void PasteSelection(){
 		selection.data[ i ].anchor = selection.data[ i ].cursor;
 		selection.data[ i ].cursor = selection.data[ i ].cursor + selection.data[ i ].clipboard.len;
 	}
-}
-
-char GetNextInput(){
-	char key = 0;
-	read( STDIN_FILENO, &key, 1 );
-	if( key == LINEFEED_KEY ){
-		key = NEWLINE_KEY;
-	}
-	return key;
 }
 
 char GetNextInputWait(){
@@ -879,14 +872,19 @@ void ProsessCommand( char key ){
 }
 
 void ProsessInput(){
-	char key = GetNextInput();
-	if( key == '\0' ){
-		return;
-	}
-	if( edit_mode == true ){
-		ProsessEdit( key );
-	} else {
-		ProsessCommand( key );
+	char key[ INPUT_BUFFER_LEN ];
+	ssize_t bytes_read = read( STDIN_FILENO, &key, INPUT_BUFFER_LEN );
+	Assert( bytes_read != -1, "read error" );
+	for( ssize_t i = 0; i < bytes_read; i++ ){
+		Assert( key[ i ] != '\0', "read error" );
+		if( key[ i ]  == LINEFEED_KEY ){
+			key[ i ] = NEWLINE_KEY;
+		}
+		if( edit_mode == true ){
+			ProsessEdit( key[ i ] );
+		} else {
+			ProsessCommand( key[ i ] );
+		}
 	}
 }
 

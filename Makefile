@@ -1,10 +1,12 @@
+SHELL := /bin/bash
+
 build: lute.c
-	gcc lute.c -o lute -Og -ggdb -Wall -Wextra -Wpedantic -fanalyzer -fsanitize=address -fsanitize=leak -fsanitize=undefined
+	time gcc lute.c -o lute -Og -ggdb -Wall -Wextra -Wpedantic -fanalyzer -fsanitize=address -fsanitize=leak -fsanitize=undefined
 run: build
 	./lute README.md
 	stty sane
 fast:
-	gcc lute.c -o lute -O3 -Wall -Wextra -Wpedantic
+	time gcc lute.c -o lute -O3 -Wall -Wextra -Wpedantic
 prof:
 	gcc lute.c -o lute -Og -ggdb -pg -Wall -Wextra -Wpedantic -fanalyzer -fsanitize=address -fsanitize=leak -fsanitize=undefined
 	./lute README.md
