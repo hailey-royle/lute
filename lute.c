@@ -25,7 +25,7 @@
 #define ESCAPE_KEY 27
 #define DELETE_KEY 127
 
-#define INPUT_BUFFER_LEN 16
+#define INPUT_BUFFER_LEN 256
 
 struct Screen{
 	size_t cols;
