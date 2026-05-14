@@ -1,3 +1,5 @@
 *.swp
 lute
 old
+utf8_test
+sqlite.c
