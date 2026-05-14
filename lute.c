@@ -122,15 +122,13 @@ void LoadScreen(){
 size_t DrawLine( struct String* print, size_t start_index, bool* highlight ){
 	size_t real_end_index = StringSelectLineEnd( &file, start_index ) + 1;
 	size_t cliped_end_index = real_end_index;
-	size_t real_line_length = real_end_index - start_index;
-	size_t cliped_line_length = real_line_length;
-	if( cliped_line_length >= screen.cols ){
-		cliped_line_length = screen.cols;
+	if( real_end_index - start_index > screen.cols ){
 		cliped_end_index = start_index + screen.cols;
 	}
 	if( *highlight == true ){
 		StringAppend( print, HIGHLIGHT_START, sizeof( HIGHLIGHT_START ));
 	}
+	size_t tabs = 0;
 	for( size_t i = start_index; i < cliped_end_index; i++ ){
 		bool inverse_flag = false;
 		for( size_t j = 0; j < selection.count; j++ ){
@@ -163,9 +161,9 @@ size_t DrawLine( struct String* print, size_t start_index, bool* highlight ){
 			break;
 		} else if( file.data[ i ] == '\t' ){
 			StringAppend( print, "        ", 8 );
-			if( cliped_line_length >= screen.cols - 7 ){
-				cliped_line_length -= screen.cols - 7;
-				cliped_end_index -= screen.cols - 7;
+			tabs++;
+			if( real_end_index - start_index > screen.cols - ( 7 * tabs )){
+				cliped_end_index = start_index + screen.cols - ( 7 * tabs );
 			}
 			if( inverse_flag ){
 				StringAppend( print, INVERSE_END, sizeof( INVERSE_END ));
