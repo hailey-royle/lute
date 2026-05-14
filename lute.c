@@ -959,6 +959,8 @@ void ProsessInput(){
 					key = GetInputBuffer();
 				} while( key == DELETE_KEY );
 				ProsessEditDelete( len );
+			} else {
+				key = GetInputBuffer();
 			}
 		} else {
 			ProsessCommand( key );
