@@ -2,4 +2,4 @@
 lute
 old
 utf8_test
-sqlite.c
+sqlite3.c
