@@ -129,6 +129,7 @@ size_t DrawLine( struct String* print, size_t start_index, bool* highlight ){
 		StringAppend( print, HIGHLIGHT_START, sizeof( HIGHLIGHT_START ));
 	}
 	size_t tabs = 0;
+	size_t unicode = 0;
 	for( size_t i = start_index; i < cliped_end_index; i++ ){
 		bool inverse_flag = false;
 		for( size_t j = 0; j < selection.count; j++ ){
@@ -162,17 +163,20 @@ size_t DrawLine( struct String* print, size_t start_index, bool* highlight ){
 		} else if( file.data[ i ] == '\t' ){
 			StringAppend( print, "        ", 8 );
 			tabs++;
-			if( real_end_index - start_index > screen.cols - ( 7 * tabs )){
-				cliped_end_index = start_index + screen.cols - ( 7 * tabs );
-			}
-			if( inverse_flag ){
-				StringAppend( print, INVERSE_END, sizeof( INVERSE_END ));
+			if( real_end_index - start_index > screen.cols - ( 7 * tabs ) + unicode ){
+				cliped_end_index = start_index + screen.cols - ( 7 * tabs ) + unicode;
 			}
 		} else {
-			StringAppend( print, &file.data[ i ], 1 );
-			if( inverse_flag ){
-				StringAppend( print, INVERSE_END, sizeof( INVERSE_END ));
+			if(( file.data[ i + 1 ] & 0x80 ) && ( ~( file.data[ i + 1 ] ) & 0x40 )){
+				unicode++;
+			if( real_end_index - start_index > screen.cols - ( 7 * tabs ) + unicode ){
+				cliped_end_index = start_index + screen.cols - ( 7 * tabs ) + unicode;
 			}
+			}
+			StringAppend( print, &file.data[ i ], 1 );
+		}
+		if( inverse_flag ){
+			StringAppend( print, INVERSE_END, sizeof( INVERSE_END ));
 		}
 	}
 	StringAppend( print, HIGHLIGHT_END, sizeof( HIGHLIGHT_END ));
@@ -943,14 +947,14 @@ void ProsessInput(){
 			if( key == ESCAPE_KEY ){
 				edit_mode = false;
 				key = GetInputBuffer();
-			} else if( key == TAB_KEY || key == NEWLINE_KEY || ( key >= ' ' && key < DELETE_KEY )){
+			} else if( key == TAB_KEY || key == NEWLINE_KEY || ( key >= ' ' && key < DELETE_KEY ) || key & 0x80 ){
 				char data[ INPUT_BUFFER_CAP ] = { 0 };
 				size_t len = 0;
 				do{
 					data[ len ] = key;
 					len++;
 					key = GetInputBuffer();
-				} while( key == TAB_KEY || key == NEWLINE_KEY || ( key >= ' ' && key < DELETE_KEY ));
+				} while( key == TAB_KEY || key == NEWLINE_KEY || ( key >= ' ' && key < DELETE_KEY ) || key & 0x80 );
 				ProsessEditInsert( data, len );
 			} else if( key == DELETE_KEY ){
 				size_t len = 0;
