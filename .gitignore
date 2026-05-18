@@ -1,5 +1,5 @@
 *.swp
 lute
 old
-utf8_test
+utf8_test.txt
 sqlite3.c
