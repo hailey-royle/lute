@@ -172,9 +172,9 @@ size_t DrawLine( struct String* print, size_t start_index, bool* highlight ){
 			StringAppend( print, &file.data[ i ], i_step );
 			unicode += i_step - 1;
 			i += i_step;
-                        if( real_end_index - start_index > screen.cols - ( 7 * tabs ) + unicode ){
-                                cliped_end_index = start_index + screen.cols - ( 7 * tabs ) + unicode;
-                        }
+			if( real_end_index - start_index > screen.cols - ( 7 * tabs ) + unicode ){
+				cliped_end_index = start_index + screen.cols - ( 7 * tabs ) + unicode;
+			}
 		}
 		if( inverse_flag ){
 			StringAppend( print, INVERSE_END, sizeof( INVERSE_END ));
