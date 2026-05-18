@@ -40,7 +40,6 @@ lute is usable, but unfinished
 - open line above?
 - repete command
 - key escape code cull
-- utf8?
 - horizontal scroll
 - config.h
 - bar?
