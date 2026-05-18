@@ -6,7 +6,7 @@ run: build
 	./lute README.md
 	stty sane
 fast:
-	time gcc lute.c -o lute -O3 -Wall -Wextra -Wpedantic
+	time gcc lute.c -o lute -O3 -Wall -Wextra -Wpedantic -DNO_ASSERT
 prof:
 	gcc lute.c -o lute -Og -ggdb -pg -Wall -Wextra -Wpedantic -fanalyzer -fsanitize=address -fsanitize=leak -fsanitize=undefined
 	./lute README.md
