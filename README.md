@@ -43,6 +43,7 @@ lute is usable, but unfinished
 - utf8?
 - horizontal scroll
 - config.h
+- bar?
 
 ### bugs
 

@@ -130,7 +130,7 @@ size_t DrawLine( struct String* print, size_t start_index, bool* highlight ){
 	}
 	size_t tabs = 0;
 	size_t unicode = 0;
-	for( size_t i = start_index; i < cliped_end_index; i++ ){
+	for( size_t i = start_index; i < cliped_end_index; ){
 		bool inverse_flag = false;
 		for( size_t j = 0; j < selection.count; j++ ){
 			if( selection.data[ j ].anchor == i ){
@@ -166,14 +166,12 @@ size_t DrawLine( struct String* print, size_t start_index, bool* highlight ){
 			if( real_end_index - start_index > screen.cols - ( 7 * tabs ) + unicode ){
 				cliped_end_index = start_index + screen.cols - ( 7 * tabs ) + unicode;
 			}
+			i++;
 		} else {
-			if(( file.data[ i + 1 ] & 0x80 ) && ( ~( file.data[ i + 1 ] ) & 0x40 )){
-				unicode++;
-			if( real_end_index - start_index > screen.cols - ( 7 * tabs ) + unicode ){
-				cliped_end_index = start_index + screen.cols - ( 7 * tabs ) + unicode;
-			}
-			}
-			StringAppend( print, &file.data[ i ], 1 );
+			size_t i_step = StringUTF8Next( &file, i ) - i;
+			StringAppend( print, &file.data[ i ], i_step );
+			unicode += i_step;
+			i += i_step;
 		}
 		if( inverse_flag ){
 			StringAppend( print, INVERSE_END, sizeof( INVERSE_END ));
