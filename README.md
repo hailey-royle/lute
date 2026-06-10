@@ -37,12 +37,13 @@ lute is usable, but unfinished
 
 ### todo
 
-- open line above?
-- repete command
-- key escape code cull
-- horizontal scroll
 - config.h
+- horizontal scroll
+- system clipboard
 - bar?
+- repete command?
+- open line above?
+- key escape code cull?
 
 ### bugs
 

@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <sys/stat.h>
 
 #include "assert.h"
@@ -93,6 +94,17 @@ void StringFree( struct String* string ){
 	string->cap = 0;
 	string->len = 0;
 }
+
+// for some reason when compiling with -std=* these standard library things dont get included.
+// taken from musl c library at musl/include/sys/stat
+
+#ifndef S_IFMT
+#define S_IFMT 0170000
+#endif
+
+#ifndef S_IFREG
+#define S_IFREG 0100000
+#endif
 
 void StringFromFile( struct String* string, char* filename ){
 	Assert( string != NULL, "Malformed args" );
