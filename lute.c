@@ -790,6 +790,7 @@ void ProsessCommand( char key ){
 			edit.data[ edit.undo_count - 1 ].data[ i ].index = selection.data[ i ].cursor;
 		}
 		ProsessEditInsert( "\t", 1 );
+		ProsessSelectionMove( StringSelectLineStart );
 	} else if( key == '(' ){
 		command_count = 0;
 		ProsessSelectionInside( selection.data[ i ].cursor, selection.data[ i ].anchor, '(', ')' );
