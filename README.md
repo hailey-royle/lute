@@ -47,3 +47,5 @@ lute is usable, but unfinished
 
 ### bugs
 
+- redo/undo off by one (?) very rarely
+
