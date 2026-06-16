@@ -120,7 +120,7 @@ void StringFromFile( struct String* string, char* filename ){
 		string->len = 0;
 		string->data[ string->len ] = '\0';
 	} else {
-		Assert(( stat_buffer.st_mode & S_IFMT ) == S_IFREG, "Can only edit a regular file." );
+		Assert( !(stat_buffer.st_mode & S_IFREG), "Can only edit a regular file." );
 		FILE* file = fopen( filename, "r" );
 		Assert( file != NULL, "fopen failed" );
 		char* tmp = malloc( stat_buffer.st_size + 1 );
