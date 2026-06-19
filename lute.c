@@ -77,6 +77,7 @@ struct String file = { 0 };
 char* file_name = NULL;
 size_t command_count = 0;
 bool edit_mode = false;
+bool file_modified = false;
 bool anchor_pinned = false;
 
 void LoadArgs( int argc, char** argv ){
@@ -118,6 +119,32 @@ void LoadScreen(){
 	Assert( err != -1, "ioctl failed." );
 	screen.cols = winsize.ws_col;
 	screen.rows = winsize.ws_row;
+}
+
+void DrawBar( struct String* print ){
+	struct String bar = { 0 };
+	StringAlloc( &bar, screen.rows );
+	StringAppend( &bar, ERASE_LINE, sizeof( ERASE_LINE ));
+	StringAppend( &bar, file_name, strlen( file_name ));
+	if( edit_mode == true ){
+		StringAppend( &bar, "  ==EDIT==", 10 );
+	} else {
+		StringAppend( &bar, "  =NORMAL=", 10 );
+	}
+	if( file_modified == true ){
+		StringAppend( &bar, "  [+]  ", 7 );
+	} else {
+		StringAppend( &bar, "  [-]  ", 7 );
+	}
+	StringAlloc( &bar, 32 );
+	bar.len += sprintf( &bar.data[ bar.len ], "%ld", selection.count );
+	StringAppend( &bar, ":", 1 );
+	bar.len += sprintf( &bar.data[ bar.len ], "%ld", StringGetLineNumber( &file, selection.data[ 0 ].cursor ));
+	StringAppend( &bar, ":", 1 );
+	bar.len += sprintf( &bar.data[ bar.len ], "%ld", StringGetLineDepth( &file, selection.data[ 0 ].cursor ));
+	size_t final_bar_length = ( screen.rows + sizeof( ERASE_LINE ) < bar.len ) ? screen.rows + sizeof( ERASE_LINE ) : bar.len;
+	StringAppend( print, bar.data, final_bar_length );
+	StringFree( &bar );
 }
 
 size_t DrawLine( struct String* print, size_t start_index, bool* highlight ){
@@ -232,10 +259,9 @@ void DrawScreen(){
 			}
 		}
 	}
-	for( size_t i = 0; i < screen.rows; i++ ){
-		if( i != 0 ) {
-			StringAppend( &print, "\r\n", 2 );
-		}
+	DrawBar( &print );
+	for( size_t i = 1; i < screen.rows; i++ ){
+		StringAppend( &print, "\r\n", 2 );
 		StringAppend( &print, ERASE_LINE, sizeof( ERASE_LINE ));
 		if( drawLine < 0 || drawIndex >= file.len ){
 			StringAppend( &print, "~", 1 );
@@ -444,6 +470,7 @@ void SelectCursorLine(){
 }
 
 void DeleteSelection(){
+	file_modified = true;
 	struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
 	for( size_t i = 0; i < undo->count; i++ ){
 		if( selection.data[ i ].cursor > selection.data[ i ].anchor ){
@@ -513,6 +540,7 @@ void PasteSelection(){
 void ProsessEditInsert( char* key, size_t key_len ){
 	Assert( key_len > 0, "Malformed arguments" );
 	Assert( key != NULL, "Malformed arguments" );
+	file_modified = true;
 	struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
 	for( size_t i = 0; i < selection.count; i++ ){
 		Assert( undo->count == selection.count, "you fucked up" );
@@ -532,6 +560,7 @@ void ProsessEditInsert( char* key, size_t key_len ){
 }
 
 void ProsessEditDelete( size_t delete_len ){
+	file_modified = true;
 	struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
 	for( size_t i = 0; i < selection.count; i++ ){
 		Assert( undo->count == selection.count, "you fucked up" );
@@ -576,6 +605,7 @@ void WriteFile(){
 		atexit( WriteFileError );
 		exit( 0 );
 	}
+	file_modified = false;
 }
 
 #define ProsessSelectionMove( func ){ \

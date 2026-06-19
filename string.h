@@ -531,4 +531,47 @@ size_t StringSelectSubStringNext( struct String* string, size_t index, char* key
 	return index;
 }
 
+size_t StringGetLineNumber( struct String* string, size_t index ){
+	Assert( string != NULL, "Malformed args" );
+	Assert( string->cap > string->len || string->len <= 0, "Malformed internal string data" );
+	Assert( string->len >= index, "Malformed args" );
+	Assert( string->data != NULL, "Malformed args" );
+	size_t line = 1;
+	size_t i = 0;
+	while( true ){
+		if( i == index ){
+			break;
+		}
+		if( string->data[ i ] == '\n' ){
+			line++;
+		}
+		i++;
+	}
+	return line;
+}
+
+size_t StringGetLineDepth( struct String* string, size_t index ){
+	Assert( string != NULL, "Malformed args" );
+	Assert( string->cap > string->len || string->len <= 0, "Malformed internal string data" );
+	Assert( string->len >= index, "Malformed args" );
+	Assert( string->data != NULL, "Malformed args" );
+	size_t depth = 0;
+	size_t i = index;
+	if( index == 0 ){
+		return 1;
+	}
+	while( true ){
+		if( string->data[ i ] == '\t' ){
+			depth += 8;
+		} else {
+			depth++;
+		}
+		i--;
+		if( i == 0 || string->data[ i ] == '\n' ){
+			break;
+		}
+	}
+	return depth;
+}
+
 #endif

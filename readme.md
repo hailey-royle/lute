@@ -40,7 +40,6 @@ lute is usable, but unfinished
 - config.h
 - horizontal scroll
 - system clipboard
-- bar?
 - repete command?
 - open line above?
 - key escape code cull?
