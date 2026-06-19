@@ -222,9 +222,10 @@ size_t StringSelectWordPrev( struct String* string, size_t index ){
 	Assert( string->data != NULL, "Malformed args" );
 	if( index > 0 ){
 		index--;
-	}
-	if( string->data[ index ] == '\n' ){
-		return index;
+		if( string->data[ index ] == '\n' ){
+			return index;
+		}
+		index++;
 	}
 	while( true ){
 		if( index <= 0 ){
