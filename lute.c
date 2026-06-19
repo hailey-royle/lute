@@ -566,6 +566,18 @@ void ProsessEditDelete( size_t delete_len ){
 	}
 }
 
+void WriteFileError(){
+	printf( "Can only write to a regular file\n" );
+}
+
+void WriteFile(){
+	bool error = StringToFile( &file, file_name );
+	if( error == true ){
+		atexit( WriteFileError );
+		exit( 0 );
+	}
+}
+
 #define ProsessSelectionMove( func ){ \
 	if( command_count == 0 ){ \
 		command_count = 1; \
@@ -638,13 +650,13 @@ void ProsessEditDelete( size_t delete_len ){
 
 void ProsessCommand( char key ){
 	if( key == 'q' ){
-		StringToFile( &file, file_name );
+		WriteFile();
 		exit( 0 );
 	} else if( key == 'Q' ){
 		exit( 0 );
 	} else if( key == 'w' ){
 		command_count = 0;
-		StringToFile( &file, file_name );
+		WriteFile();
 	} else if( key == 'i' ){
 		command_count = 0;
 		EditNew();
@@ -997,7 +1009,11 @@ void ValidateSelection(){
 
 int main( int argc, char** argv ){
 	LoadArgs(argc, argv);
-	StringFromFile( &file, file_name );
+	bool error = StringFromFile( &file, file_name );
+	if( error == true ){
+		printf( "Can only open regular files\n" );
+		exit( 0 );
+	}
 	if( file.len == 0 || file.data[ file.len - 1 ] != '\n' ){
 		StringAppend( &file, "\n", 1 );
 	}

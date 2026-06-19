@@ -95,7 +95,7 @@ void StringFree( struct String* string ){
 	string->len = 0;
 }
 
-void StringFromFile( struct String* string, char* filename ){
+bool StringFromFile( struct String* string, char* filename ){
 	Assert( string != NULL, "Malformed args" );
 	Assert( string->cap == 0 && string->len == 0 && string->data == NULL, "String must be empty" );
 	Assert( filename != NULL, "Malformed args" );
@@ -110,8 +110,7 @@ void StringFromFile( struct String* string, char* filename ){
 		string->data[ string->len ] = '\0';
 	} else {
 		if( !S_ISREG( stat_buffer.st_mode )){
-			printf( "Can only read from a regular file.\n" );
-			exit( 1 );
+			return true;
 		}
 		FILE* file = fopen( filename, "r" );
 		Assert( file != NULL, "fopen failed" );
@@ -125,23 +124,24 @@ void StringFromFile( struct String* string, char* filename ){
 		string->len = stat_buffer.st_size ;
 		string->data[ string->len ] = '\0';
 	}
+	return false;
 }
 
-void StringToFile( struct String* string, char* filename ){
+bool StringToFile( struct String* string, char* filename ){
 	Assert( string != NULL, "Malformed args" );
 	Assert( string->cap > string->len || string->len <= 0, "Malformed internal string data" );
 	Assert( filename != NULL, "Malformed args" );
 	struct stat stat_buffer = { 0 };
 	int stat_err = stat( filename, &stat_buffer );
 	if( stat_err != -1 && !S_ISREG( stat_buffer.st_mode )){
-		printf( "Can only write to a regular file.\n" );
-		exit( 1 );
+		return true;
 	}
 	FILE* file = fopen( filename, "w" );
 	Assert( file != NULL, "fopen failed" );
 	size_t fwrite_res = fwrite( string->data, 1, string->len, file );
 	Assert( string->len == fwrite_res, "fwrite failed" );
 	fclose( file );
+	return false;
 }
 
 size_t StringUTF8Prev( struct String* string, size_t index ){
