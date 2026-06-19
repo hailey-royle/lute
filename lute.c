@@ -142,7 +142,7 @@ void DrawBar( struct String* print ){
 	bar.len += sprintf( &bar.data[ bar.len ], "%ld", StringGetLineNumber( &file, selection.data[ 0 ].cursor ));
 	StringAppend( &bar, ":", 1 );
 	bar.len += sprintf( &bar.data[ bar.len ], "%ld", StringGetLineDepth( &file, selection.data[ 0 ].cursor ));
-	size_t final_bar_length = ( screen.rows + sizeof( ERASE_LINE ) < bar.len ) ? screen.rows + sizeof( ERASE_LINE ) : bar.len;
+	size_t final_bar_length = ( screen.cols + sizeof( ERASE_LINE ) < bar.len ) ? screen.cols + sizeof( ERASE_LINE ) : bar.len;
 	StringAppend( print, bar.data, final_bar_length );
 	StringFree( &bar );
 }
