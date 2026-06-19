@@ -95,17 +95,6 @@ void StringFree( struct String* string ){
 	string->len = 0;
 }
 
-// for some reason when compiling with -std=* these standard library things dont get included.
-// taken from musl c library at musl/include/sys/stat
-
-#ifndef S_IFMT
-#define S_IFMT 0170000
-#endif
-
-#ifndef S_IFREG
-#define S_IFREG 0100000
-#endif
-
 void StringFromFile( struct String* string, char* filename ){
 	Assert( string != NULL, "Malformed args" );
 	Assert( string->cap == 0 && string->len == 0 && string->data == NULL, "String must be empty" );
@@ -120,7 +109,10 @@ void StringFromFile( struct String* string, char* filename ){
 		string->len = 0;
 		string->data[ string->len ] = '\0';
 	} else {
-		Assert( !(stat_buffer.st_mode & S_IFREG), "Can only edit a regular file." );
+		if( !S_ISREG( stat_buffer.st_mode )){
+			printf( "Can only read from a regular file.\n" );
+			exit( 1 );
+		}
 		FILE* file = fopen( filename, "r" );
 		Assert( file != NULL, "fopen failed" );
 		char* tmp = malloc( stat_buffer.st_size + 1 );
@@ -141,8 +133,9 @@ void StringToFile( struct String* string, char* filename ){
 	Assert( filename != NULL, "Malformed args" );
 	struct stat stat_buffer = { 0 };
 	int stat_err = stat( filename, &stat_buffer );
-	if( stat_err != -1 ){
-		Assert(( stat_buffer.st_mode & S_IFMT ) == S_IFREG, "Can only write to a regular file." );
+	if( stat_err != -1 && !S_ISREG( stat_buffer.st_mode )){
+		printf( "Can only write to a regular file.\n" );
+		exit( 1 );
 	}
 	FILE* file = fopen( filename, "w" );
 	Assert( file != NULL, "fopen failed" );
