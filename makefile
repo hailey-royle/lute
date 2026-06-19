@@ -1,8 +1,8 @@
 SHELL := /bin/bash
 
-build: lute.c
+build:
 	time gcc lute.c -o lute -std=c99 -O3 -Wall -Wextra -Wpedantic
-run: build
+run:
 	./lute readme.md
 	stty sane
 debug:
