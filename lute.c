@@ -763,11 +763,11 @@ void ProsessCommand( char key ){
 			selection.data[ i ].anchor = tmp;
 		}
 	} else if( key == 'g' ){
-		command_count = 0;
 		for( size_t i = 0; i < selection.count; i++ ){
 			selection.data[ i ].cursor = StringSelectLineNumber( &file, command_count );
 			selection.data[ i ].anchor = selection.data[ i ].cursor;
 		}
+		command_count = 0;
 	} else if( key == 'G' ){
 		command_count = 0;
 		for( size_t i = 0; i < selection.count; i++ ){
