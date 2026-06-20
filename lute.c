@@ -613,22 +613,22 @@ void ProsessSearchSubstring(){
 	for( size_t i = 1; selection.count > 1; ){
 		SelectionFree( i );
 	}
-	if( selection.data[ 0 ].anchor > selection.data[ 0 ].cursor ){
+	if( selection.data[ 0 ].anchor < selection.data[ 0 ].cursor ){
 		size_t tmp = selection.data[ 0 ].anchor;
 		selection.data[ 0 ].anchor = selection.data[ 0 ].cursor;
 		selection.data[ 0 ].cursor = tmp;
 	}
-	size_t new_selection_index = StringSelectSubStringPrev( &file, selection.data[ 0 ].cursor, search.data, search.len );
-	if( new_selection_index >= selection.data[ 0 ].anchor ){
-		size_t selection_min = selection.data[ 0 ].anchor;
+	size_t new_selection_index = StringSelectSubStringNext( &file, selection.data[ 0 ].cursor - 1, search.data, search.len );
+	if( new_selection_index <= selection.data[ 0 ].anchor ){
+		size_t selection_max = selection.data[ 0 ].anchor;
 		selection.data[ 0 ].cursor = new_selection_index;
 		selection.data[ 0 ].anchor = new_selection_index + search.len;
 		while( true ){
-			new_selection_index = StringSelectSubStringPrev( &file, new_selection_index, search.data, search.len );
-			if( new_selection_index < selection_min ){
+			new_selection_index = StringSelectSubStringNext( &file, new_selection_index, search.data, search.len );
+			if( new_selection_index > selection_max ){
 				break;
 			}
-			if( new_selection_index == 0 ){
+			if( new_selection_index == file.len - 1 ){
 				break;
 			}
 			SelectionNew( new_selection_index );
@@ -636,6 +636,7 @@ void ProsessSearchSubstring(){
 		}
 	}
 }
+
 
 #define ProsessSelectionMove( func ){ \
 	if( command_count == 0 ){ \
