@@ -58,4 +58,5 @@ lute is usable, but unfinished.
 ### bugs
 
 - redo/undo off by one (?) very rarely
+- at least two asserts tripped when pasting in large amounts of data
 

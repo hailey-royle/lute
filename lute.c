@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <termios.h>
 #include <sys/ioctl.h>
+#include <signal.h>
 
 #include "string.h"
 #include "assert.h"
@@ -99,6 +100,26 @@ void LoadArgs( int argc, char** argv ){
 	file_name = argv[ 1 ];
 }
 
+void DrawScreen();
+
+void HandleSigwinch( int sig ){
+	struct winsize winsize;
+	int err = ioctl( STDOUT_FILENO, TIOCGWINSZ, &winsize );
+	Assert( err != -1, "ioctl failed." );
+	screen.cols = winsize.ws_col;
+	screen.rows = winsize.ws_row;
+	DrawScreen();
+}
+
+void EnableSigwinch(){
+	struct sigaction sig_action;
+	sigemptyset( &sig_action.sa_mask );
+	sig_action.sa_flags = 0;
+	sig_action.sa_handler = HandleSigwinch;
+	int sig_error = sigaction( SIGWINCH, &sig_action, NULL );
+	Assert( sig_error != -1, "sigaction failed." );
+}
+
 void DisableRawMode(){
 	int err = tcsetattr( STDIN_FILENO, TCSAFLUSH, &initTermios );
 	Assert( err != -1, "tcsetattr failed." );
@@ -122,14 +143,6 @@ void EnableRawMode(){
 	err = tcsetattr( STDIN_FILENO, TCSAFLUSH, &rawTermios );
 	Assert( err != -1, "tcsetattr failed." );
 	atexit( DisableRawMode );
-}
-
-void LoadScreen(){
-	struct winsize winsize;
-	int err = ioctl( STDOUT_FILENO, TIOCGWINSZ, &winsize );
-	Assert( err != -1, "ioctl failed." );
-	screen.cols = winsize.ws_col;
-	screen.rows = winsize.ws_row;
 }
 
 void DrawBar( struct String* print ){
@@ -323,8 +336,10 @@ char GetInputBufferRead(){
 	char key = 0;
 	if( input.len == 0 ){
 		Assert( input.index == 0 && input.len == 0, "input data malformed" );
-		ssize_t bytes_read = read( STDIN_FILENO, input.data, INPUT_BUFFER_CAP );
-		Assert( bytes_read >= 0, "read error" );
+		ssize_t bytes_read = 0;
+		while( bytes_read <= 0 ){
+			bytes_read = read( STDIN_FILENO, input.data, INPUT_BUFFER_CAP );
+		}
 		input.len = ( size_t ) bytes_read;
 		for( size_t i = 0; i < input.len; i++ ){
 			Assert( input.data[ i ] != '\0', "read error" );
@@ -1029,8 +1044,9 @@ int main( int argc, char** argv ){
 	}
 	EnableRawMode();
 	SelectionNew( 0 );
+	EnableSigwinch();
+	HandleSigwinch( 28 );
 	while( true ){
-		LoadScreen();
 		DrawScreen();
 		ProsessInput();
 		ValidateSelection();
