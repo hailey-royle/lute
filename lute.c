@@ -155,7 +155,7 @@ void DrawBar( struct String* print ){
 		StringAppend( &bar, "  ==FIND==", 10 );
 	} else if( mode == SEARCH_MODE ){
 		StringAppend( &bar, "  =SEARCH=", 10 );
-		StringAppend( &bar, "  \"", 1 );
+		StringAppend( &bar, "  \"", 3 );
 		if( search.data != NULL ){
 			StringAppend( &bar, search.data, search.len );
 		}
