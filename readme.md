@@ -26,7 +26,7 @@ lute is usable, but unfinished.
 |       |       |       |       |       |       |       |       |       |       |       |       |       |           |
 |       |   1   |   2   |   3   |   4   |   5   |   6   |   7   |   8   |   9   |   0   |       |       |           |
 +-------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+-------+
-|           |   quit|       |       |l repla|  f end| l yank|   redo|       |la*open|       |{ insid|} insid|       |
+|           |   quit|       |       |l repla|  f end| l yank|   redo|       |       |       |{ insid|} insid|       |
 |           |       |       |       |       |       |       |       |       |       |       |       |       |       |
 |           | w quit|  write| w next|replace|f start|   yank|   undo|   edit| l open|  paste|[ insid|] insid|       |
 +-----------+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+--+----+-------+
