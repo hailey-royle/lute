@@ -1018,7 +1018,7 @@ void ValidateSelection(){
 }
 
 int main( int argc, char** argv ){
-	LoadArgs(argc, argv);
+	LoadArgs( argc, argv );
 	bool error = StringFromFile( &file, file_name );
 	if( error == true ){
 		printf( "Can only open regular files\n" );
