@@ -291,19 +291,6 @@ void DrawScreen(){
 	StringFree( &print );
 }
 
-void InputBufferRead(){
-	Assert( input.index == 0 && input.len == 0, "input data malformed" );
-	ssize_t bytes_read = read( STDIN_FILENO, input.data, INPUT_BUFFER_CAP );
-	Assert( bytes_read >= 0, "read error" );
-	input.len = ( size_t ) bytes_read;
-	for( size_t i = 0; i < input.len; i++ ){
-		Assert( input.data[ i ] != '\0', "read error" );
-		if( input.data[ i ] == LINEFEED_KEY ){
-			input.data[ i ] = NEWLINE_KEY;
-		}
-	}
-}
-
 char GetInputBuffer(){
 	char key = 0;
 	if( input.len == 0 ){
@@ -321,24 +308,19 @@ char GetInputBuffer(){
 char GetInputBufferRead(){
 	char key = 0;
 	if( input.len == 0 ){
-		InputBufferRead();
+		Assert( input.index == 0 && input.len == 0, "input data malformed" );
+		ssize_t bytes_read = read( STDIN_FILENO, input.data, INPUT_BUFFER_CAP );
+		Assert( bytes_read >= 0, "read error" );
+		input.len = ( size_t ) bytes_read;
+		for( size_t i = 0; i < input.len; i++ ){
+			Assert( input.data[ i ] != '\0', "read error" );
+			if( input.data[ i ] == LINEFEED_KEY ){
+				input.data[ i ] = NEWLINE_KEY;
+			}
+		}
 		if( input.len == 0 ){
 			return key;
 		}
-	}
-	key = input.data[ input.index ];
-	input.index++;
-	if( input.index >= input.len ){
-		input.index = 0;
-		input.len = 0;
-	}
-	return key;
-}
-
-char GetInputBufferWait(){
-	char key = 0;
-	while( input.len == 0 ){
-		InputBufferRead();
 	}
 	key = input.data[ input.index ];
 	input.index++;
