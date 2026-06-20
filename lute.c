@@ -84,6 +84,7 @@ struct Screen screen = { 0 };
 struct Input input = { 0 };
 struct String file = { 0 };
 struct String search = { 0 };
+struct String bar_notice = { 0 };
 char* file_name = NULL;
 size_t command_count = 0;
 enum Mode mode = NORMAL_MODE;
@@ -132,9 +133,13 @@ void LoadScreen(){
 }
 
 void DrawBar( struct String* print ){
+	StringAppend( print, ERASE_LINE, sizeof( ERASE_LINE ));
+	if( bar_notice.data != NULL ){
+		StringAppend( print, bar_notice.data, bar_notice.len );
+		return;
+	}
 	struct String bar = { 0 };
 	StringAlloc( &bar, screen.rows );
-	StringAppend( &bar, ERASE_LINE, sizeof( ERASE_LINE ));
 	StringAppend( &bar, file_name, strlen( file_name ));
 	if( file_modified == true ){
 		StringAppend( &bar, "+", 1 );
@@ -167,7 +172,7 @@ void DrawBar( struct String* print ){
 	if( command_count > 0 ){
 		bar.len += sprintf( &bar.data[ bar.len ], "  %ld", command_count );
 	}
-	size_t final_bar_length = ( screen.cols + sizeof( ERASE_LINE ) < bar.len ) ? screen.cols + sizeof( ERASE_LINE ) : bar.len;
+	size_t final_bar_length = ( screen.cols < bar.len ) ? screen.cols : bar.len;
 	StringAppend( print, bar.data, final_bar_length );
 	StringFree( &bar );
 }
@@ -602,17 +607,14 @@ void ProsessEditDelete( size_t delete_len ){
 	}
 }
 
-void WriteFileError(){
-	printf( "Can only write to a regular file\n" );
-}
-
-void WriteFile(){
+bool WriteFile(){
 	bool error = StringToFile( &file, file_name );
 	if( error == true ){
-		atexit( WriteFileError );
-		exit( 0 );
+		StringAppend( &bar_notice, "ERROR: Could not write to file.", 30 );
+		return true;
 	}
 	file_modified = false;
+	return false;
 }
 
 void ProsessSearchSubstring(){
@@ -721,13 +723,15 @@ void ProsessCommand( char key ){
 	if( key == ESCAPE_KEY ){
 		command_count = 0;
 	} else if( key == 'q' ){
-		WriteFile();
-		exit( 0 );
+		bool error = WriteFile();
+		if( !error ){
+			exit( 0 );
+		}
 	} else if( key == 'Q' ){
 		exit( 0 );
 	} else if( key == 'w' ){
 		command_count = 0;
-		WriteFile();
+		bool error = WriteFile();
 	} else if( key == 'i' ){
 		command_count = 0;
 		EditNew();
@@ -937,6 +941,7 @@ void ProsessCommand( char key ){
 void ProsessInput(){
 	char key = GetInputBufferRead();
 	while( key != '\0' ){
+		StringFree( &bar_notice );
 		if( mode == EDIT_MODE ){
 			if( key == ESCAPE_KEY ){
 				mode = NORMAL_MODE;
