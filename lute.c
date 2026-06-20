@@ -664,7 +664,7 @@ void ProsessSearchSubstring(){
 	command_count = 0; \
 }
 
-#define ProsessSelectionMoveChar( func, dst ){ \
+#define ProsessSelectionMoveKey( func, key ){ \
 	if( command_count == 0 ){ \
 		command_count = 1; \
 	} \
@@ -673,7 +673,7 @@ void ProsessSearchSubstring(){
 			if( !anchor_pinned ){ \
 				selection.data[ i ].anchor = selection.data[ i ].cursor; \
 			} \
-			selection.data[ i ].cursor = func( &file, selection.data[ i ].cursor, dst ); \
+			selection.data[ i ].cursor = func( &file, selection.data[ i ].cursor, key ); \
 		} \
 	} \
 	command_count = 0; \
@@ -971,13 +971,13 @@ void ProsessInput(){
 		} else if( mode == FIND_PREV_MODE ){
 			mode = NORMAL_MODE;
 			if( key != ESCAPE_KEY ){
-				ProsessSelectionMoveChar( StringSelectFindCharPrev, key );
+				ProsessSelectionMoveKey( StringSelectFindCharPrev, key );
 			}
 			key = GetInputBuffer();
 		} else if( mode == FIND_NEXT_MODE ){
 			mode = NORMAL_MODE;
 			if( key != ESCAPE_KEY ){
-				ProsessSelectionMoveChar( StringSelectFindCharNext, key );
+				ProsessSelectionMoveKey( StringSelectFindCharNext, key );
 			}
 			key = GetInputBuffer();
 		} else if( mode == SEARCH_MODE ){
