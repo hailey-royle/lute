@@ -2,6 +2,8 @@ SHELL := /bin/bash
 
 build:
 	time gcc lute.c -o lute -std=c99 -O3 -Wall -Wextra -Wpedantic
+install:
+	cp lute /usr/local/bin
 run:
 	./lute readme.md
 	stty sane
