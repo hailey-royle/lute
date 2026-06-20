@@ -26,6 +26,15 @@
 #define ESCAPE_KEY 27
 #define DELETE_KEY 127
 
+
+enum Mode {
+	NORMAL_MODE,
+	EDIT_MODE,
+	FIND_PREV_MODE,
+	FIND_NEXT_MODE,
+	SEARCH_MODE,
+};
+
 #define INPUT_BUFFER_CAP 1024
 
 struct Input{
@@ -76,7 +85,7 @@ struct Input input = { 0 };
 struct String file = { 0 };
 char* file_name = NULL;
 size_t command_count = 0;
-bool edit_mode = false;
+enum Mode mode = NORMAL_MODE;
 bool file_modified = false;
 bool anchor_pinned = false;
 
@@ -126,10 +135,12 @@ void DrawBar( struct String* print ){
 	StringAlloc( &bar, screen.rows );
 	StringAppend( &bar, ERASE_LINE, sizeof( ERASE_LINE ));
 	StringAppend( &bar, file_name, strlen( file_name ));
-	if( edit_mode == true ){
+	if( mode == EDIT_MODE ){
 		StringAppend( &bar, "  ==EDIT==", 10 );
-	} else {
+	} else if( mode == NORMAL_MODE ){
 		StringAppend( &bar, "  =NORMAL=", 10 );
+	} else {
+		StringAppend( &bar, "  ==FIND==", 10 );
 	}
 	if( file_modified == true ){
 		StringAppend( &bar, "  [+]  ", 7 );
@@ -454,7 +465,7 @@ void EditRedo(){
 }
 
 void EditModeInit(){
-	edit_mode = true;
+	mode = EDIT_MODE;
 	for( size_t i = 0; i < selection.count; i++ ){
 		StringFree( &selection.data[ i ].clipboard );
 		selection.data[ i ].anchor = selection.data[ i ].cursor;
@@ -746,9 +757,9 @@ void ProsessCommand( char key ){
 	} else if( key == 'n' ){
 		ProsessSelectionMove( StringSelectParagraphNext );
 	} else if( key == 'F' ){
-		ProsessSelectionMoveChar( StringSelectFindCharPrev, GetInputBufferWait() );
+		mode = FIND_PREV_MODE;
 	} else if( key == 'f' ){
-		ProsessSelectionMoveChar( StringSelectFindCharNext, GetInputBufferWait() );
+		mode = FIND_NEXT_MODE;
 	} else if( key == 'z' ){
 		ProsessSelectionMove( StringSelectLineStart );
 	} else if( key == 'x' ){
@@ -988,9 +999,9 @@ void ProsessCommand( char key ){
 void ProsessInput(){
 	char key = GetInputBufferRead();
 	while( key != '\0' ){
-		if( edit_mode == true ){
+		if( mode == EDIT_MODE ){
 			if( key == ESCAPE_KEY ){
-				edit_mode = false;
+				mode = NORMAL_MODE;
 				key = GetInputBuffer();
 			} else if( key == TAB_KEY || key == NEWLINE_KEY || ( key >= ' ' && key < DELETE_KEY ) || key & 0x80 ){
 				char data[ INPUT_BUFFER_CAP ] = { 0 };
@@ -1009,11 +1020,25 @@ void ProsessInput(){
 				} while( key == DELETE_KEY );
 				ProsessEditDelete( len );
 			} else {
-				key = GetInputBuffer();
+				Unreachable();
 			}
-		} else {
+		} else if( mode == NORMAL_MODE ){
 			ProsessCommand( key );
 			key = GetInputBuffer();
+		} else if( mode == FIND_PREV_MODE ){
+			mode = NORMAL_MODE;
+			if( key != ESCAPE_KEY ){
+				ProsessSelectionMoveChar( StringSelectFindCharPrev, key );
+			}
+			key = GetInputBuffer();
+		} else if( mode == FIND_NEXT_MODE ){
+			mode = NORMAL_MODE;
+			if( key != ESCAPE_KEY ){
+				ProsessSelectionMoveChar( StringSelectFindCharNext, key );
+			}
+			key = GetInputBuffer();
+		} else {
+			Unreachable();
 		}
 	}
 }
