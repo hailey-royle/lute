@@ -83,6 +83,7 @@ struct EditArray edit = { 0 };
 struct Screen screen = { 0 };
 struct Input input = { 0 };
 struct String file = { 0 };
+struct String search = { 0 };
 char* file_name = NULL;
 size_t command_count = 0;
 enum Mode mode = NORMAL_MODE;
@@ -139,8 +140,12 @@ void DrawBar( struct String* print ){
 		StringAppend( &bar, "  ==EDIT==", 10 );
 	} else if( mode == NORMAL_MODE ){
 		StringAppend( &bar, "  =NORMAL=", 10 );
-	} else {
+	} else if( mode == FIND_NEXT_MODE || mode == FIND_PREV_MODE ){
 		StringAppend( &bar, "  ==FIND==", 10 );
+	} else if( mode == SEARCH_MODE ){
+		StringAppend( &bar, "  =SEARCH=", 10 );
+	} else {
+		Unreachable();
 	}
 	if( file_modified == true ){
 		StringAppend( &bar, "  [+]  ", 7 );
@@ -619,6 +624,37 @@ void WriteFile(){
 	file_modified = false;
 }
 
+void ProsessSearchSubstring(){
+	if( search.len == 0 ){
+		return;
+	}
+	for( size_t i = 1; selection.count > 1; ){
+		SelectionFree( i );
+	}
+	if( selection.data[ 0 ].anchor > selection.data[ 0 ].cursor ){
+		size_t tmp = selection.data[ 0 ].anchor;
+		selection.data[ 0 ].anchor = selection.data[ 0 ].cursor;
+		selection.data[ 0 ].cursor = tmp;
+	}
+	size_t new_selection_index = StringSelectSubStringPrev( &file, selection.data[ 0 ].cursor, search.data, search.len );
+	if( new_selection_index >= selection.data[ 0 ].anchor ){
+		size_t selection_min = selection.data[ 0 ].anchor;
+		selection.data[ 0 ].cursor = new_selection_index;
+		selection.data[ 0 ].anchor = new_selection_index + search.len;
+		while( true ){
+			new_selection_index = StringSelectSubStringPrev( &file, new_selection_index, search.data, search.len );
+			if( new_selection_index < selection_min ){
+				break;
+			}
+			if( new_selection_index == 0 ){
+				break;
+			}
+			SelectionNew( new_selection_index );
+			selection.data[ selection.count - 1 ].anchor = new_selection_index + search.len;
+		}
+	}
+}
+
 #define ProsessSelectionMove( func ){ \
 	if( command_count == 0 ){ \
 		command_count = 1; \
@@ -883,113 +919,15 @@ void ProsessCommand( char key ){
 			selection.data[ i - 1 ].clipboard.cap = selection.data[ i ].clipboard.cap;
 		}
 		selection.data[ selection.count - 1 ] = tmp;
-
 	} else if( key == 's' ){
 		command_count = 0;
-		struct String search = { 0 };
-		while( true ){
-			char input_key = GetInputBufferWait();
-			if( input_key == '\n' ){
-				break;
-			}
-			if( input_key == ESCAPE_KEY ){
-				StringFree( &search );
-				break;
-			}
-			StringAppend( &search, &input_key, 1 );
-		}
-		if( search.len > 0 ){
-			for( size_t i = 1; selection.count > 1; ){
-				SelectionFree( i );
-			}
-			if( selection.data[ 0 ].cursor > selection.data[ 0 ].anchor ){
-				size_t new_selection_index = StringSelectSubStringPrev( &file, selection.data[ 0 ].cursor, search.data, search.len );
-				if( new_selection_index >= selection.data[ 0 ].anchor ){
-					size_t selection_min = selection.data[ 0 ].anchor;
-					selection.data[ 0 ].cursor = new_selection_index;
-					selection.data[ 0 ].anchor = new_selection_index + search.len;
-					while( true ){
-						new_selection_index = StringSelectSubStringPrev( &file, new_selection_index, search.data, search.len );
-						if( new_selection_index < selection_min ){
-							break;
-						}
-						if( new_selection_index == 0 ){
-							break;
-						}
-						SelectionNew( new_selection_index );
-						selection.data[ selection.count - 1 ].anchor = new_selection_index + search.len;
-					}
-				}
-			} else {
-				size_t new_selection_index = StringSelectSubStringNext( &file, selection.data[ 0 ].cursor, search.data, search.len );
-				if( new_selection_index <= selection.data[ 0 ].anchor ){
-					size_t selection_max = selection.data[ 0 ].anchor;
-					selection.data[ 0 ].cursor = new_selection_index;
-					selection.data[ 0 ].anchor = new_selection_index + search.len;
-					while( true ){
-						new_selection_index = StringSelectSubStringNext( &file, new_selection_index, search.data, search.len );
-						if( new_selection_index > selection_max ){
-							break;
-						}
-						if( new_selection_index == file.len - 1 ){
-							break;
-						}
-						SelectionNew( new_selection_index );
-						selection.data[ selection.count - 1 ].anchor = new_selection_index + search.len;
-					}
-				}
-			}
-		}
-		StringFree( &search );
-
+		mode = SEARCH_MODE;
 	} else if( key == 'S' ){
 		command_count = 0;
-		for( size_t i = 1; selection.count > 1; ){
-			SelectionFree( i );
-		}
-		if( selection.data[ 0 ].cursor > selection.data[ 0 ].anchor ){
-			size_t new_selection_index = ( file.data[ selection.data[ 0 ].cursor ] == '\n' ) ?
-				selection.data[ 0 ].cursor :
-				StringSelectFindCharNext( &file, selection.data[ 0 ].cursor, '\n' );
-			if( new_selection_index >= selection.data[ 0 ].anchor ){
-				size_t selection_min = selection.data[ 0 ].anchor;
-				selection.data[ 0 ].cursor = new_selection_index;
-				selection.data[ 0 ].anchor = new_selection_index;
-				while( true ){
-					new_selection_index = StringSelectFindCharPrev( &file, new_selection_index, '\n' );
-					if( new_selection_index < selection_min ){
-						break;
-					}
-					if( new_selection_index == 0 ){
-						if( file.data[ new_selection_index ] == '\n' ){
-							SelectionNew( new_selection_index );
-						}
-						break;
-					}
-					SelectionNew( new_selection_index );
-				}
-			}
-		} else {
-			size_t new_selection_index = ( file.data[ selection.data[ 0 ].cursor ] == '\n' ) ?
-				selection.data[ 0 ].cursor :
-				StringSelectFindCharNext( &file, selection.data[ 0 ].cursor, '\n' );
-			if( new_selection_index <= selection.data[ 0 ].anchor ){
-				size_t selection_max = selection.data[ 0 ].anchor;
-				selection.data[ 0 ].cursor = new_selection_index;
-				selection.data[ 0 ].anchor = new_selection_index;
-				while( true ){
-					new_selection_index = StringSelectFindCharNext( &file, new_selection_index, '\n' );
-					if( new_selection_index > selection_max ){
-						break;
-					}
-					if( new_selection_index == file.len - 1 ){
-						SelectionNew( new_selection_index );
-						break;
-					}
-					SelectionNew( new_selection_index );
-				}
-			}
-		}
+		char newline = '\n';
+		StringAppend( &search, &newline, 1 );
+		ProsessSearchSubstring();
+		StringFree( &search );
 	} else if( key >= '0' && key <= '9' ){
 		command_count *= 10;
 		command_count += key & 0xf;
@@ -1035,6 +973,18 @@ void ProsessInput(){
 			mode = NORMAL_MODE;
 			if( key != ESCAPE_KEY ){
 				ProsessSelectionMoveChar( StringSelectFindCharNext, key );
+			}
+			key = GetInputBuffer();
+		} else if( mode == SEARCH_MODE ){
+			if( key == ESCAPE_KEY ){
+				mode = NORMAL_MODE;
+				StringFree( &search );
+			} else if( key == '\n' ){
+				mode = NORMAL_MODE;
+				ProsessSearchSubstring();
+				StringFree( &search );
+			} else {
+				StringAppend( &search, &key, 1 );
 			}
 			key = GetInputBuffer();
 		} else {
