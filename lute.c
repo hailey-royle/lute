@@ -637,7 +637,6 @@ void ProsessSearchSubstring(){
 	}
 }
 
-
 #define ProsessSelectionMove( func ){ \
 	if( command_count == 0 ){ \
 		command_count = 1; \
