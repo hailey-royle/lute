@@ -139,25 +139,33 @@ void DrawBar( struct String* print ){
 	if( file_modified == true ){
 		StringAppend( &bar, "+", 1 );
 	}
-	StringAlloc( &bar, 32 );
-	bar.len += sprintf( &bar.data[ bar.len ], "  %ld", selection.count );
+	StringAlloc( &bar, 64 );
+	if( anchor_pinned == true ){
+		bar.len += sprintf( &bar.data[ bar.len ], "  !%ld", selection.count );
+	} else {
+		bar.len += sprintf( &bar.data[ bar.len ], "  %ld", selection.count );
+	}
 	bar.len += sprintf( &bar.data[ bar.len ], ":%ld", StringGetLineNumber( &file, selection.data[ 0 ].cursor ));
 	bar.len += sprintf( &bar.data[ bar.len ], ":%ld", StringGetLineDepth( &file, selection.data[ 0 ].cursor ));
 	if( mode == EDIT_MODE ){
-		StringAppend( &bar, "  ==EDIT==  ", 12 );
+		StringAppend( &bar, "  ==EDIT==", 10 );
 	} else if( mode == NORMAL_MODE ){
-		StringAppend( &bar, "  =NORMAL=  ", 12 );
+		StringAppend( &bar, "  =NORMAL=", 10 );
 	} else if( mode == FIND_NEXT_MODE || mode == FIND_PREV_MODE ){
-		StringAppend( &bar, "  ==FIND==  ", 12 );
+		StringAppend( &bar, "  ==FIND==", 10 );
 	} else if( mode == SEARCH_MODE ){
-		StringAppend( &bar, "  =SEARCH=  ", 12 );
-		StringAppend( &bar, "\"", 1 );
+		StringAppend( &bar, "  =SEARCH=", 10 );
+		StringAppend( &bar, "  \"", 1 );
 		if( search.data != NULL ){
 			StringAppend( &bar, search.data, search.len );
 		}
 		StringAppend( &bar, "\"", 1 );
 	} else {
 		Unreachable();
+	}
+	StringAlloc( &bar, 32 );
+	if( command_count > 0 ){
+		bar.len += sprintf( &bar.data[ bar.len ], "  %ld", command_count );
 	}
 	size_t final_bar_length = ( screen.cols + sizeof( ERASE_LINE ) < bar.len ) ? screen.cols + sizeof( ERASE_LINE ) : bar.len;
 	StringAppend( print, bar.data, final_bar_length );
