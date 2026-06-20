@@ -717,7 +717,9 @@ void ProsessSearchSubstring(){
 }
 
 void ProsessCommand( char key ){
-	if( key == 'q' ){
+	if( key == ESCAPE_KEY ){
+		command_count = 0;
+	} else if( key == 'q' ){
 		WriteFile();
 		exit( 0 );
 	} else if( key == 'Q' ){
@@ -756,17 +758,17 @@ void ProsessCommand( char key ){
 			selection.data[ i ].anchor = tmp;
 		}
 	} else if( key == 'g' ){
+		command_count = 0;
 		for( size_t i = 0; i < selection.count; i++ ){
 			selection.data[ i ].cursor = StringSelectLineNumber( &file, command_count );
 			selection.data[ i ].anchor = selection.data[ i ].cursor;
 		}
-		command_count = 0;
 	} else if( key == 'G' ){
+		command_count = 0;
 		for( size_t i = 0; i < selection.count; i++ ){
 			selection.data[ i ].cursor = 0;
 			selection.data[ i ].anchor = file.len - 1;
 		}
-		command_count = 0;
 	} else if( key == 'h' ){
 		ProsessSelectionMove( StringSelectCharPrev );
 	} else if( key == 'l' ){
@@ -901,15 +903,21 @@ void ProsessCommand( char key ){
 			SelectionFree( i );
 		}
 	} else if( key == ':' ){
-		struct Selection tmp = selection.data[ 0 ];
-		for( size_t i = 1; i < selection.count; i++ ){
-			selection.data[ i - 1 ].cursor = selection.data[ i ].cursor;
-			selection.data[ i - 1 ].anchor = selection.data[ i ].anchor;
-			selection.data[ i - 1 ].clipboard.data = selection.data[ i ].clipboard.data;
-			selection.data[ i - 1 ].clipboard.len = selection.data[ i ].clipboard.len;
-			selection.data[ i - 1 ].clipboard.cap = selection.data[ i ].clipboard.cap;
+		if( command_count == 0 ){
+			command_count = 1;
 		}
-		selection.data[ selection.count - 1 ] = tmp;
+		for( size_t i = 0; i < command_count; i++ ){
+			struct Selection tmp = selection.data[ 0 ];
+			for( size_t j = 1; j < selection.count; j++ ){
+				selection.data[ j - 1 ].cursor = selection.data[ j ].cursor;
+				selection.data[ j - 1 ].anchor = selection.data[ j ].anchor;
+				selection.data[ j - 1 ].clipboard.data = selection.data[ j ].clipboard.data;
+				selection.data[ j - 1 ].clipboard.len = selection.data[ j ].clipboard.len;
+				selection.data[ j - 1 ].clipboard.cap = selection.data[ j ].clipboard.cap;
+			}
+			selection.data[ selection.count - 1 ] = tmp;
+		}
+		command_count = 0;
 	} else if( key == 's' ){
 		command_count = 0;
 		mode = SEARCH_MODE;
