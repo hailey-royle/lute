@@ -627,7 +627,8 @@ void ProsessSearchSubstring(){
 		selection.data[ 0 ].anchor = selection.data[ 0 ].cursor;
 		selection.data[ 0 ].cursor = tmp;
 	}
-	size_t new_selection_index = StringSelectSubStringNext( &file, selection.data[ 0 ].cursor - 1, search.data, search.len );
+	size_t new_selection_index = ( selection.data[ 0 ].cursor > 0 ) ? selection.data[ 0 ].cursor - 1 : 0;
+	new_selection_index = StringSelectSubStringNext( &file, new_selection_index, search.data, search.len );
 	if( new_selection_index <= selection.data[ 0 ].anchor ){
 		size_t selection_max = selection.data[ 0 ].anchor;
 		selection.data[ 0 ].cursor = new_selection_index;
