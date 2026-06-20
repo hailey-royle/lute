@@ -731,7 +731,7 @@ void ProsessCommand( char key ){
 		exit( 0 );
 	} else if( key == 'w' ){
 		command_count = 0;
-		bool error = WriteFile();
+		WriteFile();
 	} else if( key == 'i' ){
 		command_count = 0;
 		EditNew();
