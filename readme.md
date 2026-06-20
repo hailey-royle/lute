@@ -1,11 +1,22 @@
 
-# lute text editor
+## lute text editor
 
 **Lu**ddite **T**ext **E**ditor
 
 lute is made for my personal use, it is not ment to cater to a general audience
 lute is inspired by vi and kakoune
 lute is usable, but unfinished
+
+
+### To Build
+
+make build
+
+
+### To Install
+
+sudo make build install
+
 
 ### keybinds
 
