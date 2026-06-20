@@ -103,6 +103,7 @@ void LoadArgs( int argc, char** argv ){
 void DrawScreen();
 
 void HandleSigwinch( int sig ){
+	( void ) sig;
 	struct winsize winsize;
 	int err = ioctl( STDOUT_FILENO, TIOCGWINSZ, &winsize );
 	Assert( err != -1, "ioctl failed." );
