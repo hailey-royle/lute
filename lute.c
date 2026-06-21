@@ -21,6 +21,7 @@
 #define INVERSE_END "\x1b[27m"
 #define ERASE_LINE "\x1b[2K"
 
+#define BACKSPACE_KEY 8
 #define TAB_KEY 9
 #define NEWLINE_KEY 10
 #define LINEFEED_KEY 13
@@ -956,15 +957,16 @@ void ProsessInput(){
 					key = GetInputBuffer();
 				} while( key == TAB_KEY || key == NEWLINE_KEY || ( key >= ' ' && key < DELETE_KEY ) || key & 0x80 );
 				ProsessEditInsert( data, len );
-			} else if( key == DELETE_KEY ){
+			} else if( key == DELETE_KEY || key == BACKSPACE_KEY ){
 				size_t len = 0;
 				do{
 					len++;
 					key = GetInputBuffer();
-				} while( key == DELETE_KEY );
+				} while( key == DELETE_KEY || key == BACKSPACE_KEY );
 				ProsessEditDelete( len );
 			} else {
-				Unreachable();
+				// control key
+				key = GetInputBuffer();
 			}
 		} else if( mode == NORMAL_MODE ){
 			ProsessCommand( key );
