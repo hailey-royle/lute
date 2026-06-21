@@ -36,7 +36,7 @@ enum Mode {
 	SEARCH_MODE,
 };
 
-#define INPUT_BUFFER_CAP 1024
+#define INPUT_BUFFER_CAP 4096
 
 struct Input{
 	char data[ INPUT_BUFFER_CAP ];
@@ -100,27 +100,6 @@ void LoadArgs( int argc, char** argv ){
 	file_name = argv[ 1 ];
 }
 
-void DrawScreen();
-
-void HandleSigwinch( int sig ){
-	( void ) sig;
-	struct winsize winsize;
-	int err = ioctl( STDOUT_FILENO, TIOCGWINSZ, &winsize );
-	Assert( err != -1, "ioctl failed." );
-	screen.cols = winsize.ws_col;
-	screen.rows = winsize.ws_row;
-	DrawScreen();
-}
-
-void EnableSigwinch(){
-	struct sigaction sig_action;
-	sigemptyset( &sig_action.sa_mask );
-	sig_action.sa_flags = 0;
-	sig_action.sa_handler = HandleSigwinch;
-	int sig_error = sigaction( SIGWINCH, &sig_action, NULL );
-	Assert( sig_error != -1, "sigaction failed." );
-}
-
 void DisableRawMode(){
 	int err = tcsetattr( STDIN_FILENO, TCSAFLUSH, &initTermios );
 	Assert( err != -1, "tcsetattr failed." );
@@ -134,7 +113,7 @@ void EnableRawMode(){
 	int err = tcgetattr( STDIN_FILENO, &initTermios );
 	Assert( err != -1, "tcgetattr failed." );
 	struct termios rawTermios = initTermios;
-//	rawTermios.c_oflag &= ~OPOST; // turns off /n into /r/n
+	rawTermios.c_oflag &= ~OPOST; // turns off /n into /r/n
 	rawTermios.c_iflag &= ~( IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON );
 	rawTermios.c_lflag &= ~( ECHO | ECHONL | ICANON | ISIG | IEXTEN );
 	rawTermios.c_cflag &= ~( CSIZE | PARENB );
@@ -144,6 +123,14 @@ void EnableRawMode(){
 	err = tcsetattr( STDIN_FILENO, TCSAFLUSH, &rawTermios );
 	Assert( err != -1, "tcsetattr failed." );
 	atexit( DisableRawMode );
+}
+
+void GetScreenSize(){
+	struct winsize winsize;
+	int err = ioctl( STDOUT_FILENO, TIOCGWINSZ, &winsize );
+	Assert( err != -1, "ioctl failed." );
+	screen.cols = winsize.ws_col;
+	screen.rows = winsize.ws_row;
 }
 
 void DrawBar( struct String* print ){
@@ -315,7 +302,7 @@ void DrawScreen(){
 			drawLine++;
 		}
 	}
-	write(STDOUT_FILENO, print.data, print.len);
+	write( STDOUT_FILENO, print.data, print.len );
 	StringFree( &print );
 }
 
@@ -337,10 +324,8 @@ char GetInputBufferRead(){
 	char key = 0;
 	if( input.len == 0 ){
 		Assert( input.index == 0 && input.len == 0, "input data malformed" );
-		ssize_t bytes_read = 0;
-		while( bytes_read <= 0 ){
-			bytes_read = read( STDIN_FILENO, input.data, INPUT_BUFFER_CAP );
-		}
+		ssize_t bytes_read = read( STDIN_FILENO, input.data, INPUT_BUFFER_CAP );
+		Assert( bytes_read >= 0, "read() failed." );
 		input.len = ( size_t ) bytes_read;
 		for( size_t i = 0; i < input.len; i++ ){
 			Assert( input.data[ i ] != '\0', "read error" );
@@ -1045,9 +1030,8 @@ int main( int argc, char** argv ){
 	}
 	EnableRawMode();
 	SelectionNew( 0 );
-	EnableSigwinch();
-	HandleSigwinch( 28 );
 	while( true ){
+		GetScreenSize();
 		DrawScreen();
 		ProsessInput();
 		ValidateSelection();
