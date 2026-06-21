@@ -684,7 +684,7 @@ void ProsessSearchSubstring(){
 #define ProsessSelectionInside( lower, upper, left, right ){ \
 	for( size_t i = 0; i < selection.count; i++ ){ \
 		size_t lower_index = selection.data[ i ].cursor; \
-		size_t upper_index = selection.data[ i ].cursor - 1; \
+		size_t upper_index = ( selection.data[ i ].cursor == 0 ) ? 0 : selection.data[ i ].cursor - 1; \
 		size_t j = 0; \
 		while( true ){ \
 			size_t left_index = StringSelectFindCharPrev( &file, lower_index, left ); \
