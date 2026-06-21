@@ -991,6 +991,8 @@ void ProsessInput(){
 				mode = NORMAL_MODE;
 				ProsessSearchSubstring();
 				StringFree( &search );
+			} else if( key == DELETE_KEY || key == BACKSPACE_KEY ){
+				StringDeduct( &search, 1 );
 			} else {
 				StringAppend( &search, &key, 1 );
 			}
