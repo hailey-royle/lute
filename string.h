@@ -557,17 +557,17 @@ size_t StringGetLineDepth( struct String* string, size_t index ){
 	Assert( string->data != NULL, "Malformed args" );
 	size_t depth = 0;
 	size_t i = index;
-	if( index == 0 ){
-		return 1;
-	}
 	while( true ){
 		if( string->data[ i ] == '\t' ){
 			depth += 8;
 		} else {
 			depth++;
 		}
-		i--;
-		if( i == 0 || string->data[ i ] == '\n' ){
+		if( i == 0 ){
+			break;
+		}
+		i = StringUTF8Prev( string, i );
+		if( string->data[ i ] == '\n' ){
 			break;
 		}
 	}
