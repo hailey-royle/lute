@@ -11,7 +11,7 @@ debug:
 	time gcc lute.c -o lute -ggdb -Wall -Wextra -Wpedantic -fanalyzer -fsanitize=address,leak,undefined
 prof:
 	time gcc lute.c -o lute -Og -ggdb -pg -Wall -Wextra -Wpedantic -fanalyzer -fsanitize=address,leak,undefined
-	./lute README.md
+	./lute readme.md
 	gprof lute gmon.out > prof.out
 	less prof.out
 	rm prof.out gmon.out
