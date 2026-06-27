@@ -3,31 +3,14 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <termios.h>
-#include <sys/ioctl.h>
 #include <signal.h>
 
 #include "string.h"
 #include "assert.h"
+#include "tui.h"
 
-#define START_ALT_SCREEN "\x1b[?1049h"
-#define END_ALT_SCREEN "\x1b[?1049l"
-#define CURSOR_HIDDEN "\x1b[?25l"
-#define CURSOR_SHOW "\x1b[?25h"
-#define CURSOR_HOME "\x1b[1;1H"
-#define HIGHLIGHT_START "\x1b[41m"
-#define HIGHLIGHT_END "\x1b[49m"
-#define INVERSE_START "\x1b[7m"
-#define INVERSE_END "\x1b[27m"
-#define ERASE_LINE "\x1b[2K"
-
-#define BACKSPACE_KEY 8
-#define TAB_KEY 9
-#define NEWLINE_KEY 10
-#define LINEFEED_KEY 13
-#define ESCAPE_KEY 27
-#define DELETE_KEY 127
-
+#define HIGHLIGHT_START BACKGROUND_RED
+#define HIGHLIGHT_END BACKGROUND_DEFAULT
 
 enum Mode {
 	NORMAL_MODE,
@@ -35,14 +18,6 @@ enum Mode {
 	FIND_PREV_MODE,
 	FIND_NEXT_MODE,
 	SEARCH_MODE,
-};
-
-#define INPUT_BUFFER_CAP 4096
-
-struct Input{
-	char data[ INPUT_BUFFER_CAP ];
-	size_t len;
-	size_t index;
 };
 
 struct Screen{
@@ -78,12 +53,9 @@ struct EditArray{
 	size_t redo_count;
 };
 
-struct termios initTermios;
-
 struct SelectionArray selection = { 0 };
 struct EditArray edit = { 0 };
 struct Screen screen = { 0 };
-struct Input input = { 0 };
 struct String file = { 0 };
 struct String search = { 0 };
 struct String bar_notice = { 0 };
@@ -99,39 +71,6 @@ void LoadArgs( int argc, char** argv ){
 		exit( 0 );
 	}
 	file_name = argv[ 1 ];
-}
-
-void DisableRawMode(){
-	int err = tcsetattr( STDIN_FILENO, TCSAFLUSH, &initTermios );
-	Assert( err != -1, "tcsetattr failed." );
-	write( STDOUT_FILENO, END_ALT_SCREEN, sizeof( END_ALT_SCREEN ));
-	write( STDOUT_FILENO, CURSOR_SHOW, sizeof( CURSOR_SHOW ) );
-}
-
-void EnableRawMode(){
-	write( STDOUT_FILENO, START_ALT_SCREEN, sizeof( START_ALT_SCREEN ));
-	write( STDOUT_FILENO, CURSOR_HIDDEN, sizeof( CURSOR_HIDDEN ));
-	int err = tcgetattr( STDIN_FILENO, &initTermios );
-	Assert( err != -1, "tcgetattr failed." );
-	struct termios rawTermios = initTermios;
-	rawTermios.c_oflag &= ~OPOST; // turns off /n into /r/n
-	rawTermios.c_iflag &= ~( IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON );
-	rawTermios.c_lflag &= ~( ECHO | ECHONL | ICANON | ISIG | IEXTEN );
-	rawTermios.c_cflag &= ~( CSIZE | PARENB );
-	rawTermios.c_cflag |= CS8;
-	rawTermios.c_cc[ VMIN ] = 0;
-	rawTermios.c_cc[ VTIME ] = 1;
-	err = tcsetattr( STDIN_FILENO, TCSAFLUSH, &rawTermios );
-	Assert( err != -1, "tcsetattr failed." );
-	atexit( DisableRawMode );
-}
-
-void GetScreenSize(){
-	struct winsize winsize;
-	int err = ioctl( STDOUT_FILENO, TIOCGWINSZ, &winsize );
-	Assert( err != -1, "ioctl failed." );
-	screen.cols = winsize.ws_col;
-	screen.rows = winsize.ws_row;
 }
 
 void DrawBar( struct String* print ){
@@ -305,46 +244,6 @@ void DrawScreen(){
 	}
 	write( STDOUT_FILENO, print.data, print.len );
 	StringFree( &print );
-}
-
-char GetInputBuffer(){
-	char key = 0;
-	if( input.len == 0 ){
-		return key;
-	}
-	key = input.data[ input.index ];
-	input.index++;
-	if( input.index >= input.len ){
-		input.index = 0;
-		input.len = 0;
-	}
-	return key;
-}
-
-char GetInputBufferRead(){
-	char key = 0;
-	if( input.len == 0 ){
-		Assert( input.index == 0 && input.len == 0, "input data malformed" );
-		ssize_t bytes_read = read( STDIN_FILENO, input.data, INPUT_BUFFER_CAP );
-		Assert( bytes_read >= 0, "read() failed." );
-		input.len = ( size_t ) bytes_read;
-		for( size_t i = 0; i < input.len; i++ ){
-			Assert( input.data[ i ] != '\0', "read error" );
-			if( input.data[ i ] == LINEFEED_KEY ){
-				input.data[ i ] = NEWLINE_KEY;
-			}
-		}
-		if( input.len == 0 ){
-			return key;
-		}
-	}
-	key = input.data[ input.index ];
-	input.index++;
-	if( input.index >= input.len ){
-		input.index = 0;
-		input.len = 0;
-	}
-	return key;
 }
 
 void SelectionNew( size_t index ){
@@ -1035,7 +934,7 @@ int main( int argc, char** argv ){
 	EnableRawMode();
 	SelectionNew( 0 );
 	while( true ){
-		GetScreenSize();
+		GetScreenSize( &screen.cols, &screen.rows );
 		DrawScreen();
 		ProsessInput();
 		ValidateSelection();
