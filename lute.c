@@ -634,8 +634,8 @@ void ProsessSearchSubstring(){
 #define ProsessSelectionInside( left, right ){ \
 	for( size_t i = 0; i < selection.count; i++ ){ \
 		size_t lower_index = selection.data[ i ].cursor; \
-		size_t upper_index = ( selection.data[ i ].cursor == 0 ) ? 0 : selection.data[ i ].cursor - 1; \
-		size_t j = 0; \
+		size_t upper_index = selection.data[ i ].cursor; \
+		size_t j = ( file.data[ selection.data[ i ].cursor ] == right ) ? 1 : 0; \
 		while( true ){ \
 			size_t left_index = StringSelectFindCharPrev( &file, lower_index, left ); \
 			size_t right_index = StringSelectFindCharPrev( &file, lower_index, right ); \
@@ -650,6 +650,7 @@ void ProsessSearchSubstring(){
 				j++; \
 			} \
 		} \
+		j = ( file.data[ selection.data[ i ].cursor ] == left ) ? 1 : 0; \
 		while( true ){ \
 			size_t left_index = StringSelectFindCharNext( &file, upper_index, left ); \
 			size_t right_index = StringSelectFindCharNext( &file, upper_index, right ); \
@@ -665,8 +666,8 @@ void ProsessSearchSubstring(){
 			} \
 		} \
 		if( file.data[ lower_index ] == left && file.data[ upper_index ] == right ){ \
-			selection.data[ i ].cursor = lower_index; \
-			selection.data[ i ].anchor = upper_index + 1; \
+			selection.data[ i ].cursor = upper_index; \
+			selection.data[ i ].anchor = lower_index + 1; \
 		} \
 	} \
 }
