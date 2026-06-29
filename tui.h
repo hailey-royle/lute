@@ -71,7 +71,7 @@ void EnableRawMode(){
         int err = tcgetattr( STDIN_FILENO, &initTermios );
         Assert( err != -1, "tcgetattr failed." );
         struct termios rawTermios = initTermios;
-        rawTermios.c_oflag &= ~OPOST; // turns off /n into /r/n
+//        rawTermios.c_oflag &= ~OPOST; // turns off /n into /r/n
         rawTermios.c_iflag &= ~( IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON );
         rawTermios.c_lflag &= ~( ECHO | ECHONL | ICANON | ISIG | IEXTEN );
         rawTermios.c_cflag &= ~( CSIZE | PARENB );

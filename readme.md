@@ -57,7 +57,7 @@ lute is usable, but unfinished.
 
 ### bugs
 
-- redo/undo off by one (?) very rarely
-- at least two asserts tripped when pasting in large amounts of data
-- validate selecton error on line end and wraps back to other cursor
+- redo/undo curruption (off by one?) very rarely.
+- at least two asserts tripped when pasting in large amounts of data.
+- buffer underflow when ProsessEditDelete's delete_len is > 1 and selection.data[ n ].cursor < delete_len.
 

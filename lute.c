@@ -369,6 +369,7 @@ void EditUndo(){
 		SelectionFree( undo->count );
 	}
 	for( size_t i = 0; i < undo->count; i++ ){
+		Assert( ( ssize_t ) undo->data[ i ].index > 0, "Malformed Data. %ld", undo->data[ i ].index );
 		StringDelete( &file, undo->data[ i ].index, undo->data[ i ].insert.len );
 		if( undo->data[ i ].delete.len > 0 ){
 			StringInsert( &file, undo->data[ i ].index, undo->data[ i ].delete.data, undo->data[ i ].delete.len );
@@ -513,8 +514,10 @@ void ProsessEditInsert( char* key, size_t key_len ){
 	Assert( key != NULL, "Malformed arguments" );
 	file_modified = true;
 	struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
+	Assert( edit.data != NULL, "edit.data == NULL" );
+	Assert( edit.undo_count > 0, "undo_count %ld", edit.undo_count );
+	Assert( selection.count == edit.data[ edit.undo_count - 1 ].count, "selection %ld, undo %ld\n", selection.count, edit.data[ edit.undo_count - 1 ].count );
 	for( size_t i = 0; i < selection.count; i++ ){
-		Assert( undo->count == selection.count, "you fucked up" );
 		for( size_t j = 0; j < selection.count; j++ ){
 			if( undo->data[ j ].index > undo->data[ i ].index ){
 				undo->data[ j ].index += key_len;
@@ -533,17 +536,19 @@ void ProsessEditInsert( char* key, size_t key_len ){
 void ProsessEditDelete( size_t delete_len ){
 	file_modified = true;
 	struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
+	Assert( edit.data != NULL, "edit.data == NULL" );
+	Assert( edit.undo_count > 0, "undo_count %ld", edit.undo_count );
+	Assert( selection.count == edit.data[ edit.undo_count - 1 ].count, "selection %ld, undo %ld\n", selection.count, edit.data[ edit.undo_count - 1 ].count );
 	for( size_t i = 0; i < selection.count; i++ ){
-		Assert( undo->count == selection.count, "you fucked up" );
 		if( selection.data[ i ].cursor == 0 ){
 			break;
 		}
-		selection.data[ i ].cursor -= delete_len ;
+		selection.data[ i ].cursor -= delete_len;
 		selection.data[ i ].anchor = selection.data[ i ].cursor;
 		for( size_t j = 0; j < selection.count; j++ ){
 			if( undo->data[ j ].index > undo->data[ i ].index ){
-				undo->data[ j ].index -= delete_len ;
-				selection.data[ j ].cursor -= delete_len ;
+				undo->data[ j ].index -= delete_len;
+				selection.data[ j ].cursor -= delete_len;
 				selection.data[ j ].anchor = selection.data[ j ].cursor;
 			}
 		}
@@ -1028,6 +1033,25 @@ void ProsessCommand( int32_t key ){
 	}
 }
 
+void ValidateSelection(){
+	for( size_t i = 0; i < selection.count; i++ ){
+		size_t selection_min = ( selection.data[ i ].cursor > selection.data[ i ].anchor ) ? selection.data[ i ].anchor : selection.data[ i ].cursor;
+		size_t selection_max = ( selection.data[ i ].cursor > selection.data[ i ].anchor ) ? selection.data[ i ].cursor : selection.data[ i ].anchor;
+		for( size_t j = selection.count - 1; j < selection.count; j-- ){
+			if( i == j ){
+				continue;
+			}
+			bool cursor_inside = ( selection.data[ j ].cursor >= selection_min && selection.data[ j ].cursor <= selection_max ) ? true : false;
+			bool anchor_inside = ( selection.data[ j ].anchor >= selection_min && selection.data[ j ].anchor <= selection_max ) ? true : false;
+			if( cursor_inside && anchor_inside ){
+				SelectionFree( j );
+			} else if( cursor_inside ){
+				selection.data[ i ].anchor = selection.data[ j ].cursor;
+			}
+		}
+	}
+}
+
 void ProsessInput(){
 	int32_t key = GetInputBufferRead();
 	while( key != '\0' ){
@@ -1046,6 +1070,16 @@ void ProsessInput(){
 				} while( key == TAB_KEY || key == NEWLINE_KEY || ( key >= ' ' && key < DELETE_KEY ) || key & 0x80 );
 				ProsessEditInsert( data, len );
 			} else if( key == DELETE_KEY || key == BACKSPACE_KEY ){
+				ValidateSelection();
+				Assert( edit.data != NULL, "edit.data == NULL" );
+				Assert( edit.undo_count > 0, "undo_count %ld", edit.undo_count );
+				if( selection.count != edit.data[ edit.undo_count - 1 ].count ){
+					EditNew();
+					for( size_t i = 0; i < selection.count; i++ ){
+						edit.data[ edit.undo_count - 1 ].data[ i ].index = selection.data[ i ].cursor;
+					}
+				}
+				Assert( selection.count == edit.data[ edit.undo_count - 1 ].count, "selection %ld, undo %ld\n", selection.count, edit.data[ edit.undo_count - 1 ].count );
 				size_t len = 0;
 				do{
 					len++;
@@ -1087,25 +1121,6 @@ void ProsessInput(){
 			key = GetInputBuffer();
 		} else {
 			Unreachable();
-		}
-	}
-}
-
-void ValidateSelection(){
-	for( size_t i = 0; i < selection.count; i++ ){
-		size_t selection_min = ( selection.data[ i ].cursor > selection.data[ i ].anchor ) ? selection.data[ i ].anchor : selection.data[ i ].cursor;
-		size_t selection_max = ( selection.data[ i ].cursor > selection.data[ i ].anchor ) ? selection.data[ i ].cursor : selection.data[ i ].anchor;
-		for( size_t j = selection.count - 1; j < selection.count; j-- ){
-			if( i == j ){
-				continue;
-			}
-			bool cursor_inside = ( selection.data[ j ].cursor >= selection_min && selection.data[ j ].cursor <= selection_max ) ? true : false;
-			bool anchor_inside = ( selection.data[ j ].anchor >= selection_min && selection.data[ j ].anchor <= selection_max ) ? true : false;
-			if( cursor_inside && anchor_inside ){
-				SelectionFree( j );
-			} else if( cursor_inside ){
-				selection.data[ i ].anchor = selection.data[ j ].cursor;
-			}
 		}
 	}
 }
