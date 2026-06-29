@@ -205,14 +205,14 @@ size_t DrawLine( struct String* print, size_t start_index, bool* highlight ){
 					StringAppend( print, HIGHLIGHT_END, sizeof( HIGHLIGHT_END ));
 					*highlight = false;
 				}
-				StringAppend( print, INVERSE_START, sizeof( INVERSE_START ));
+				StringAppend( print, CURSOR_START, sizeof( CURSOR_START ));
 				inverse_flag = true;
 			}
 		}
 		if( file.data[ i ] == '\n' ){
 			StringAppend( print, " ", 1 );
 			if( inverse_flag ){
-				StringAppend( print, INVERSE_END, sizeof( INVERSE_END ));
+				StringAppend( print, CURSOR_END, sizeof( CURSOR_END ));
 			}
 			break;
 		} else if( file.data[ i ] == '\t' ){
@@ -232,7 +232,7 @@ size_t DrawLine( struct String* print, size_t start_index, bool* highlight ){
 			}
 		}
 		if( inverse_flag ){
-			StringAppend( print, INVERSE_END, sizeof( INVERSE_END ));
+			StringAppend( print, CURSOR_END, sizeof( CURSOR_END ));
 		}
 	}
 	StringAppend( print, HIGHLIGHT_END, sizeof( HIGHLIGHT_END ));
