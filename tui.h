@@ -91,8 +91,8 @@ void GetScreenSize( size_t* cols, size_t* rows ){
         *rows = winsize.ws_row;
 }
 
-char GetInputBuffer(){
-        char key = 0;
+int32_t GetInputBuffer(){
+        int32_t key = 0;
         if( input.len == 0 ){
                 return key;
         }
@@ -105,8 +105,8 @@ char GetInputBuffer(){
         return key;
 }
 
-char GetInputBufferRead(){
-        char key = 0;
+int32_t GetInputBufferRead(){
+        int32_t key = 0;
         if( input.len == 0 ){
                 Assert( input.index == 0 && input.len == 0, "input data malformed" );
                 ssize_t bytes_read = read( STDIN_FILENO, input.data, INPUT_BUFFER_CAP );
@@ -117,6 +117,9 @@ char GetInputBufferRead(){
                         if( input.data[ i ] == LINEFEED_KEY ){
                                 input.data[ i ] = NEWLINE_KEY;
                         }
+                        if( input.data[ i ] == BACKSPACE_KEY ){
+                                input.data[ i ] = DELETE_KEY;
+			}
                 }
                 if( input.len == 0 ){
                         return key;
