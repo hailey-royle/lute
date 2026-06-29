@@ -9,9 +9,6 @@
 #include "assert.h"
 #include "tui.h"
 
-#define HIGHLIGHT_START BACKGROUND_RED
-#define HIGHLIGHT_END BACKGROUND_DEFAULT
-
 enum Mode {
 	NORMAL_MODE,
 	EDIT_MODE,

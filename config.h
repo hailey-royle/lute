@@ -1,3 +1,7 @@
+
+#define HIGHLIGHT_START BACKGROUND_RED
+#define HIGHLIGHT_END BACKGROUND_DEFAULT
+
 struct Key {
 	int32_t key;
 	void ( *function )( void );
