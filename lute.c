@@ -567,33 +567,31 @@ void ProsessEditDelete( size_t delete_len ){
 }
 
 void ProsessSearchSubstring(){
-	if( search.len == 0 ){
+	if( search.len == 0 || selection.data[ 0 ].cursor == selection.data[ 0 ].anchor ){
 		return;
 	}
-	for( size_t i = 1; selection.count > 1; ){
-		SelectionFree( i );
-	}
-	if( selection.data[ 0 ].anchor < selection.data[ 0 ].cursor ){
-		size_t tmp = selection.data[ 0 ].anchor;
-		selection.data[ 0 ].anchor = selection.data[ 0 ].cursor;
-		selection.data[ 0 ].cursor = tmp;
-	}
-	size_t new_selection_index = ( selection.data[ 0 ].cursor > 0 ) ? selection.data[ 0 ].cursor - 1 : 0;
-	new_selection_index = StringSelectSubStringNext( &file, new_selection_index, search.data, search.len );
-	if( new_selection_index <= selection.data[ 0 ].anchor ){
-		size_t selection_max = selection.data[ 0 ].anchor;
-		selection.data[ 0 ].cursor = new_selection_index;
-		selection.data[ 0 ].anchor = new_selection_index + search.len;
+	size_t selection_min = ( selection.data[ 0 ].anchor < selection.data[ 0 ].cursor ) ? selection.data[ 0 ].anchor : selection.data[ 0 ].cursor;
+	size_t selection_max = ( selection.data[ 0 ].anchor > selection.data[ 0 ].cursor ) ? selection.data[ 0 ].anchor : selection.data[ 0 ].cursor;
+	selection_min = ( selection_min == 0 ) ? 0 : selection_min - 1;
+	size_t new_selection_index = StringSelectSubStringNext( &file, selection_min, search.data, search.len );
+	if( new_selection_index + search.len < selection_max ){
+		for( size_t i = 1; selection.count > 1; ){
+			SelectionFree( i );
+		}
+		if( selection.data[ 0 ].anchor > selection.data[ 0 ].cursor ){
+			size_t tmp = selection.data[ 0 ].cursor;
+			selection.data[ 0 ].cursor = selection.data[ 0 ].anchor;
+			selection.data[ 0 ].anchor = tmp;
+		}
+		selection.data[ 0 ].anchor = new_selection_index;
+		selection.data[ 0 ].cursor = new_selection_index + search.len;
 		while( true ){
 			new_selection_index = StringSelectSubStringNext( &file, new_selection_index, search.data, search.len );
-			if( new_selection_index > selection_max ){
-				break;
-			}
-			if( new_selection_index == file.len - 1 ){
+			if( new_selection_index == file.len - 1 || new_selection_index + search.len > selection_max ){
 				break;
 			}
 			SelectionNew( new_selection_index );
-			selection.data[ selection.count - 1 ].anchor = new_selection_index + search.len;
+			selection.data[ selection.count - 1 ].cursor = new_selection_index + search.len;
 		}
 	}
 }
