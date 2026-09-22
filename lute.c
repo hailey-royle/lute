@@ -1,1135 +1,562 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdbool.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
 
-#include "string.h"
-#include "assert.h"
-#include "tui.h"
+#include "base.h"
 
-#define HIGHLIGHT_START BACKGROUND_RED
-#define HIGHLIGHT_END BACKGROUND_DEFAULT
+#define error_mode 0
+#define command_mode 1
+#define edit_mode 2
 
-enum Mode {
-	NORMAL_MODE,
-	EDIT_MODE,
-	FIND_PREV_MODE,
-	FIND_NEXT_MODE,
-	SEARCH_MODE,
-};
+typedef struct {
+	i32 cursor;
+	i32 anchor;
+	i32 clipboard_count;
+	char* clipboard;
+} selection_struct;
 
-struct Screen{
-	size_t cols;
-	size_t rows;
-};
+typedef struct {
+	i32 index;
+	i32 inserted_count;
+	i32 removed_count;
+	char* inserted;
+	char* removed;
+} edit_struct;
 
-struct Selection{
-	struct String clipboard;
-	size_t cursor;
-	size_t anchor;
-};
+typedef struct {
+	u32 key;
+	void (*function)( void );
+} keybind;
 
-struct SelectionArray{
-	struct Selection* data;
-	size_t count;
-};
-
-struct EditSelection{
-	struct String insert;
-	struct String delete;
-	size_t index;
-};
-
-struct EditSelectionArray{
-	struct EditSelection* data;
-	size_t count;
-};
-
-struct EditArray{
-	struct EditSelectionArray* data;
-	size_t undo_count;
-	size_t redo_count;
-};
-
-struct SelectionArray selection = { 0 };
-struct EditArray edit = { 0 };
-struct Screen screen = { 0 };
-struct String file = { 0 };
-struct String search = { 0 };
-struct String bar_notice = { 0 };
-char* file_name = NULL;
-size_t command_count = 0;
-enum Mode mode = NORMAL_MODE;
-bool file_modified = false;
-bool anchor_pinned = false;
-
-void CommandEscapeNormal();
-void CommandQuit();
-void CommandWriteFileQuit();
-void CommandWriteFile();
-void CommandStandardEditMode();
-void CommandNewlineEditMode();
-void CommandFindPrevMode();
-void CommandFindNextMode();
-void CommandEditUndo();
-void CommandEditRedo();
-void CommandToggleAnchorPin();
-void CommandSwapCursorAnchor();
-void CommandMoveCharPrev();
-void CommandMoveCharNext();
-void CommandMoveLinePrev();
-void CommandMoveLineNext();
-void CommandMoveWordPrev();
-void CommandMoveWordNext();
-void CommandMoveParagraphPrev();
-void CommandMoveParagraphNext();
-void CommandMoveLineStart();
-void CommandMoveLineEnd();
-void CommandMoveFileStart();
-void CommandMoveFileEnd();
-void CommandMoveLineNumber();
-void CommandSelectFile();
-void CommandSelectInsideParen();
-void CommandSelectInsideBracket();
-void CommandSelectInsideCurly();
-void CommandSelectInsideSingleQuote();
-void CommandSelectInsideDoubleQuote();
-void CommandCopySelection();
-void CommandCopyLine();
-void CommandDeleteSelection();
-void CommandDeleteLine();
-void CommandChangeSelection();
-void CommandChangeLine();
-void CommandPasteClipboard();
-void CommandReplaceSelection();
-void CommandReplaceLine();
-void CommandSearchString();
-void CommandSearchNewline();
-void CommandRemoveOtherSelections();
-void CommandRotateSelection();
-void CommandDeleteAtLineStart();
-void CommandInsertTabAtLineStart();
-void CommandCount0();
-void CommandCount1();
-void CommandCount2();
-void CommandCount3();
-void CommandCount4();
-void CommandCount5();
-void CommandCount6();
-void CommandCount7();
-void CommandCount8();
-void CommandCount9();
+void command_quit();
+void command_move_char_next();
+void command_move_char_prev();
+void command_move_word_next();
+void command_move_word_prev();
+void command_move_line_next();
+void command_move_line_prev();
+void command_move_para_next();
+void command_move_para_prev();
+void command_move_line_end();
+void command_move_line_start();
+void command_move_file_end();
+void command_move_file_start();
+void command_swap_anchor_cursor();
 
 #include "config.h"
 
-void LoadArgs( int argc, char** argv ){
-	if( argc != 2 ){
-		printf( "Usage: lute <filename>\n" );
-		exit( 0 );
+struct termios cache_termios = { 0 };
+
+char file_buffer[ max_file_size ] = { 0 };
+i32 file_count = 0;
+
+char frame_buffer[ max_frame_size ] = { 0 };
+i32 frame_count = 0;
+
+char input_buffer[ max_input_size ] = { 0 };
+i32 input_count = 0;
+
+char clipboard_buffer[ max_clipboard_size ] = { 0 };
+selection_struct selection[ max_selection_count ] = { 0 };
+i32 selection_count = 1;  // first selection is initalized to all zeros
+
+char edit_buffer[ max_edit_size ] = { 0 };
+edit_struct edit[ max_edit_count ] = { 0 };
+i32 undo_count;
+i32 redo_count;
+
+char* file_name = NULL;
+
+i32 screen_cols = 0;
+i32 screen_rows = 0;
+
+i8 mode = command_mode;
+
+i32 string_line_start( char* source, i32 count, i32 index ){
+	assert( source != NULL );
+	assert( count >= 0 );
+	assert( index >= 0 );
+	assert( count > index );
+	while( index > 0 && source[ index - 1 ] != '\n' ){
+		index -= 1;
 	}
-	file_name = argv[ 1 ];
+	return index;
 }
 
-void DrawBar( struct String* print ){
-	StringAppend( print, ERASE_LINE, sizeof( ERASE_LINE ));
-	if( bar_notice.data != NULL ){
-		StringAppend( print, bar_notice.data, bar_notice.len );
-		return;
+i32 string_next_line( char* source, i32 count, i32 index ){
+	assert( source != NULL );
+	assert( count >= 0 );
+	assert( index >= 0 );
+	assert( count > index );
+	while( index < count - 1 && source[ index ] != '\n' ){
+		index += 1;
 	}
-	struct String bar = { 0 };
-	StringAlloc( &bar, screen.rows );
-	StringAppend( &bar, file_name, strlen( file_name ));
-	if( file_modified == true ){
-		StringAppend( &bar, "+", 1 );
+	if( index < count - 1 ){
+		index += 1;
 	}
-	StringAlloc( &bar, 64 );
-	if( anchor_pinned == true ){
-		bar.len += sprintf( &bar.data[ bar.len ], "  !%ld", selection.count );
-	} else {
-		bar.len += sprintf( &bar.data[ bar.len ], "  %ld", selection.count );
-	}
-	bar.len += sprintf( &bar.data[ bar.len ], ":%ld", StringGetLineNumber( &file, selection.data[ 0 ].cursor ));
-	bar.len += sprintf( &bar.data[ bar.len ], ":%ld", StringGetLineDepth( &file, selection.data[ 0 ].cursor ));
-	if( mode == EDIT_MODE ){
-		StringAppend( &bar, "  ==EDIT==", 10 );
-	} else if( mode == NORMAL_MODE ){
-		StringAppend( &bar, "  =NORMAL=", 10 );
-	} else if( mode == FIND_NEXT_MODE || mode == FIND_PREV_MODE ){
-		StringAppend( &bar, "  ==FIND==", 10 );
-	} else if( mode == SEARCH_MODE ){
-		StringAppend( &bar, "  =SEARCH=", 10 );
-		StringAppend( &bar, "  \"", 3 );
-		if( search.data != NULL ){
-			StringAppend( &bar, search.data, search.len );
-		}
-		StringAppend( &bar, "\"", 1 );
-	} else {
-		Unreachable();
-	}
-	StringAlloc( &bar, 32 );
-	if( command_count > 0 ){
-		bar.len += sprintf( &bar.data[ bar.len ], "  %ld", command_count );
-	}
-	size_t final_bar_length = ( screen.cols < bar.len ) ? screen.cols : bar.len;
-	StringAppend( print, bar.data, final_bar_length );
-	StringFree( &bar );
+	return index;
 }
 
-size_t DrawLine( struct String* print, size_t start_index, bool* highlight ){
-	size_t real_end_index = StringSelectLineEnd( &file, start_index ) + 1;
-	size_t cliped_end_index = real_end_index;
-	if( real_end_index - start_index > screen.cols ){
-		cliped_end_index = start_index + screen.cols;
-	}
-	if( *highlight == true ){
-		StringAppend( print, HIGHLIGHT_START, sizeof( HIGHLIGHT_START ));
-	}
-	size_t tabs = 0;
-	size_t unicode = 0;
-	for( size_t i = start_index; i < cliped_end_index; ){
-		bool inverse_flag = false;
-		for( size_t j = 0; j < selection.count; j++ ){
-			if( selection.data[ j ].anchor == i ){
-				if( *highlight == false ){
-					StringAppend( print, HIGHLIGHT_START, sizeof( HIGHLIGHT_START ));
-					*highlight = true;
+void buffer_append( char* buffer, i32* buffer_count, i32 buffer_max, char* src, i32 src_count ){
+	assert( buffer != NULL );
+	assert( src != NULL );
+	assert( buffer_count != NULL );
+	assert( buffer_max >= *buffer_count );
+	assert( buffer_max >= *buffer_count + src_count );
+	memmove( &buffer[ *buffer_count ], src, src_count );
+	*buffer_count += src_count;
+}
+
+void draw_bar(){
+	buffer_append( frame_buffer, &frame_count, max_frame_size, "BAR", 3  );
+}
+
+void draw_line_selection_start( i32 line_index, i8* cursor_end ){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		if( selection[ i ].anchor == line_index ){
+			if( selection[ i ].anchor < selection[ i ].cursor ){
+				if( i == 0 ){
+					buffer_append( frame_buffer, &frame_count, max_frame_size, primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
 				} else {
-					StringAppend( print, HIGHLIGHT_END, sizeof( HIGHLIGHT_END ));
-					*highlight = false;
+					buffer_append( frame_buffer, &frame_count, max_frame_size, selection_highlight_start, strlen( selection_highlight_start ));
 				}
-			}
-			if( selection.data[ j ].cursor == i ){
-				if( *highlight == false ){
-					StringAppend( print, HIGHLIGHT_START, sizeof( HIGHLIGHT_START ));
-					*highlight = true;
+			} else if( selection[ i ].anchor > selection[ i ].cursor ){
+				if( i == 0 ){
+					buffer_append( frame_buffer, &frame_count, max_frame_size, primary_selection_highlight_end, strlen( primary_selection_highlight_end ));
 				} else {
-					StringAppend( print, HIGHLIGHT_END, sizeof( HIGHLIGHT_END ));
-					*highlight = false;
+					buffer_append( frame_buffer, &frame_count, max_frame_size, selection_highlight_end, strlen( selection_highlight_end ));
 				}
-				StringAppend( print, INVERSE_START, sizeof( INVERSE_START ));
-				inverse_flag = true;
 			}
 		}
-		if( file.data[ i ] == '\n' ){
-			StringAppend( print, " ", 1 );
-			if( inverse_flag ){
-				StringAppend( print, INVERSE_END, sizeof( INVERSE_END ));
+		if( selection[ i ].cursor == line_index ){
+			if( selection[ i ].cursor < selection[ i ].anchor ){
+				if( i == 0 ){
+					buffer_append( frame_buffer, &frame_count, max_frame_size, primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
+				} else {
+					buffer_append( frame_buffer, &frame_count, max_frame_size, selection_highlight_start, strlen( selection_highlight_start ));
+				}
+			} else if( selection[ i ].cursor > selection[ i ].anchor ){
+				if( i == 0 ){
+					buffer_append( frame_buffer, &frame_count, max_frame_size, primary_selection_highlight_end, strlen( primary_selection_highlight_end ));
+				} else {
+					buffer_append( frame_buffer, &frame_count, max_frame_size, selection_highlight_end, strlen( selection_highlight_end ));
+				}
 			}
+			if( i == 0 ){
+				*cursor_end = 1;
+				buffer_append( frame_buffer, &frame_count, max_frame_size, primary_cursor_highlight_start, strlen( primary_cursor_highlight_start ));
+			} else {
+				*cursor_end = 2;
+				buffer_append( frame_buffer, &frame_count, max_frame_size, cursor_highlight_start, strlen( cursor_highlight_start ));
+			}
+		}
+	}
+}
+
+void draw_line_selection_end( i8 cursor_end ){
+	if( cursor_end == 1 ){
+		buffer_append( frame_buffer, &frame_count, max_frame_size, primary_cursor_highlight_end, strlen( primary_cursor_highlight_end ));
+	} else if( cursor_end == 2 ){
+		buffer_append( frame_buffer, &frame_count, max_frame_size, cursor_highlight_end, strlen( cursor_highlight_end ));
+	}
+}
+
+void draw_line( i32 line_index ){
+	assert( line_index >= 0 );
+	assert( line_index < max_frame_size );
+	assert( line_index == 0 || file_buffer[ line_index - 1 ] == '\n' );
+	i32 filled_cols = 0; 
+	while( filled_cols < screen_cols ){
+		i32 col_bytes = 0;
+		i8 cursor_end = 0;
+		draw_line_selection_start( line_index, &cursor_end );
+		if(( file_buffer[ line_index ] == '\n' ) || ( file_buffer[ line_index ] == '\r' )){
+			buffer_append( frame_buffer, &frame_count, max_frame_size, " ", 1 );
+			draw_line_selection_end( cursor_end );
 			break;
-		} else if( file.data[ i ] == '\t' ){
-			StringAppend( print, "        ", 8 );
-			tabs++;
-			i++;
-			if( real_end_index - start_index > screen.cols - ( 7 * tabs ) + unicode ){
-				cliped_end_index = start_index + screen.cols - ( 7 * tabs ) + unicode;
-			}
-		} else {
-			size_t i_step = StringUTF8Next( &file, i ) - i;
-			StringAppend( print, &file.data[ i ], i_step );
-			unicode += i_step - 1;
-			i += i_step;
-			if( real_end_index - start_index > screen.cols - ( 7 * tabs ) + unicode ){
-				cliped_end_index = start_index + screen.cols - ( 7 * tabs ) + unicode;
-			}
-		}
-		if( inverse_flag ){
-			StringAppend( print, INVERSE_END, sizeof( INVERSE_END ));
-		}
-	}
-	StringAppend( print, HIGHLIGHT_END, sizeof( HIGHLIGHT_END ));
-	for( size_t i = cliped_end_index; i < real_end_index; i++ ){
-		for( size_t j = 0; j < selection.count; j++ ){
-			if( selection.data[ j ].anchor == i ){
-				if( *highlight == false ){
-					*highlight = true;
-				} else {
-					*highlight = false;
-				}
-			}
-			if( selection.data[ j ].cursor == i ){
-				if( *highlight == false ){
-					*highlight = true;
-				} else {
-					*highlight = false;
-				}
-			}
-		}
-	}
-	return real_end_index;
-}
-
-void DrawScreen(){
-	struct String print = { 0 };
-	bool highlight = false;
-	int drawLine = 0;
-	size_t drawIndex = StringSelectLineStart( &file, selection.data[ 0 ].cursor );
-	for( size_t i = 0; i < screen.rows / 2; i++ ){
-		if( drawIndex > 0 ){
-			drawIndex = StringSelectLinePrev( &file, drawIndex );
-		} else {
-			drawLine--;
-		}
-	}
-	StringAppend( &print, CURSOR_HOME, sizeof( CURSOR_HOME ));
-	for( size_t j = 0; j < selection.count; j++ ){
-		if( selection.data[ j ].anchor < drawIndex ){
-			if( highlight == false ){
-				highlight = true;
-			} else {
-				highlight = false;
-			}
-		}
-		if( selection.data[ j ].cursor < drawIndex ){
-			if( highlight == false ){
-				highlight = true;
-			} else {
-				highlight = false;
-			}
-		}
-	}
-	DrawBar( &print );
-	for( size_t i = 1; i < screen.rows; i++ ){
-		StringAppend( &print, "\r\n", 2 );
-		StringAppend( &print, ERASE_LINE, sizeof( ERASE_LINE ));
-		if( drawLine < 0 || drawIndex >= file.len ){
-			StringAppend( &print, "~", 1 );
-			drawLine++;
-		} else {
-			drawIndex = DrawLine( &print, drawIndex, &highlight );
-			drawLine++;
-		}
-	}
-	write( STDOUT_FILENO, print.data, print.len );
-	StringFree( &print );
-}
-
-void SelectionNew( size_t index ){
-	selection.count++;
-	selection.data = realloc( selection.data, selection.count * sizeof( selection.data[ 0 ]));
-	Assert( selection.data != NULL, "Alloc failed." );
-	selection.data[ selection.count - 1 ].cursor = index;
-	selection.data[ selection.count - 1 ].anchor = index ;
-	selection.data[ selection.count - 1 ].clipboard.data = NULL;
-	selection.data[ selection.count - 1 ].clipboard.len = 0;
-	selection.data[ selection.count - 1 ].clipboard.cap = 0;
-}
-
-void SelectionFree( size_t index ){
-	Assert( index < selection.count, " " );
-	StringFree( &selection.data[ index ].clipboard );
-	for( size_t i = index; i < selection.count - 1; i++ ){
-		selection.data[ i ].cursor = selection.data[ i + 1 ].cursor;
-		selection.data[ i ].anchor = selection.data[ i + 1 ].anchor;
-		selection.data[ i ].clipboard.data = selection.data[ i + 1 ].clipboard.data;
-		selection.data[ i ].clipboard.len = selection.data[ i + 1 ].clipboard.len;
-		selection.data[ i ].clipboard.cap = selection.data[ i + 1 ].clipboard.cap;
-	}
-	selection.count--;
-}
-
-void EditNew(){
-	if( edit.undo_count > 0 ){
-		for( size_t i = 0; i <= edit.data[ edit.undo_count - 1 ].count; i++ ){
-			if( i == edit.data[ edit.undo_count - 1 ].count ){
-				return;
-			}
-			if( edit.data[ edit.undo_count - 1 ].data[ i ].insert.len != 0 || edit.data[ edit.undo_count - 1 ].data[ i ].delete.len != 0 ){
-				break;
-			}
-		}
-	}
-	for( size_t i = edit.undo_count; i < edit.undo_count + edit.redo_count; i++ ){
-		for( size_t j = 0; j < edit.data[ i ].count; j++ ){
-			StringFree( &edit.data[ i ].data[ j ].insert );
-			StringFree( &edit.data[ i ].data[ j ].delete );
-		}
-		free( edit.data[ i ].data );
-	}
-	edit.undo_count++;
-	edit.redo_count = 0;
-	edit.data = realloc( edit.data, edit.undo_count * sizeof( edit.data[ 0 ]));
-	Assert( edit.data != NULL, "Alloc failed." );
-	struct EditSelectionArray* new_edit = &edit.data[ edit.undo_count - 1 ];
-	new_edit->count = selection.count;
-	new_edit->data = NULL;
-	new_edit->data = realloc( new_edit->data, new_edit->count * sizeof( new_edit->data[ 0 ] ));
-	Assert( new_edit->data != NULL, "Alloc failed." );
-	memset( new_edit->data, 0, new_edit->count * sizeof( new_edit->data[ 0 ] ));
-}
-
-void EditUndo(){
-	command_count = 0;
-	if( edit.undo_count <= 0 ){
-		return;
-	}
-	struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
-	while( selection.count < undo->count ){
-		SelectionNew( 0 );
-	}
-	while( selection.count > undo->count ){
-		SelectionFree( undo->count );
-	}
-	for( size_t i = 0; i < undo->count; i++ ){
-		StringDelete( &file, undo->data[ i ].index, undo->data[ i ].insert.len );
-		if( undo->data[ i ].delete.len > 0 ){
-			StringInsert( &file, undo->data[ i ].index, undo->data[ i ].delete.data, undo->data[ i ].delete.len );
-		}
-		selection.data[ i ].cursor = undo->data[ i ].index + undo->data[ i ].delete.len;
-		selection.data[ i ].anchor = undo->data[ i ].index;
-		for( size_t j = 0; j < undo->count; j++ ){
-			if( undo->data[ j ].index > undo->data[ i ].index ){
-				undo->data[ j ].index -= undo->data[ i ].insert.len;
-				undo->data[ j ].index += undo->data[ i ].delete.len;
-				selection.data[ j ].cursor -= undo->data[ i ].insert.len;
-				selection.data[ j ].cursor += undo->data[ i ].delete.len;
-				selection.data[ j ].anchor -= undo->data[ i ].insert.len;
-				selection.data[ j ].anchor += undo->data[ i ].delete.len;
-			}
-		}
-	}
-	edit.undo_count--;
-	edit.redo_count++;
-}
-
-void EditRedo(){
-	command_count = 0;
-	if( edit.redo_count <= 0 ){
-		return;
-	}
-	struct EditSelectionArray* undo = &edit.data[ edit.undo_count ];
-	while( selection.count < undo->count ){
-		SelectionNew( 0 );
-	}
-	while( selection.count > undo->count ){
-		SelectionFree( undo->count );
-	}
-	for( size_t i = 0; i < undo->count; i++ ){
-		StringDelete( &file, undo->data[ i ].index, undo->data[ i ].delete.len );
-		if( undo->data[ i ].insert.len > 0 ){
-			StringInsert( &file, undo->data[ i ].index, undo->data[ i ].insert.data, undo->data[ i ].insert.len );
-		}
-		selection.data[ i ].cursor = undo->data[ i ].index + undo->data[ i ].insert.len;
-		selection.data[ i ].anchor = undo->data[ i ].index;
-		for( size_t j = 0; j < undo->count; j++ ){
-			if( undo->data[ j ].index > undo->data[ i ].index ){
-				undo->data[ j ].index += undo->data[ i ].insert.len;
-				undo->data[ j ].index -= undo->data[ i ].delete.len;
-				selection.data[ j ].cursor += undo->data[ i ].insert.len;
-				selection.data[ j ].cursor -= undo->data[ i ].delete.len;
-				selection.data[ j ].anchor += undo->data[ i ].insert.len;
-				selection.data[ j ].anchor -= undo->data[ i ].delete.len;
-			}
-		}
-	}
-	edit.undo_count++;
-	edit.redo_count--;
-}
-
-void EditModeInit(){
-	mode = EDIT_MODE;
-	for( size_t i = 0; i < selection.count; i++ ){
-		StringFree( &selection.data[ i ].clipboard );
-		selection.data[ i ].anchor = selection.data[ i ].cursor;
-		edit.data[ edit.undo_count - 1 ].data[ i ].index = selection.data[ i ].cursor;
-	}
-}
-
-void SelectCursorLine(){
-	for( size_t i = 0; i < selection.count; i++ ){
-		selection.data[ i ].cursor = StringSelectLineStart( &file, selection.data[ i ].cursor );
-		selection.data[ i ].anchor = StringSelectLineNext( &file, selection.data[ i ].cursor );
-	}
-}
-
-void DeleteSelection(){
-	file_modified = true;
-	struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
-	for( size_t i = 0; i < undo->count; i++ ){
-		if( selection.data[ i ].cursor > selection.data[ i ].anchor ){
-			size_t tmp = selection.data[ i ].anchor;
-			selection.data[ i ].anchor = selection.data[ i ].cursor;
-			selection.data[ i ].cursor = tmp;
-		}
-		undo->data[ i ].index = selection.data[ i ].cursor;
-	}
-	for( size_t i = 0; i < selection.count; i++ ){
-		Assert( selection.data[ i ].anchor >= selection.data[ i ].cursor, "you fucked up" );
-		size_t selection_len = selection.data[ i ].anchor - selection.data[ i ].cursor;
-		for( size_t j = 0; j < selection.count; j++ ){
-			if( selection.data[ j ].cursor > selection.data[ i ].cursor ){
-				undo->data[ j ].index -= selection_len;
-				selection.data[ j ].cursor -= selection_len;
-				selection.data[ j ].anchor -= selection_len;
-			}
-		}
-		if( undo->data[ i ].insert.len >= selection_len ){
-			StringDeduct( &undo->data[ i ].insert, selection_len );
-		} else if( undo->data[ i ].insert.len > 0 ){
-			StringDeduct( &undo->data[ i ].insert, undo->data[ i ].insert.len );
-			StringInsert( &undo->data[ i ].delete, 0, &file.data[ selection.data[ i ].cursor ], selection_len - undo->data[ i ].insert.len );
-		} else {
-			StringInsert( &undo->data[ i ].delete, 0, &file.data[ selection.data[ i ].cursor ], selection_len );
-		}
-		StringDelete( &file, selection.data[ i ].cursor, selection_len );
-		selection.data[ i ].anchor = selection.data[ i ].cursor;
-	}
-}
-
-void CopySelection(){
-	for( size_t i = 0; i < selection.count; i++ ){
-		StringFree( &selection.data[ i ].clipboard );
-		if( selection.data[ i ].cursor > selection.data[ i ].anchor ){
-			StringAppend( &selection.data[ i ].clipboard, &file.data[ selection.data[ i ].anchor ], selection.data[ i ].cursor - selection.data[ i ].anchor );
-		} else if( selection.data[ i ].anchor > selection.data[ i ].cursor ){
-			StringAppend( &selection.data[ i ].clipboard, &file.data[ selection.data[ i ].cursor ], selection.data[ i ].anchor - selection.data[ i ].cursor );
-		}
-	}
-}
-
-void PasteSelection(){
-	struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
-	for( size_t i = 0; i < undo->count; i++ ){
-		undo->data[ i ].index = selection.data[ i ].cursor;
-	}
-	for( size_t i = 0; i < selection.count; i++ ){
-		if( selection.data[ i ].clipboard.len == 0 || selection.data[ i ].clipboard.data ==  NULL ){
+		} else if( file_buffer[ line_index ] == '\t' ){
+			i32 tab_cols = tab_width - (( filled_cols + tab_width ) % tab_width );
+			buffer_append( frame_buffer, &frame_count, max_frame_size, "                ", tab_cols );
+			draw_line_selection_end( cursor_end );
+			filled_cols += tab_cols;
+			line_index += 1;
 			continue;
+		} else if(( file_buffer[ line_index ] & 0x80 ) == 0 ){  // ascii
+			filled_cols += 1;
+			col_bytes = 1;
+		} else if(( file_buffer[ line_index ] & 0xe0 ) == 0xc0 ){  // two byte unicode
+			filled_cols += 1;
+			col_bytes = 2;
+		} else if(( file_buffer[ line_index ] & 0xf0 ) == 0xe0 ){  // three byte unicode
+			filled_cols += 1;
+			col_bytes = 3;
+		} else if(( file_buffer[ line_index ] & 0xf8 ) == 0xf0 ){  // four byte unicode
+			filled_cols += 1;
+			col_bytes = 4;
+		} else {
+			error( "Invalid utf8 encoding." );
 		}
-		for( size_t j = 0; j < selection.count; j++ ){
-			if( selection.data[ j ].cursor > selection.data[ i ].cursor ){
-				undo->data[ j ].index += selection.data[ i ].clipboard.len;
-				selection.data[ j ].cursor += selection.data[ i ].clipboard.len;
-				selection.data[ j ].anchor += selection.data[ i ].clipboard.len;
-			}
-		}
-		StringAppend( &undo->data[ i ].insert, selection.data[ i ].clipboard.data, selection.data[ i ].clipboard.len ); 
-		StringInsert( &file, selection.data[ i ].cursor, selection.data[ i ].clipboard.data, selection.data[ i ].clipboard.len );
-		selection.data[ i ].anchor = selection.data[ i ].cursor;
-		selection.data[ i ].cursor = selection.data[ i ].cursor + selection.data[ i ].clipboard.len;
+		buffer_append( frame_buffer, &frame_count, max_frame_size, &file_buffer[ line_index ], col_bytes );
+		draw_line_selection_end( cursor_end );
+		line_index += col_bytes;
 	}
 }
 
-void ProsessEditInsert( char* key, size_t key_len ){
-	Assert( key_len > 0, "Malformed arguments" );
-	Assert( key != NULL, "Malformed arguments" );
-	file_modified = true;
-	struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
-	for( size_t i = 0; i < selection.count; i++ ){
-		Assert( undo->count == selection.count, "you fucked up" );
-		for( size_t j = 0; j < selection.count; j++ ){
-			if( undo->data[ j ].index > undo->data[ i ].index ){
-				undo->data[ j ].index += key_len;
-				selection.data[ j ].cursor += key_len;
-				selection.data[ j ].anchor = selection.data[ j ].cursor;
-			}
-		}
-		StringAppend( &undo->data[ i ].insert, key, key_len );
-		StringAppend( &selection.data[ i ].clipboard, key, key_len );
-		StringInsert( &file, selection.data[ i ].cursor, key, key_len );
-		selection.data[ i ].cursor += key_len;
-		selection.data[ i ].anchor = selection.data[ i ].cursor;
-	}
-}
-
-void ProsessEditDelete( size_t delete_len ){
-	file_modified = true;
-	struct EditSelectionArray* undo = &edit.data[ edit.undo_count - 1 ];
-	for( size_t i = 0; i < selection.count; i++ ){
-		Assert( undo->count == selection.count, "you fucked up" );
-		if( selection.data[ i ].cursor == 0 ){
+void draw_frame(){
+	assert( frame_count == 0 );
+	assert( selection_count > 0 );
+	buffer_append( frame_buffer, &frame_count, max_frame_size, ansi_cursor_home ansi_reset_graphics ansi_erase_screen, strlen( ansi_cursor_home ansi_reset_graphics ansi_erase_screen ));
+	i32 file_frame_index = string_line_start( file_buffer, file_count, selection[ 0 ].cursor );
+	i32 preceding_empty_lines = 0;
+	for( i32 i = 0; i < screen_rows / 2; i += 1 ){
+		if( file_frame_index > 0 ){
+			file_frame_index -= 1;
+		} else {
+			preceding_empty_lines = ( screen_rows / 2 ) - i;
 			break;
 		}
-		selection.data[ i ].cursor -= delete_len ;
-		selection.data[ i ].anchor = selection.data[ i ].cursor;
-		for( size_t j = 0; j < selection.count; j++ ){
-			if( undo->data[ j ].index > undo->data[ i ].index ){
-				undo->data[ j ].index -= delete_len ;
-				selection.data[ j ].cursor -= delete_len ;
-				selection.data[ j ].anchor = selection.data[ j ].cursor;
-			}
-		}
-		if( undo->data[ i ].insert.len > delete_len ){
-			StringDeduct( &undo->data[ i ].insert, delete_len );
-		} else if( undo->data[ i ].insert.len > 0 ){
-			StringDeduct( &undo->data[ i ].insert, undo->data[ i ].insert.len );
-			StringInsert( &undo->data[ i ].delete, 0, &file.data[ selection.data[ i ].cursor ], delete_len - undo->data[ i ].insert.len );
-			undo->data[ i ].index -= delete_len - undo->data[ i ].insert.len;
+		file_frame_index = string_line_start( file_buffer, file_count, file_frame_index );
+	}
+	draw_bar();
+	{
+		if( selection[ 0 ].anchor < file_frame_index ){
+			buffer_append( frame_buffer, &frame_count, max_frame_size, primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
 		} else {
-			StringInsert( &undo->data[ i ].delete, 0, &file.data[ selection.data[ i ].cursor ], delete_len );
-			undo->data[ i ].index -= delete_len;
-		}
-		if( selection.data[ i ].clipboard.len > delete_len ){
-			StringDeduct( &selection.data[ i ].clipboard, delete_len );
-		} else if( selection.data[ i ].clipboard.len > 0 ){
-			StringDeduct( &selection.data[ i ].clipboard, selection.data[ i ].clipboard.len );
-		}
-		StringDelete( &file, selection.data[ i ].cursor, delete_len );
-	}
-}
-
-void ProsessSearchSubstring(){
-	if( search.len == 0 ){
-		return;
-	}
-	for( size_t i = 1; selection.count > 1; ){
-		SelectionFree( i );
-	}
-	if( selection.data[ 0 ].anchor < selection.data[ 0 ].cursor ){
-		size_t tmp = selection.data[ 0 ].anchor;
-		selection.data[ 0 ].anchor = selection.data[ 0 ].cursor;
-		selection.data[ 0 ].cursor = tmp;
-	}
-	size_t new_selection_index = ( selection.data[ 0 ].cursor > 0 ) ? selection.data[ 0 ].cursor - 1 : 0;
-	new_selection_index = StringSelectSubStringNext( &file, new_selection_index, search.data, search.len );
-	if( new_selection_index <= selection.data[ 0 ].anchor ){
-		size_t selection_max = selection.data[ 0 ].anchor;
-		selection.data[ 0 ].cursor = new_selection_index;
-		selection.data[ 0 ].anchor = new_selection_index + search.len;
-		while( true ){
-			new_selection_index = StringSelectSubStringNext( &file, new_selection_index, search.data, search.len );
-			if( new_selection_index > selection_max ){
-				break;
+			i8 highlight = 0;
+			for( i32 i = 1; i < selection_count; i += 1 ){
+				if( selection[ i ].cursor < file_frame_index ){
+					highlight = !highlight;
+				}
+				if( selection[ i ].anchor < file_frame_index ){
+					highlight = !highlight;
+				}
 			}
-			if( new_selection_index == file.len - 1 ){
-				break;
+			if( highlight ){
+				buffer_append( frame_buffer, &frame_count, max_frame_size, selection_highlight_start, strlen( selection_highlight_start ));
 			}
-			SelectionNew( new_selection_index );
-			selection.data[ selection.count - 1 ].anchor = new_selection_index + search.len;
 		}
 	}
-}
-
-#define ProsessSelectionMove( func ){ \
-	if( command_count == 0 ){ \
-		command_count = 1; \
-	} \
-	for( size_t i = 0; i < selection.count; i++ ){ \
-		for( size_t j = 0; j < command_count; j++ ){ \
-			if( !anchor_pinned ){ \
-				selection.data[ i ].anchor = selection.data[ i ].cursor; \
-			} \
-			selection.data[ i ].cursor = func( &file, selection.data[ i ].cursor ); \
-		} \
-	} \
-	command_count = 0; \
-}
-
-#define ProsessSelectionMoveKey( func, key ){ \
-	if( command_count == 0 ){ \
-		command_count = 1; \
-	} \
-	for( size_t i = 0; i < selection.count; i++ ){ \
-		for( size_t j = 0; j < command_count; j++ ){ \
-			if( !anchor_pinned ){ \
-				selection.data[ i ].anchor = selection.data[ i ].cursor; \
-			} \
-			selection.data[ i ].cursor = func( &file, selection.data[ i ].cursor, key ); \
-		} \
-	} \
-	command_count = 0; \
-}
-
-#define ProsessSelectionInside( left, right ){ \
-	for( size_t i = 0; i < selection.count; i++ ){ \
-		size_t lower_index = selection.data[ i ].cursor; \
-		size_t upper_index = ( selection.data[ i ].cursor == 0 ) ? 0 : selection.data[ i ].cursor - 1; \
-		size_t j = 0; \
-		while( true ){ \
-			size_t left_index = StringSelectFindCharPrev( &file, lower_index, left ); \
-			size_t right_index = StringSelectFindCharPrev( &file, lower_index, right ); \
-			if( right_index <= left_index ){ \
-				lower_index = left_index; \
-				if( j == 0 ){ \
-					break; \
-				} \
-				j--; \
-			} else { \
-				lower_index = right_index; \
-				j++; \
-			} \
-		} \
-		while( true ){ \
-			size_t left_index = StringSelectFindCharNext( &file, upper_index, left ); \
-			size_t right_index = StringSelectFindCharNext( &file, upper_index, right ); \
-			if( right_index <= left_index ){ \
-				upper_index = right_index; \
-				if( j == 0 ){ \
-					break; \
-				} \
-				j--; \
-			} else { \
-				upper_index = left_index; \
-				j++; \
-			} \
-		} \
-		if( file.data[ lower_index ] == left && file.data[ upper_index ] == right ){ \
-			selection.data[ i ].cursor = lower_index; \
-			selection.data[ i ].anchor = upper_index + 1; \
-		} \
-	} \
-}
-
-void CommandEscapeNormal(){
-	command_count = 0;
-}
-
-void CommandQuit(){
-	exit( 0 );
-}
-
-void CommandWriteFileQuit(){
-	command_count = 0;
-	bool error = StringToFile( &file, file_name );
-	if( error == true ){
-		StringAppend( &bar_notice, "ERROR: Could not write to file.", 30 );
-		return;
+	for( i32 i = 1; i < screen_rows; i += 1 ){
+		buffer_append( frame_buffer, &frame_count, max_frame_size, "\n", 1 );
+		if( preceding_empty_lines > 0 || file_frame_index >= file_count ){
+			buffer_append( frame_buffer, &frame_count, max_frame_size, "~", 1 );
+			preceding_empty_lines -= 1;
+		} else {
+			draw_line( file_frame_index );
+			while( file_frame_index < file_count - 1 && file_buffer[ file_frame_index ] != '\n' ){
+				file_frame_index += 1;
+			}
+			file_frame_index += 1;
+		}
 	}
-	file_modified = false;
-	exit( 0 );
+	write( STDOUT_FILENO, frame_buffer, frame_count );
+	frame_count = 0;
 }
 
-void CommandWriteFile(){
-	command_count = 0;
-	bool error = StringToFile( &file, file_name );
-	if( error == true ){
-		StringAppend( &bar_notice, "ERROR: Could not write to file.", 30 );
-		return;
+i32 utf8_ansi_length( char* src ){
+	if( *src == 0x1b /* escape */ ){  // possible ansi escape sequence
+		if( *src + 1 == '[' ){
+			if( *src + 2 == 'A' ){  // up arrow
+				return 3;
+			}
+		}
 	}
-	file_modified = false;
-}
-
-void CommandStandardEditMode(){
-	command_count = 0;
-	EditNew();
-	EditModeInit();
-}
-
-void CommandNewlineEditMode(){
-	command_count = 0;
-	ProsessSelectionMove( StringSelectLineEnd );
-	EditNew();
-	EditModeInit();
-	ProsessEditInsert( "\n", 1 );
-}
-
-void CommandFindPrevMode(){
-	mode = FIND_PREV_MODE;
-}
-
-void CommandFindNextMode(){
-	mode = FIND_NEXT_MODE;
-}
-
-void CommandEditUndo(){
-	EditUndo();
-}
-
-void CommandEditRedo(){
-	EditRedo();
-}
-
-void CommandToggleAnchorPin(){
-	command_count = 0;
-	if( anchor_pinned ){
-		anchor_pinned = false;
+	if(( *src & 0x80 ) == 0 ){  // ascii
+		return 1;
+	} else if(( *src & 0xe0 ) == 0xc0 ){  // two byte unicode
+		return 2;
+	} else if(( *src & 0xf0 ) == 0xe0 ){  // three byte unicode
+		return 3;
+	} else if(( *src & 0xf8 ) == 0xf0 ){  // four byte unicode
+		return 4;
 	} else {
-		anchor_pinned = true;
+		error( "Invalid Encoding" );
+		return 0;
 	}
 }
 
-void CommandSwapCursorAnchor(){
-	command_count = 0;
-	for( size_t i = 0; i < selection.count; i++ ){
-		size_t tmp = selection.data[ i ].cursor;
-		selection.data[ i ].cursor = selection.data[ i ].anchor;
-		selection.data[ i ].anchor = tmp;
+u32 full_utf8_ansi_key( char* buffer, i32* index, i32 cap ){
+	assert( buffer != NULL );
+	i32 key_bytes = utf8_ansi_length( &buffer[ *index ]);
+	assert( key_bytes > 0 );
+	assert( *index + key_bytes < cap );
+	u32 key = 0;
+	for( i32 i = 0; i < key_bytes; i += 1 ){
+		key <<= 8;
+		key |= buffer[ *index + i ];
 	}
+	*index += key_bytes;
+	return key;
 }
 
-void CommandMoveCharPrev(){
-	ProsessSelectionMove( StringSelectCharPrev );
+void command_quit(){
+	exit( 1 );
 }
 
-void CommandMoveCharNext(){
-	ProsessSelectionMove( StringSelectCharNext );
-}
-
-void CommandMoveLinePrev(){
-	ProsessSelectionMove( StringSelectLinePrev );
-}
-
-void CommandMoveLineNext(){
-	ProsessSelectionMove( StringSelectLineNext );
-}
-
-void CommandMoveWordPrev(){
-	ProsessSelectionMove( StringSelectWordPrev );
-}
-
-void CommandMoveWordNext(){
-	ProsessSelectionMove( StringSelectWordNext );
-}
-
-void CommandMoveParagraphPrev(){
-	ProsessSelectionMove( StringSelectParagraphPrev );
-}
-
-void CommandMoveParagraphNext(){
-	ProsessSelectionMove( StringSelectParagraphNext );
-}
-
-void CommandMoveLineStart(){
-	ProsessSelectionMove( StringSelectLineStart );
-}
-
-void CommandMoveLineEnd(){
-	ProsessSelectionMove( StringSelectLineEnd );
-}
-
-void CommandMoveFileEnd(){
-	command_count = 0;
-	for( size_t i = 0; i < selection.count; i++ ){
-		if( !anchor_pinned ){
-			selection.data[ i ].anchor = file.len - 1;
+void command_move_char_next(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		selection[ i ].anchor = selection[ i ].cursor;
+		if( selection[ i ].cursor < file_count - 1 ){
+			selection[ i ].cursor += utf8_ansi_length( &file_buffer[ selection[ i ].cursor ]);
 		}
-		selection.data[ i ].cursor = file.len - 1;
 	}
 }
 
-void CommandMoveFileStart(){
-	command_count = 0;
-	for( size_t i = 0; i < selection.count; i++ ){
-		if( !anchor_pinned ){
-			selection.data[ i ].anchor = 0;
+void command_move_char_prev(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		selection[ i ].anchor = selection[ i ].cursor;
+		do {
+			if( selection[ i ].cursor > 0 ){
+				selection[ i ].cursor -= 1;
+			} else {
+				break;
+			}
+		} while(( file_buffer[ selection[ i ].cursor ] & 0xc0 ) == 0x80 ); // while is utf8_continuation_byte
+	}
+}
+
+i8 is_word_whitespace( char c ){
+	return ( c == ' ' ) || ( c == '\t' );
+}
+
+void command_move_word_next(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		selection[ i ].anchor = selection[ i ].cursor;
+		if(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] == '\n' )){
+			selection[ i ].cursor += 1;
+			break;
 		}
-		selection.data[ i ].cursor = 0;
-	}
-}
-
-void CommandMoveLineNumber(){
-	size_t line_index = StringSelectLineNumber( &file, command_count );
-	for( size_t i = 0; i < selection.count; i++ ){
-		selection.data[ i ].cursor = line_index;
-		selection.data[ i ].anchor = selection.data[ i ].cursor;
-	}
-	command_count = 0;
-}
-
-void CommandSelectFile(){
-	command_count = 0;
-	for( size_t i = 0; i < selection.count; i++ ){
-		selection.data[ i ].cursor = 0;
-		selection.data[ i ].anchor = file.len - 1;
-	}
-}
-
-void CommandSelectInsideParen(){
-	command_count = 0;
-	ProsessSelectionInside( '(', ')' );
-}
-
-void CommandSelectInsideBracket(){
-	command_count = 0;
-	ProsessSelectionInside( '[', ']' );
-}
-
-void CommandSelectInsideCurly(){
-	command_count = 0;
-	ProsessSelectionInside( '{', '}' );
-}
-
-void CommandSelectInsideSingleQuote(){
-	command_count = 0;
-	ProsessSelectionInside( '\'', '\'' );
-}
-
-void CommandSelectInsideDoubleQuote(){
-	command_count = 0;
-	ProsessSelectionInside( '"', '"' );
-}
-
-void CommandCopySelection(){
-	command_count = 0;
-	CopySelection();
-}
-
-void CommandCopyLine(){
-	command_count = 0;
-	SelectCursorLine();
-	CopySelection();
-}
-
-void CommandDeleteSelection(){
-	command_count = 0;
-	EditNew();
-	CopySelection();
-	DeleteSelection();
-}
-
-void CommandDeleteLine(){
-	command_count = 0;
-	SelectCursorLine();
-	EditNew();
-	CopySelection();
-	DeleteSelection();
-}
-
-void CommandChangeSelection(){
-	command_count = 0;
-	EditNew();
-	CopySelection();
-	DeleteSelection();
-	EditModeInit();
-}
-
-void CommandChangeLine(){
-	command_count = 0;
-	SelectCursorLine();
-	EditNew();
-	CopySelection();
-	DeleteSelection();
-	EditModeInit();
-}
-
-void CommandPasteClipboard(){
-	command_count = 0;
-	EditNew();
-	PasteSelection();
-}
-
-void CommandReplaceSelection(){
-	command_count = 0;
-	EditNew();
-	DeleteSelection();
-	PasteSelection();
-}
-
-void CommandReplaceLine(){
-	command_count = 0;
-	SelectCursorLine();
-	EditNew();
-	DeleteSelection();
-	PasteSelection();
-}
-
-void CommandSearchString(){
-	command_count = 0;
-	mode = SEARCH_MODE;
-}
-
-void CommandSearchNewline(){
-	command_count = 0;
-	char newline = '\n';
-	StringAppend( &search, &newline, 1 );
-	ProsessSearchSubstring();
-	StringFree( &search );
-}
-
-void CommandRemoveOtherSelections(){
-	command_count = 0;
-	for( size_t i = 1; selection.count > 1; ){
-		SelectionFree( i );
-	}
-}
-
-void CommandRotateSelection(){
-	if( command_count == 0 ){
-		command_count = 1;
-	}
-	for( size_t i = 0; i < command_count; i++ ){
-		struct Selection tmp = selection.data[ 0 ];
-		for( size_t j = 1; j < selection.count; j++ ){
-			selection.data[ j - 1 ].cursor = selection.data[ j ].cursor;
-			selection.data[ j - 1 ].anchor = selection.data[ j ].anchor;
-			selection.data[ j - 1 ].clipboard.data = selection.data[ j ].clipboard.data;
-			selection.data[ j - 1 ].clipboard.len = selection.data[ j ].clipboard.len;
-			selection.data[ j - 1 ].clipboard.cap = selection.data[ j ].clipboard.cap;
+		while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] != '\n' ) && !is_word_whitespace( file_buffer[ selection[ i ].cursor ])){
+			selection[ i ].cursor += 1;
 		}
-		selection.data[ selection.count - 1 ] = tmp;
+		while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] != '\n' ) && is_word_whitespace( file_buffer[ selection[ i ].cursor ])){
+			selection[ i ].cursor += 1;
+		}
 	}
-	command_count = 0;
 }
 
-void CommandDeleteAtLineStart(){
-	command_count = 0;
-	ProsessSelectionMove( StringSelectLineStart );
-	ProsessSelectionMove( StringSelectCharNext );
-	EditNew();
-	for( size_t i = 0; i < selection.count; i++ ){
-		edit.data[ edit.undo_count - 1 ].data[ i ].index = selection.data[ i ].cursor;
+void command_move_word_prev(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		selection[ i ].anchor = selection[ i ].cursor;
+		if(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] == '\n' )){
+			selection[ i ].cursor -= 1;
+			break;
+		}
+		while(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] != '\n' ) && is_word_whitespace( file_buffer[ selection[ i ].cursor - 1 ])){
+			selection[ i ].cursor -= 1;
+		}
+		while(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] != '\n' ) && !is_word_whitespace( file_buffer[ selection[ i ].cursor - 1 ])){
+			selection[ i ].cursor -= 1;
+		}
 	}
-	ProsessEditDelete( 1 );
 }
 
-void CommandInsertTabAtLineStart(){
-	command_count = 0;
-	ProsessSelectionMove( StringSelectLineStart );
-	EditNew();
-	for( size_t i = 0; i < selection.count; i++ ){
-		edit.data[ edit.undo_count - 1 ].data[ i ].index = selection.data[ i ].cursor;
+void command_move_line_next(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		selection[ i ].anchor = selection[ i ].cursor;
+		while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] != '\n' )){
+			selection[ i ].cursor += 1;
+		}
+		if( selection[ i ].cursor < file_count - 1 ){
+			selection[ i ].cursor += 1;
+		}
 	}
-	ProsessEditInsert( "\t", 1 );
-	ProsessSelectionMove( StringSelectLineStart );
 }
 
-void CommandCount0(){
-	command_count *= 10;
-	command_count += 0;
+void command_move_line_prev(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		selection[ i ].anchor = selection[ i ].cursor;
+		while(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] != '\n' )){
+			selection[ i ].cursor -= 1;
+		}
+		if( selection[ i ].cursor > 0 ){
+			selection[ i ].cursor -= 1;
+		}
+		while(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] != '\n' )){
+			selection[ i ].cursor -= 1;
+		}
+	}
 }
 
-void CommandCount1(){
-	command_count *= 10;
-	command_count += 1;
+void command_move_para_next(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		selection[ i ].anchor = selection[ i ].cursor;
+		while( selection[ i ].cursor < file_count - 1 ){
+			if(( file_buffer[ selection[ i ].cursor ] == '\n' ) && ( selection[ i ].cursor + 1 < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor + 1 ] == '\n' )){
+				while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] == '\n' )){
+					selection[ i ].cursor += 1;
+				}
+				break;
+			}
+			selection[ i ].cursor += 1;
+		}
+	}
 }
 
-void CommandCount2(){
-	command_count *= 10;
-	command_count += 2;
+void command_move_para_prev(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		selection[ i ].anchor = selection[ i ].cursor;
+		while(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] == '\n' )){
+			selection[ i ].cursor -= 1;
+		}
+		while( selection[ i ].cursor > 0 ){
+			if(( file_buffer[ selection[ i ].cursor - 1 ] == '\n' ) && ( selection[ i ].cursor - 1 > 0 ) && ( file_buffer[ selection[ i ].cursor - 2 ] == '\n' )){
+				break;
+			}
+			selection[ i ].cursor -= 1;
+		}
+	}
 }
 
-void CommandCount3(){
-	command_count *= 10;
-	command_count += 3;
+void command_move_line_end(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		selection[ i ].anchor = selection[ i ].cursor;
+		while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] != '\n' )){
+			selection[ i ].cursor += 1;
+		}
+	}
 }
 
-void CommandCount4(){
-	command_count *= 10;
-	command_count += 4;
+void command_move_line_start(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		selection[ i ].anchor = selection[ i ].cursor;
+		while(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] != '\n' )){
+			selection[ i ].cursor -= 1;
+		}
+	}
 }
 
-void CommandCount5(){
-	command_count *= 10;
-	command_count += 5;
+void command_move_file_end(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		selection[ i ].anchor = selection[ i ].cursor;
+		selection[ i ].cursor = file_count - 1;
+	}
 }
 
-void CommandCount6(){
-	command_count *= 10;
-	command_count += 6;
+void command_move_file_start(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		selection[ i ].anchor = selection[ i ].cursor;
+		selection[ i ].cursor = 0;
+	}
 }
 
-void CommandCount7(){
-	command_count *= 10;
-	command_count += 7;
+void command_swap_anchor_cursor(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		i32 tmp = selection[ i ].anchor;
+		selection[ i ].anchor = selection[ i ].cursor;
+		selection[ i ].cursor = tmp;
+	}
 }
 
-void CommandCount8(){
-	command_count *= 10;
-	command_count += 8;
-}
-
-void CommandCount9(){
-	command_count *= 10;
-	command_count += 9;
-}
-
-void ProsessCommand( int32_t key ){
-	for( size_t i = 0; i < sizeof( command ) / sizeof( struct Key ); i++ ){
+void process_command( u32 key ){
+	for( i32 i = 0; i < (i32) ( sizeof( command ) / sizeof( keybind )); i += 1 ){
 		if( key == command[ i ].key ){
 			command[ i ].function();
+			break;
 		}
 	}
 }
 
-void ProsessInput(){
-	int32_t key = GetInputBufferRead();
-	while( key != '\0' ){
-		StringFree( &bar_notice );
-		if( mode == EDIT_MODE ){
-			if( key == ESCAPE_KEY ){
-				mode = NORMAL_MODE;
-				key = GetInputBuffer();
-			} else if( key == TAB_KEY || key == NEWLINE_KEY || ( key >= ' ' && key < DELETE_KEY ) || key & 0x80 ){
-				char data[ INPUT_BUFFER_CAP ] = { 0 };
-				size_t len = 0;
-				do{
-					data[ len ] = key;
-					len++;
-					key = GetInputBuffer();
-				} while( key == TAB_KEY || key == NEWLINE_KEY || ( key >= ' ' && key < DELETE_KEY ) || key & 0x80 );
-				ProsessEditInsert( data, len );
-			} else if( key == DELETE_KEY || key == BACKSPACE_KEY ){
-				size_t len = 0;
-				do{
-					len++;
-					key = GetInputBuffer();
-				} while( key == DELETE_KEY || key == BACKSPACE_KEY );
-				ProsessEditDelete( len );
+void process_input(){
+	i32 input_index = 0;
+	input_count = read( STDIN_FILENO, &input_buffer, max_input_size );
+	assert( input_count > 0 );
+	while( input_index < input_count ){
+		u32 key = full_utf8_ansi_key( input_buffer, &input_index, max_input_size );
+		if( mode == command_mode ){
+			process_command( key );
+		} else if( mode == edit_mode ){
+			if( key == command_mode_key ){
+				mode = command_mode;
+			} else if( key == '\b' ){
 			} else {
-				// control key
-				key = GetInputBuffer();
+//				process_insert( key );
 			}
-		} else if( mode == NORMAL_MODE ){
-			ProsessCommand( key );
-			key = GetInputBuffer();
-		} else if( mode == FIND_PREV_MODE ){
-			mode = NORMAL_MODE;
-			if( key != ESCAPE_KEY ){
-				ProsessSelectionMoveKey( StringSelectFindCharPrev, key );
+		}
+	}
+	input_count = 0;
+}
+
+void open_file(){
+	if( access( file_name, F_OK ) == 0 ){
+		i32 fd = open( file_name, O_RDWR | O_CREAT );
+		if( fd < 0 ){
+			error( "The file '%s' could not be opened." );
+		}
+		struct stat sb;
+		if( fstat( fd, &sb ) < 0 ){
+			error( "Could not get file '%s' type." );
+		}
+		if(( sb.st_mode & S_IFMT) == S_IFREG) {
+			file_count = read( fd, file_buffer, max_file_size );
+			if( file_count < 0 ){
+				error( "The file '%s' could not be read.", file_name );
 			}
-			key = GetInputBuffer();
-		} else if( mode == FIND_NEXT_MODE ){
-			mode = NORMAL_MODE;
-			if( key != ESCAPE_KEY ){
-				ProsessSelectionMoveKey( StringSelectFindCharNext, key );
+			if( file_count == max_file_size ){
+				error( "The file '%s' is larger then 'max_file_size'.", file_name ); 
 			}
-			key = GetInputBuffer();
-		} else if( mode == SEARCH_MODE ){
-			if( key == ESCAPE_KEY ){
-				mode = NORMAL_MODE;
-				StringFree( &search );
-			} else if( key == '\n' ){
-				mode = NORMAL_MODE;
-				ProsessSearchSubstring();
-				StringFree( &search );
-			} else if( key == DELETE_KEY || key == BACKSPACE_KEY ){
-				StringDeduct( &search, 1 );
-			} else {
-				StringAppend( &search, (char*) &key, 1 );
-			}
-			key = GetInputBuffer();
 		} else {
-			Unreachable();
+			error( "'%s' is not a regular file.", file_name );
 		}
+		close( fd );
+	} else {
+		// The file does not exist. Nothing needs to be done, lute starts with an empty file.
 	}
 }
 
-void ValidateSelection(){
-	for( size_t i = 0; i < selection.count; i++ ){
-		size_t selection_min = ( selection.data[ i ].cursor > selection.data[ i ].anchor ) ? selection.data[ i ].anchor : selection.data[ i ].cursor;
-		size_t selection_max = ( selection.data[ i ].cursor > selection.data[ i ].anchor ) ? selection.data[ i ].cursor : selection.data[ i ].anchor;
-		for( size_t j = selection.count - 1; j < selection.count; j-- ){
-			if( i == j ){
-				continue;
-			}
-			bool cursor_inside = ( selection.data[ j ].cursor >= selection_min && selection.data[ j ].cursor <= selection_max ) ? true : false;
-			bool anchor_inside = ( selection.data[ j ].anchor >= selection_min && selection.data[ j ].anchor <= selection_max ) ? true : false;
-			if( cursor_inside && anchor_inside ){
-				SelectionFree( j );
-			} else if( cursor_inside ){
-				selection.data[ i ].anchor = selection.data[ j ].cursor;
-			}
-		}
-	}
+void disable_raw_mode(){
+        i32 failed = tcsetattr( STDIN_FILENO, TCSAFLUSH, &cache_termios );
+        if( failed == -1 ){
+		error( "This terminal is not supported. (Unable to exit raw mode (Sorry the terminal looks like this now))" );
+        }
+        write( STDOUT_FILENO, ansi_end_alt_screen ansi_cursor_show, strlen( ansi_end_alt_screen ansi_cursor_show ));
 }
 
-int main( int argc, char** argv ){
-	LoadArgs( argc, argv );
-	bool error = StringFromFile( &file, file_name );
-	if( error == true ){
-		printf( "Can only open regular files\n" );
-		exit( 0 );
+void enable_raw_mode(){
+        i32 failed = tcgetattr( STDIN_FILENO, &cache_termios );
+        if( failed == -1 ){
+		error( "This terminal is not supported. (Unable to enter raw mode)" );
+        }
+        struct termios raw_termios = cache_termios;
+//        raw_termios.c_oflag &= ~OPOST; // turns off /n into /r/n
+        raw_termios.c_iflag &= ~( IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON );
+        raw_termios.c_lflag &= ~( ECHO | ECHONL | ICANON | ISIG | IEXTEN );
+        raw_termios.c_cflag &= ~( CSIZE | PARENB );
+        raw_termios.c_cflag |= CS8;
+//	raw_termios.c_cc[ VMIN ] = 0;
+        failed = tcsetattr( STDIN_FILENO, TCSAFLUSH, &raw_termios );
+        if( failed == -1 ){
+		error( "This terminal is not supported. (Unable to enter raw mode)" );
+        }
+        write( STDOUT_FILENO, ansi_start_alt_screen ansi_cursor_hidden, strlen( ansi_start_alt_screen ansi_cursor_hidden ));
+        atexit( disable_raw_mode );
+}
+
+void get_window_size(){
+        struct winsize ws;
+        i32 failed = ioctl( STDOUT_FILENO, TIOCGWINSZ, &ws );
+        if( failed == -1 ){
+		error( "This terminal is not supported. (Unable to get terminal window size)" );
+        }
+        screen_cols = ws.ws_col;
+        screen_rows = ws.ws_row;
+}
+
+i32 main( i32 argc, char* argv[] ){
+	if( argc != 2 ){
+		error( "Usage: lute <filename>" );
 	}
-	if( file.len == 0 || file.data[ file.len - 1 ] != '\n' ){
-		StringAppend( &file, "\n", 1 );
+	file_name = argv[ 1 ];
+	open_file();
+	enable_raw_mode();
+	get_window_size();
+	draw_frame();
+	while( 1 ){
+		process_input();
+		get_window_size();
+		draw_frame();
 	}
-	EnableRawMode();
-	SelectionNew( 0 );
-	while( true ){
-		GetScreenSize( &screen.cols, &screen.rows );
-		DrawScreen();
-		ProsessInput();
-		ValidateSelection();
-	}
-	return 0;
+	sleep( 1 );
 }
