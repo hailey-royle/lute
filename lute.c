@@ -481,11 +481,11 @@ void file_buffer_delete( i32 index, i32 count ){
 void process_insert( char* insert, i32 insert_bytes ){
 	assert( insert != NULL );
 	assert( insert_bytes > 0 );
-	for( i32 i = selection_count - 1; i >= 0; i -= 1 ){
+	for( i32 i = 0; i < selection_count; i += 1 ){
 		// clipboard
 		// edit history
-		file_buffer_insert( selection[ i ].cursor, insert, insert_bytes );
-		selection[ i ].cursor += ( i + 1 ) * insert_bytes;  // including moving foward for all previous selections
+		file_buffer_insert( selection[ i ].cursor + ( i * insert_bytes ), insert, insert_bytes );
+		selection[ i ].cursor += ( i + 1 ) * insert_bytes;
 		selection[ i ].anchor = selection[ i ].cursor;
 	}
 }
