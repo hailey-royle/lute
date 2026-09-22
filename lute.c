@@ -26,7 +26,7 @@ typedef struct {
 } edit_struct;
 
 typedef struct {
-	u32 key;
+	char* key;
 	void (*function)( void );
 } keybind;
 
@@ -450,29 +450,31 @@ void command_swap_anchor_cursor(){
 	}
 }
 
-void process_command( u32 key ){
-	for( i32 i = 0; i < (i32) ( sizeof( command ) / sizeof( keybind )); i += 1 ){
-		if( key == command[ i ].key ){
-			command[ i ].function();
-			break;
-		}
-	}
-}
-
 void process_input(){
 	i32 input_index = 0;
 	input_count = read( STDIN_FILENO, &input_buffer, max_input_size );
 	assert( input_count > 0 );
 	while( input_index < input_count ){
-		u32 key = full_utf8_ansi_key( input_buffer, &input_index, max_input_size );
+		i32 key_bytes = utf8_ansi_length( &input_buffer[ input_index ]);
+		assert( key_bytes > 0 );
+		assert( input_index + key_bytes < max_input_size );
 		if( mode == command_mode ){
-			process_command( key );
+			for( i32 i = 0; i < (i32) ( sizeof( command ) / sizeof( keybind )); i += 1 ){
+				if(( key_bytes == (i32) strlen( command[ i ].key )) && ( memcmp( &input_buffer[ input_index ], command[ i ].key, key_bytes ) == 0 )){
+					command[ i ].function();
+				}
+			}
+			input_index += key_bytes;
 		} else if( mode == edit_mode ){
-			if( key == command_mode_key ){
+			if(( key_bytes == (i32) strlen( command_mode_key )) && ( memcmp( &input_buffer[ input_index ], command_mode_key, key_bytes ) == 0 )){
 				mode = command_mode;
-			} else if( key == '\b' ){
+				input_index += key_bytes;
+			} else if(( key_bytes == 1 ) && ( input_buffer[ input_index ] == '\b' )){
+				input_index += key_bytes;
+				assert( 0 );
 			} else {
-//				process_insert( key );
+//				process_insert( input_buffer[ input_index ], insert_bytes );
+				assert( 0 );
 			}
 		}
 	}

@@ -23,22 +23,22 @@ i32 tab_width = 8;
 
 #define bar_format
 
-#define command_mode_key 0x1b /* escape */
+char* command_mode_key = "\x1b"; /* escape */
 
 keybind command[] = {
 //	{ key, function },
-	{ 'Q', command_quit },
-	{ 'l', command_move_char_next },
-	{ 'h', command_move_char_prev },
-	{ 'e', command_move_word_next },
-	{ 'b', command_move_word_prev },
-	{ 'j', command_move_line_next },
-	{ 'k', command_move_line_prev },
-	{ 'n', command_move_para_next },
-	{ 'm', command_move_para_prev },
-	{ 'x', command_move_line_end },
-	{ 'z', command_move_line_start },
-	{ 'T', command_move_file_end },
-	{ 't', command_move_file_start },
-	{ 'a', command_swap_anchor_cursor },
+	{ "Q", command_quit },
+	{ "l", command_move_char_next },
+	{ "h", command_move_char_prev },
+	{ "e", command_move_word_next },
+	{ "b", command_move_word_prev },
+	{ "j", command_move_line_next },
+	{ "k", command_move_line_prev },
+	{ "n", command_move_para_next },
+	{ "m", command_move_para_prev },
+	{ "x", command_move_line_end },
+	{ "z", command_move_line_start },
+	{ "T", command_move_file_end },
+	{ "t", command_move_file_start },
+	{ "a", command_swap_anchor_cursor },
 };
