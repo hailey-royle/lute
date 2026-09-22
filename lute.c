@@ -31,6 +31,7 @@ typedef struct {
 } keybind;
 
 void command_quit();
+void command_edit_mode();
 void command_move_char_next();
 void command_move_char_prev();
 void command_move_word_next();
@@ -61,6 +62,7 @@ i32 input_count = 0;
 char clipboard_buffer[ max_clipboard_size ] = { 0 };
 selection_struct selection[ max_selection_count ] = { 0 };
 i32 selection_count = 1;  // first selection is initalized to all zeros
+i32 primary_selection_index = 0;
 
 char edit_buffer[ max_edit_size ] = { 0 };
 edit_struct edit[ max_edit_count ] = { 0 };
@@ -117,13 +119,13 @@ void draw_line_selection_start( i32 line_index, i8* cursor_end ){
 	for( i32 i = 0; i < selection_count; i += 1 ){
 		if( selection[ i ].anchor == line_index ){
 			if( selection[ i ].anchor < selection[ i ].cursor ){
-				if( i == 0 ){
+				if( i == primary_selection_index ){
 					buffer_append( frame_buffer, &frame_count, max_frame_size, primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
 				} else {
 					buffer_append( frame_buffer, &frame_count, max_frame_size, selection_highlight_start, strlen( selection_highlight_start ));
 				}
 			} else if( selection[ i ].anchor > selection[ i ].cursor ){
-				if( i == 0 ){
+				if( i == primary_selection_index ){
 					buffer_append( frame_buffer, &frame_count, max_frame_size, primary_selection_highlight_end, strlen( primary_selection_highlight_end ));
 				} else {
 					buffer_append( frame_buffer, &frame_count, max_frame_size, selection_highlight_end, strlen( selection_highlight_end ));
@@ -132,19 +134,19 @@ void draw_line_selection_start( i32 line_index, i8* cursor_end ){
 		}
 		if( selection[ i ].cursor == line_index ){
 			if( selection[ i ].cursor < selection[ i ].anchor ){
-				if( i == 0 ){
+				if( i == primary_selection_index ){
 					buffer_append( frame_buffer, &frame_count, max_frame_size, primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
 				} else {
 					buffer_append( frame_buffer, &frame_count, max_frame_size, selection_highlight_start, strlen( selection_highlight_start ));
 				}
 			} else if( selection[ i ].cursor > selection[ i ].anchor ){
-				if( i == 0 ){
+				if( i == primary_selection_index ){
 					buffer_append( frame_buffer, &frame_count, max_frame_size, primary_selection_highlight_end, strlen( primary_selection_highlight_end ));
 				} else {
 					buffer_append( frame_buffer, &frame_count, max_frame_size, selection_highlight_end, strlen( selection_highlight_end ));
 				}
 			}
-			if( i == 0 ){
+			if( i == primary_selection_index ){
 				*cursor_end = 1;
 				buffer_append( frame_buffer, &frame_count, max_frame_size, primary_cursor_highlight_start, strlen( primary_cursor_highlight_start ));
 			} else {
@@ -277,22 +279,26 @@ i32 utf8_ansi_length( char* src ){
 	}
 }
 
-u32 full_utf8_ansi_key( char* buffer, i32* index, i32 cap ){
-	assert( buffer != NULL );
-	i32 key_bytes = utf8_ansi_length( &buffer[ *index ]);
-	assert( key_bytes > 0 );
-	assert( *index + key_bytes < cap );
-	u32 key = 0;
-	for( i32 i = 0; i < key_bytes; i += 1 ){
-		key <<= 8;
-		key |= buffer[ *index + i ];
+i32 utf8_prev_length( char* src ){
+	i32 length = 1;
+	src -= 1;
+	while(( *src & 0xc0 ) == 0x80 ){  // while is utf8 continuation byte
+		length += 1;
+		src -= 1;
 	}
-	*index += key_bytes;
-	return key;
+	assert( length < 5 );
+	return length;
 }
 
 void command_quit(){
 	exit( 1 );
+}
+
+void command_edit_mode(){
+	mode = edit_mode;
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		selection[ i ].anchor = selection[ i ].cursor;
+	}
 }
 
 void command_move_char_next(){
@@ -311,7 +317,7 @@ void command_move_char_prev(){
 			if( selection[ i ].cursor > 0 ){
 				selection[ i ].cursor -= 1;
 			} else {
-				break;
+				continue;
 			}
 		} while(( file_buffer[ selection[ i ].cursor ] & 0xc0 ) == 0x80 ); // while is utf8_continuation_byte
 	}
@@ -326,7 +332,7 @@ void command_move_word_next(){
 		selection[ i ].anchor = selection[ i ].cursor;
 		if(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] == '\n' )){
 			selection[ i ].cursor += 1;
-			break;
+			continue;
 		}
 		while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] != '\n' ) && !is_word_whitespace( file_buffer[ selection[ i ].cursor ])){
 			selection[ i ].cursor += 1;
@@ -342,7 +348,7 @@ void command_move_word_prev(){
 		selection[ i ].anchor = selection[ i ].cursor;
 		if(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] == '\n' )){
 			selection[ i ].cursor -= 1;
-			break;
+			continue;
 		}
 		while(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] != '\n' ) && is_word_whitespace( file_buffer[ selection[ i ].cursor - 1 ])){
 			selection[ i ].cursor -= 1;
@@ -388,7 +394,7 @@ void command_move_para_next(){
 				while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] == '\n' )){
 					selection[ i ].cursor += 1;
 				}
-				break;
+				continue;
 			}
 			selection[ i ].cursor += 1;
 		}
@@ -403,7 +409,7 @@ void command_move_para_prev(){
 		}
 		while( selection[ i ].cursor > 0 ){
 			if(( file_buffer[ selection[ i ].cursor - 1 ] == '\n' ) && ( selection[ i ].cursor - 1 > 0 ) && ( file_buffer[ selection[ i ].cursor - 2 ] == '\n' )){
-				break;
+				continue;
 			}
 			selection[ i ].cursor -= 1;
 		}
@@ -450,6 +456,55 @@ void command_swap_anchor_cursor(){
 	}
 }
 
+void file_buffer_insert( i32 index, char* src, i32 src_count ){
+	assert( index >= 0 );
+	assert( index < file_count );
+	assert( src != NULL );
+	assert( src_count >= 0 );
+	if( max_file_size <= index + src_count ){
+		assert( 0 );
+	}
+	memmove( &file_buffer[ index + src_count ], &file_buffer[ index ], file_count - index );
+	memmove( &file_buffer[ index ], src, src_count );
+	file_count += src_count;
+}
+
+void file_buffer_delete( i32 index, i32 count ){
+	assert( index >= 0 );
+	assert( index < file_count );
+	assert( count >= 0 );
+	assert( index + count < file_count );
+	memmove( &file_buffer[ index ], &file_buffer[ index + count ], file_count - index - count );
+	file_count -= count;
+}
+
+void process_insert( char* insert, i32 insert_bytes ){
+	assert( insert != NULL );
+	assert( insert_bytes > 0 );
+	for( i32 i = selection_count - 1; i >= 0; i -= 1 ){
+		// clipboard
+		// edit history
+		file_buffer_insert( selection[ i ].cursor, insert, insert_bytes );
+		selection[ i ].cursor += ( i + 1 ) * insert_bytes;  // including moving foward for all previous selections
+		selection[ i ].anchor = selection[ i ].cursor;
+	}
+}
+
+void process_delete(){
+	i32 total_deleted = 0;
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		if( selection[ i ].cursor > 0 ){
+			i32 delete_bytes = utf8_prev_length( &file_buffer[ selection[ i ].cursor - total_deleted ]); 
+			total_deleted += delete_bytes;
+			selection[ i ].cursor -= total_deleted;
+			selection[ i ].anchor = selection[ i ].cursor;
+			// clipboard
+			// edit history
+			file_buffer_delete( selection[ i ].cursor, delete_bytes );
+		}
+	}
+}
+
 void process_input(){
 	i32 input_index = 0;
 	input_count = read( STDIN_FILENO, &input_buffer, max_input_size );
@@ -464,19 +519,23 @@ void process_input(){
 					command[ i ].function();
 				}
 			}
-			input_index += key_bytes;
 		} else if( mode == edit_mode ){
-			if(( key_bytes == (i32) strlen( command_mode_key )) && ( memcmp( &input_buffer[ input_index ], command_mode_key, key_bytes ) == 0 )){
+			if(( key_bytes == 1 ) && ( input_buffer[ input_index ] == '\x1b' )){
 				mode = command_mode;
-				input_index += key_bytes;
-			} else if(( key_bytes == 1 ) && ( input_buffer[ input_index ] == '\b' )){
-				input_index += key_bytes;
-				assert( 0 );
+			} else if(( key_bytes != 1 ) && ( input_buffer[ input_index ] == '\x1b' )){  // trying to input ansi escape sequence
+				// dont do anyting
+			} else if(( key_bytes == 1 ) && (( input_buffer[ input_index ] == '\b' ) || ( input_buffer[ input_index ] == 0x7f /* delete */  ))){
+				process_delete();
 			} else {
-//				process_insert( input_buffer[ input_index ], insert_bytes );
-				assert( 0 );
+				i32 insert_bytes = 0;
+				while(( input_index + insert_bytes < input_count ) && ( input_buffer[ input_index + insert_bytes ] != '\b' ) && ( input_buffer[ input_index + insert_bytes ] != '\x1b' )){
+					insert_bytes += 1;
+				}
+				process_insert( &input_buffer[ input_index ], insert_bytes );
+				input_index += insert_bytes - key_bytes;
 			}
 		}
+		input_index += key_bytes;
 	}
 	input_count = 0;
 }
@@ -523,7 +582,7 @@ void enable_raw_mode(){
         }
         struct termios raw_termios = cache_termios;
 //        raw_termios.c_oflag &= ~OPOST; // turns off /n into /r/n
-        raw_termios.c_iflag &= ~( IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON );
+        raw_termios.c_iflag &= ~( IGNBRK | BRKINT | PARMRK | ISTRIP | /* INLCR | IGNCR | ICRNL | */ IXON );
         raw_termios.c_lflag &= ~( ECHO | ECHONL | ICANON | ISIG | IEXTEN );
         raw_termios.c_cflag &= ~( CSIZE | PARENB );
         raw_termios.c_cflag |= CS8;
@@ -551,6 +610,12 @@ i32 main( i32 argc, char* argv[] ){
 		error( "Usage: lute <filename>" );
 	}
 	file_name = argv[ 1 ];
+	{
+		selection_count = 2;
+		primary_selection_index = 1;
+		selection[ 1 ].cursor = 10;
+		selection[ 1 ].anchor = 10;
+	}
 	open_file();
 	enable_raw_mode();
 	get_window_size();

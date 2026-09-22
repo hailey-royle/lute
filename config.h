@@ -23,11 +23,10 @@ i32 tab_width = 8;
 
 #define bar_format
 
-char* command_mode_key = "\x1b"; /* escape */
-
 keybind command[] = {
 //	{ key, function },
 	{ "Q", command_quit },
+	{ " ", command_edit_mode },
 	{ "l", command_move_char_next },
 	{ "h", command_move_char_prev },
 	{ "e", command_move_word_next },
