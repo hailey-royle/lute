@@ -21,7 +21,14 @@
 
 i32 tab_width = 8;
 
-#define bar_format
+bar_item bar[] = {
+//	{ function },
+	{ bar_file_name },
+	{ bar_mode },
+	{ bar_selection },
+	{ bar_line_number },
+	{ bar_line_depth },
+};
 
 keybind command[] = {
 //	{ key, function },

@@ -1,14 +1,13 @@
+#include <fcntl.h>
+#include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
-#include <stdarg.h>
-
-#include <unistd.h>
-#include <fcntl.h>
-#include <termios.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <termios.h>
+#include <unistd.h>
 
 typedef int8_t i8;
 typedef int16_t i16;
@@ -82,6 +81,16 @@ typedef struct {
 	void (*function)( void );
 } keybind;
 
+typedef struct {
+	void (*function)( void );
+} bar_item;
+
+void bar_file_name();
+void bar_mode();
+void bar_selection();
+void bar_line_number();
+void bar_line_depth();
+
 void command_quit();
 void command_edit_mode();
 void command_move_char_next();
@@ -130,6 +139,8 @@ i32 screen_rows = 0;
 
 i8 mode = command_mode;
 
+i8 file_modified = 0;
+
 void disable_raw_mode(){
 	tcsetattr( STDIN_FILENO, TCSAFLUSH, &cache_termios );
 	write( STDOUT_FILENO, ansi_end_alt_screen ansi_cursor_show, strlen( ansi_end_alt_screen ansi_cursor_show ));
@@ -160,6 +171,97 @@ void error( char* format, ... ){
 	fprintf( stderr, "\n" );
 	fflush( stderr );
 	exit( 1 );
+}
+
+i32 utf8_ansi_next_length( char* src ){
+	if( *src == 0x1b /* escape */ ){  // possible ansi escape sequence
+		if( *src + 1 == '[' ){
+			if( *src + 2 == 'A' ){  // up arrow
+				return 3;
+			}
+		}
+	}
+	if(( *src & 0x80 ) == 0 ){  // ascii
+		return 1;
+	} else if(( *src & 0xe0 ) == 0xc0 ){  // two byte unicode
+		return 2;
+	} else if(( *src & 0xf0 ) == 0xe0 ){  // three byte unicode
+		return 3;
+	} else if(( *src & 0xf8 ) == 0xf0 ){  // four byte unicode
+		return 4;
+	} else {
+		error( "Invalid Encoding" );
+		return 0;
+	}
+}
+
+i32 utf8_next_length( char* src ){
+	if(( *src & 0x80 ) == 0 ){  // ascii
+		return 1;
+	} else if(( *src & 0xe0 ) == 0xc0 ){  // two byte unicode
+		return 2;
+	} else if(( *src & 0xf0 ) == 0xe0 ){  // three byte unicode
+		return 3;
+	} else if(( *src & 0xf8 ) == 0xf0 ){  // four byte unicode
+		return 4;
+	} else {
+		error( "Invalid Encoding" );
+		return 0;
+	}
+}
+
+i32 utf8_prev_length( char* src ){
+	i32 length = 1;
+	src -= 1;
+	while(( *src & 0xc0 ) == 0x80 ){  // while is utf8 continuation byte
+		length += 1;
+		src -= 1;
+	}
+	assert( length < 5 );
+	return length;
+}
+
+i32 line_number( char* buffer, i32 buffer_count, i32 index ){
+	assert( buffer != NULL );
+	assert( buffer_count >= 0 );
+	assert( index >= 0 );
+	assert( buffer_count > index );
+	i32 line = 1;
+	for( i32 i = 0; i < index; i += 1 ){
+		if( buffer[ i ] == '\n' ){
+			line += 1;
+		}
+	}
+	return line;
+}
+
+i32 line_depth( char* buffer, i32 buffer_count, i32 index ){
+	assert( buffer != NULL );
+	assert( buffer_count >= 0 );
+	assert( index >= 0 );
+	assert( buffer_count > index );
+	i32 depth = 1;
+	while( index > 0 && buffer[ index - 1 ] != '\n' ){
+		index -= utf8_prev_length( &buffer[ index ] );
+		depth += 1;
+	}
+	return depth;
+}
+
+i32 line_length( char* buffer, i32 buffer_count, i32 index ){
+	assert( buffer != NULL );
+	assert( buffer_count >= 0 );
+	assert( index >= 0 );
+	assert( buffer_count > index );
+	while(( index > 0 ) && ( buffer[ index - 1 ] != '\n' )){
+		index -= 1;
+	}
+	i32 length = 1;
+	while(( index < file_count - 1 ) && ( buffer[ index ] != '\n' )){
+		index += utf8_next_length( &buffer[ index ] );
+		length += 1;
+	}
+	return length;
 }
 
 void buffer_append( char* dst, i32* dst_count, char* src, i32 src_count ){
@@ -193,15 +295,50 @@ void buffer_delete( char* dst, i32* dst_count, i32 index, i32 count ){
 }
 
 void frame_append( char* src, i32 src_count ){
-	if( max_frame_size < frame_count + src_count ){
-		buffer_append( frame_buffer, &frame_count, src, src_count );
-	} else {
+	if( max_frame_size <= frame_count + src_count ){
 		error( "Frame buffer overflow, increase max_frame_size" );
+	}
+	buffer_append( frame_buffer, &frame_count, src, src_count );
+}
+
+void bar_file_name(){
+	frame_append( file_name, strlen( file_name ));
+	if( file_modified ){
+		frame_append( "*", 1 );
+	}
+	frame_append( "  ", 2 );
+}
+
+void bar_mode(){
+	if( mode == command_mode ){
+		frame_append( "Command  ", 9 );
+	} else if( mode == edit_mode ){
+		frame_append( "Edit  ", 6 );
 	}
 }
 
+void bar_selection(){
+	char buffer[ 128 ] = { 0 };
+	i32 buffer_count = snprintf( buffer, 128, "%d/%d  ", primary_selection_index + 1, selection_count );
+	frame_append( buffer, buffer_count );
+}
+
+void bar_line_number(){
+	char buffer[ 128 ] = { 0 };
+	i32 buffer_count = snprintf( buffer, 128, "%d/%d  ", line_number( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_number( file_buffer, file_count, file_count - 1 ));
+	frame_append( buffer, buffer_count );
+}
+
+void bar_line_depth(){
+	char buffer[ 128 ] = { 0 };
+	i32 buffer_count = snprintf( buffer, 128, "%d/%d  ", line_depth( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_length( file_buffer, file_count, selection[ primary_selection_index ].cursor ));
+	frame_append( buffer, buffer_count );
+}
+
 void draw_bar(){
-	frame_append( "BAR", 3 );
+	for( i32 i = 0; i < (i32)( sizeof( bar ) / sizeof( bar_item )); i += 1 ){
+		bar[ i ].function();
+	}
 }
 
 void draw_line_selection_start( i32 line_index, i8* cursor_end ){
@@ -357,39 +494,6 @@ void draw_frame(){
 	frame_count = 0;
 }
 
-i32 utf8_ansi_length( char* src ){
-	if( *src == 0x1b /* escape */ ){  // possible ansi escape sequence
-		if( *src + 1 == '[' ){
-			if( *src + 2 == 'A' ){  // up arrow
-				return 3;
-			}
-		}
-	}
-	if(( *src & 0x80 ) == 0 ){  // ascii
-		return 1;
-	} else if(( *src & 0xe0 ) == 0xc0 ){  // two byte unicode
-		return 2;
-	} else if(( *src & 0xf0 ) == 0xe0 ){  // three byte unicode
-		return 3;
-	} else if(( *src & 0xf8 ) == 0xf0 ){  // four byte unicode
-		return 4;
-	} else {
-		error( "Invalid Encoding" );
-		return 0;
-	}
-}
-
-i32 utf8_prev_length( char* src ){
-	i32 length = 1;
-	src -= 1;
-	while(( *src & 0xc0 ) == 0x80 ){  // while is utf8 continuation byte
-		length += 1;
-		src -= 1;
-	}
-	assert( length < 5 );
-	return length;
-}
-
 void command_quit(){
 	disable_raw_mode();
 	exit( 1 );
@@ -398,6 +502,7 @@ void command_quit(){
 void command_edit_mode(){
 	mode = edit_mode;
 	redo_count = 0;
+	clipboard_count = 0;
 	for( i32 i = 0; i < selection_count; i += 1 ){
 		history[ undo_count ].insert_count = 0;
 		history[ undo_count ].delete_count = 0;
@@ -413,7 +518,7 @@ void command_move_char_next(){
 	for( i32 i = 0; i < selection_count; i += 1 ){
 		selection[ i ].anchor = selection[ i ].cursor;
 		if( selection[ i ].cursor < file_count - 1 ){
-			selection[ i ].cursor += utf8_ansi_length( &file_buffer[ selection[ i ].cursor ]);
+			selection[ i ].cursor += utf8_ansi_next_length( &file_buffer[ selection[ i ].cursor ]);
 		}
 	}
 }
@@ -502,7 +607,7 @@ void command_move_para_next(){
 				while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] == '\n' )){
 					selection[ i ].cursor += 1;
 				}
-				continue;
+				break;
 			}
 			selection[ i ].cursor += 1;
 		}
@@ -517,7 +622,7 @@ void command_move_para_prev(){
 		}
 		while( selection[ i ].cursor > 0 ){
 			if(( file_buffer[ selection[ i ].cursor - 1 ] == '\n' ) && ( selection[ i ].cursor - 1 > 0 ) && ( file_buffer[ selection[ i ].cursor - 2 ] == '\n' )){
-				continue;
+				break;
 			}
 			selection[ i ].cursor -= 1;
 		}
@@ -567,6 +672,7 @@ void command_swap_anchor_cursor(){
 void process_insert( char* insert, i32 insert_bytes ){
 	assert( insert != NULL );
 	assert( insert_bytes > 0 );
+	file_modified = 1;
 	i32 edit_index = 0;
 	for( i32 i = 0; i < undo_count - selection_count; i += 1 ){
 		edit_index += history[ i ].insert_count;
@@ -602,6 +708,7 @@ void process_insert( char* insert, i32 insert_bytes ){
 }
 
 void process_delete(){
+	file_modified = 1;
 	i32 total_deleted = 0;
 	i32 edit_index = 0;
 	for( i32 i = 0; i < undo_count - selection_count; i += 1 ){
@@ -649,11 +756,11 @@ void process_input(){
 	input_count = read( STDIN_FILENO, &input_buffer, max_input_size );
 	assert( input_count > 0 );
 	while( input_index < input_count ){
-		i32 key_bytes = utf8_ansi_length( &input_buffer[ input_index ]);
+		i32 key_bytes = utf8_ansi_next_length( &input_buffer[ input_index ]);
 		assert( key_bytes > 0 );
 		assert( input_index + key_bytes < max_input_size );
 		if( mode == command_mode ){
-			for( i32 i = 0; i < (i32) ( sizeof( command ) / sizeof( keybind )); i += 1 ){
+			for( i32 i = 0; i < (i32)( sizeof( command ) / sizeof( keybind )); i += 1 ){
 				if(( key_bytes == (i32) strlen( command[ i ].key )) && ( memcmp( &input_buffer[ input_index ], command[ i ].key, key_bytes ) == 0 )){
 					command[ i ].function();
 				}
@@ -740,12 +847,6 @@ i32 main( i32 argc, char* argv[] ){
 		error( "Usage: lute <filename>" );
 	}
 	file_name = argv[ 1 ];
-	{
-		selection_count = 2;
-		primary_selection_index = 1;
-		selection[ 1 ].cursor = 10;
-		selection[ 1 ].anchor = 10;
-	}
 	open_file();
 	enable_raw_mode();
 	get_window_size();
