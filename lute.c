@@ -73,7 +73,7 @@ typedef struct {
 	i32 index;
 	i32 insert_count;
 	i32 delete_count;
-	i32 selection_number;
+	i32 selection_index;
 } edit;
 
 typedef struct {
@@ -92,7 +92,12 @@ void bar_line_number();
 void bar_line_depth();
 
 void command_quit();
+void command_write();
+void command_write_quit();
 void command_edit_mode();
+void command_undo();
+void command_redo();
+void command_paste();
 void command_move_char_next();
 void command_move_char_prev();
 void command_move_word_next();
@@ -335,12 +340,6 @@ void bar_line_depth(){
 	frame_append( buffer, buffer_count );
 }
 
-void draw_bar(){
-	for( i32 i = 0; i < (i32)( sizeof( bar ) / sizeof( bar_item )); i += 1 ){
-		bar[ i ].function();
-	}
-}
-
 void draw_line_selection_start( i32 line_index, i8* cursor_end ){
 	for( i32 i = 0; i < selection_count; i += 1 ){
 		if( selection[ i ].anchor == line_index ){
@@ -458,23 +457,23 @@ void draw_frame(){
 		}
 		file_frame_index = string_line_start( file_buffer, file_count, file_frame_index );
 	}
-	draw_bar();
-	{
-		if( selection[ 0 ].anchor < file_frame_index ){
-			frame_append( primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
-		} else {
-			i8 highlight = 0;
-			for( i32 i = 1; i < selection_count; i += 1 ){
-				if( selection[ i ].cursor < file_frame_index ){
-					highlight = !highlight;
-				}
-				if( selection[ i ].anchor < file_frame_index ){
-					highlight = !highlight;
-				}
+	for( i32 i = 0; i < (i32)( sizeof( bar ) / sizeof( bar_item )); i += 1 ){
+		bar[ i ].function();
+	}
+	if( selection[ 0 ].anchor < file_frame_index ){
+		frame_append( primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
+	} else {
+		i8 highlight = 0;
+		for( i32 i = 1; i < selection_count; i += 1 ){
+			if( selection[ i ].cursor < file_frame_index ){
+				highlight = !highlight;
 			}
-			if( highlight ){
-				frame_append( selection_highlight_start, strlen( selection_highlight_start ));
+			if( selection[ i ].anchor < file_frame_index ){
+				highlight = !highlight;
 			}
+		}
+		if( highlight ){
+			frame_append( selection_highlight_start, strlen( selection_highlight_start ));
 		}
 	}
 	for( i32 i = 1; i < screen_rows; i += 1 ){
@@ -499,6 +498,24 @@ void command_quit(){
 	exit( 1 );
 }
 
+void command_write(){
+	i32 fd = open( file_name, O_WRONLY | O_CREAT | O_TRUNC );
+	if( fd < 0 ){
+		error( "The file '%s' could not be opened." );
+	}
+	i32 write_bytes = write( fd, file_buffer, file_count );
+	if( write_bytes < 0 ){
+		error( "The file '%s' could not be written.", file_name );
+	}
+	file_modified = 0;
+	close( fd );
+}
+
+void command_write_quit(){
+	command_write();
+	command_quit();
+}
+
 void command_edit_mode(){
 	mode = edit_mode;
 	redo_count = 0;
@@ -506,11 +523,100 @@ void command_edit_mode(){
 	for( i32 i = 0; i < selection_count; i += 1 ){
 		history[ undo_count ].insert_count = 0;
 		history[ undo_count ].delete_count = 0;
-		history[ undo_count ].selection_number = i;
+		history[ undo_count ].selection_index = i;
 		history[ undo_count ].index = selection[ i ].cursor;
 		undo_count += 1;
 		selection[ i ].clipboard_count = 0;
 		selection[ i ].anchor = selection[ i ].cursor;
+	}
+}
+
+void command_undo(){
+	if( undo_count == 0 ){
+		return;
+	}
+	file_modified = 1;
+	i32 new_selection_count = history[ undo_count - 1 ].selection_index + 1;
+	undo_count -= new_selection_count;
+	redo_count += new_selection_count;
+	assert( undo_count >= 0 );
+	i32 edit_index = 0;
+	for( i32 i = 0; i < undo_count; i += 1 ){
+		edit_index += history[ i ].insert_count;
+		edit_index += history[ i ].delete_count;
+	}
+	for( i32 i = 0; i < new_selection_count; i += 1 ){
+		i32 history_index = undo_count + i;
+		buffer_delete( file_buffer, &file_count, history[ history_index ].index, history[ history_index ].insert_count );
+		edit_index += history[ history_index ].insert_count;
+		if( max_edit_size <= edit_count + history[ history_index ].delete_count ){
+			error( "File buffer overflow, increase max_file_size" );
+		}
+		buffer_insert( file_buffer, &file_count, history[ history_index ].index, &edit_buffer[ edit_index ], history[ history_index ].delete_count );
+		edit_index += history[ history_index ].delete_count;
+		selection[ i ].cursor = history[ history_index ].index;
+		selection[ i ].anchor = history[ history_index ].index + history[ history_index ].delete_count;
+	}
+	if( new_selection_count != selection_count ){
+		for( i32 i = 0; i < selection_count; i += 1 ){
+			selection[ i ].clipboard_count = 0;
+		}
+		selection_count = new_selection_count;
+		clipboard_count = 0;
+	}
+}
+
+void command_redo(){
+	if( redo_count == 0 ){
+		return;
+	}
+	file_modified = 1;
+	i32 new_selection_count = 0;
+	while( new_selection_count == history[ undo_count + new_selection_count ].selection_index ){
+		new_selection_count += 1;
+	}
+	i32 edit_index = 0;
+	for( i32 i = 0; i < undo_count; i += 1 ){
+		edit_index += history[ i ].insert_count;
+		edit_index += history[ i ].delete_count;
+	}
+	i32 file_edit_offset = 0;
+	for( i32 i = 0; i < new_selection_count; i += 1 ){
+		i32 history_index = undo_count + i;
+		buffer_delete( file_buffer, &file_count, history[ history_index ].index + file_edit_offset, history[ history_index ].delete_count );
+		if( max_edit_size <= edit_count + history[ history_index ].delete_count ){
+			error( "File buffer overflow, increase max_file_size" );
+		}
+		buffer_insert( file_buffer, &file_count, history[ history_index ].index + file_edit_offset, &edit_buffer[ edit_index ], history[ history_index ].insert_count );
+		edit_index += history[ history_index ].insert_count;
+		edit_index += history[ history_index ].delete_count;
+		selection[ i ].cursor = history[ history_index ].index + file_edit_offset;
+		selection[ i ].anchor = history[ history_index ].index + history[ history_index ].insert_count + file_edit_offset;
+		file_edit_offset += history[ history_index ].insert_count;
+		file_edit_offset -= history[ history_index ].delete_count;
+	}
+	undo_count += new_selection_count;
+	redo_count -= new_selection_count;
+	assert( redo_count >= 0 );
+	if( new_selection_count != selection_count ){
+		for( i32 i = 0; i < selection_count; i += 1 ){
+			selection[ i ].clipboard_count = 0;
+		}
+		selection_count = new_selection_count;
+		clipboard_count = 0;
+	}
+}
+
+void command_paste(){
+	i32 clipboard_index = 0;
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		selection[ i ].cursor += clipboard_index;
+		selection[ i ].anchor = selection[ i ].cursor + selection[ i ].clipboard_count;
+		if( max_file_size <= file_count + clipboard_index ){
+			error( "File buffer overflow, increase max_file_size" );
+		}
+		buffer_insert( file_buffer, &file_count, selection[ i ].cursor, &clipboard_buffer[ clipboard_index ], selection[ i ].clipboard_count );
+		clipboard_index += selection[ i ].clipboard_count;
 	}
 }
 
@@ -733,6 +839,7 @@ void process_delete(){
 				}
 				buffer_insert( edit_buffer, &edit_count, edit_index, &file_buffer[ selection[ i ].cursor - total_deleted ], delete_bytes );
 				history[ history_index ].delete_count += delete_bytes;
+				history[ history_index ].index -= delete_bytes;
 				edit_index += history[ history_index ].delete_count;
 			} else {
 				assert( 0 );
@@ -784,6 +891,38 @@ void process_input(){
 		input_index += key_bytes;
 	}
 	input_count = 0;
+}
+
+void deoverlap_selections(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		i32 selection_min = ( selection[ i ].cursor < selection[ i ].anchor ) ? selection[ i ].cursor : selection[ i ].anchor;
+		i32 selection_max = ( selection[ i ].cursor > selection[ i ].anchor ) ? selection[ i ].cursor : selection[ i ].anchor;
+		for( i32 j = selection_count - 1; j >= 0; j -= 1 ){
+			if( i == j ){
+				continue;
+			}
+			i8 j_cursor_inside = (( selection[ j ].cursor >= selection_min ) && ( selection[ j ].cursor <= selection_max )) ? 1 : 0;
+			i8 j_anchor_inside = (( selection[ j ].anchor >= selection_min ) && ( selection[ j ].anchor <= selection_max )) ? 1 : 0;
+			if( j_anchor_inside && j_cursor_inside ){  // cull j
+				if( j < primary_selection_index ){
+					primary_selection_index -= 1;
+				} else if( j == primary_selection_index ){
+					primary_selection_index = ( i < j ) ? i : j;
+				}
+				i32 clipboard_index = 0;
+				for( i32 h = 0; h < j; h += 1 ){
+					clipboard_index += selection[ h ].clipboard_count;
+				}
+				buffer_delete( clipboard_buffer, &clipboard_count, clipboard_index, selection[ j ].clipboard_count );
+				for( i32 h = j; h < selection_count; h += 1 ){
+					selection[ h ] = selection[ h + 1 ];
+				}
+				selection_count -= 1;
+			} else if( j_anchor_inside ){
+				selection[ j ].anchor = selection[ i ].cursor;
+			}
+		}
+	}
 }
 
 void open_file(){
@@ -853,6 +992,7 @@ i32 main( i32 argc, char* argv[] ){
 	draw_frame();
 	while( 1 ){
 		process_input();
+		deoverlap_selections();
 		get_window_size();
 		draw_frame();
 	}

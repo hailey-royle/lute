@@ -33,7 +33,12 @@ bar_item bar[] = {
 keybind command[] = {
 //	{ key, function },
 	{ "Q", command_quit },
+	{ "q", command_write_quit },
+	{ "w", command_write },
 	{ " ", command_edit_mode },
+	{ "u", command_undo },
+	{ "U", command_redo },
+	{ "p", command_paste },
 	{ "l", command_move_char_next },
 	{ "h", command_move_char_prev },
 	{ "e", command_move_word_next },
