@@ -3,6 +3,7 @@
 #define max_edit_size         0x4000000    //  64 Mib
 #define max_frame_size        0x10000      //  64 Kib
 #define max_input_size        0x400        //   1 Kib
+#define max_search_size       0x400        //   1 Kib
 
 #define max_edit_count        1024 * 1024
 #define max_selection_count   1024
@@ -29,6 +30,7 @@ bar_item bar[] = {
 	{ bar_line_number },
 	{ bar_line_depth },
 	{ bar_command_count },
+	{ bar_search_string },
 };
 
 keybind command[] = {
@@ -47,6 +49,9 @@ keybind command[] = {
 	{ "r", command_replace },
 	{ "s", command_split },
 	{ "S", command_split_newline },
+	{ ";", command_split_collapse },
+	{ ".", command_split_next },
+	{ ",", command_split_prev },
 	{ "l", command_move_char_next },
 	{ "h", command_move_char_prev },
 	{ "e", command_move_word_next },

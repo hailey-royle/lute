@@ -62,6 +62,7 @@ typedef double f64;
 #define error_mode 0
 #define command_mode 1
 #define edit_mode 2
+#define search_mode 3
 
 typedef struct {
 	i64 cursor;
@@ -91,6 +92,7 @@ void bar_selection();
 void bar_line_number();
 void bar_line_depth();
 void bar_command_count();
+void bar_search_string();
 
 void command_quit();
 void command_write();
@@ -106,6 +108,9 @@ void command_paste();
 void command_replace();
 void command_split();
 void command_split_newline();
+void command_split_collapse();
+void command_split_next();
+void command_split_prev();
 void command_move_char_next();
 void command_move_char_prev();
 void command_move_word_next();
@@ -155,6 +160,9 @@ i64 frame_count = 0;
 
 char input_buffer[ max_input_size ] = { 0 };
 i64 input_count = 0;
+
+char search_buffer[ max_search_size ] = { 0 };
+i64 search_count = 0;
 
 char clipboard_buffer[ max_clipboard_size ] = { 0 };
 i64 clipboard_count = 0;
@@ -351,6 +359,8 @@ void bar_mode(){
 		frame_append( "Command  ", 9 );
 	} else if( mode == edit_mode ){
 		frame_append( "Edit  ", 6 );
+	} else if( mode == search_mode ){
+		frame_append( "Search  ", 8 );
 	}
 }
 
@@ -376,6 +386,14 @@ void bar_command_count(){
 	if( command_count > 0 ){
 		char buffer[ 128 ] = { 0 };
 		i64 buffer_count = snprintf( buffer, 128, "%ld  ", command_count );
+		frame_append( buffer, buffer_count );
+	}
+}
+
+void bar_search_string(){
+	if( search_count > 0 ){
+		char buffer[ 128 ] = { 0 };
+		i64 buffer_count = snprintf( buffer, 128, "\"%.*s\"  ", (i32) search_count, search_buffer );
 		frame_append( buffer, buffer_count );
 	}
 }
@@ -605,6 +623,26 @@ void selection_delete(){
 		buffer_delete( file_buffer, &file_count, selection_min( i ), selection_bytes( i ));
 		selection[ i ].cursor = selection_min( i );
 		selection[ i ].anchor = selection[ i ].cursor;
+	}
+}
+
+void selection_split( char* delim, i64 count ){
+	i64 min = selection_min( primary_selection_index );
+	i64 max = selection_max( primary_selection_index );
+	i64 new_selection_count = 0;
+	while( min < max ){
+		if( strncmp( &file_buffer[ min ], delim, count ) == 0 ){
+			selection[ new_selection_count ].cursor = min;
+			selection[ new_selection_count ].anchor = selection[ new_selection_count ].cursor + count;
+			selection[ new_selection_count ].clipboard_count = 0;
+			new_selection_count += 1;
+		}
+		min += 1;
+	}
+	if( new_selection_count > 0 ){
+		selection_count = new_selection_count;
+		primary_selection_index = 0;
+		clipboard_count = 0;
 	}
 }
 
@@ -854,24 +892,37 @@ void command_replace(){
 }
 
 void command_split(){
+	command_count = 0;
+	mode = search_mode;
 }
 
 void command_split_newline(){
 	command_count = 0;
-	i64 min = selection_min( primary_selection_index );
-	i64 max = selection_max( primary_selection_index );
-	i64 new_selection_count = 0;
-	while( min < max ){
-		if( file_buffer[ min ] == '\n' ){
-			selection[ new_selection_count ].cursor = min;
-			selection[ new_selection_count ].anchor = selection[ new_selection_count ].cursor + 1;
-			new_selection_count += 1;
-		}
-		min += 1;
-	}
-	if( new_selection_count > 0 ){
-		selection_count = new_selection_count;
+	selection_split( "\n", 1 );
+}
+
+void command_split_collapse(){
+	command_count = 0;
+	selection[ 0 ] = selection[ primary_selection_index ];
+	selection[ 0 ].clipboard_count = 0;
+	primary_selection_index = 0;
+	selection_count = 1;
+	clipboard_count = 0;
+}
+
+void command_split_next(){
+	if( primary_selection_index >= selection_count - 1 ){
 		primary_selection_index = 0;
+	} else {
+		primary_selection_index += 1;
+	}
+}
+
+void command_split_prev(){
+	if( primary_selection_index <= 0 ){
+		primary_selection_index = selection_count - 1;
+	} else {
+		primary_selection_index -= 1;
 	}
 }
 
@@ -1409,6 +1460,26 @@ void process_input(){
 				}
 				process_insert( &input_buffer[ input_index ], insert_bytes );
 				input_index += insert_bytes - key_bytes;
+			}
+		} else if( mode == search_mode ){
+			if(( key_bytes == 1 ) && ( input_buffer[ input_index ] == '\x1b' )){
+				mode = command_mode;
+				search_count = 0;
+			} else if(( key_bytes == 1 ) && ( input_buffer[ input_index ] == '\n' )){
+				if( search_count > 0 ){
+					selection_split( search_buffer, search_count );
+				}
+				mode = command_mode;
+				search_count = 0;
+			} else if(( key_bytes == 1 ) && (( input_buffer[ input_index ] == '\b' ) || ( input_buffer[ input_index ] == 0x7f /* delete */  ))){
+				if( search_count > 0 ){
+					search_count -= 1;
+				}
+			} else {
+				for( i32 i = 0; i < key_bytes; i += 1 ){
+					search_buffer[ search_count ] = input_buffer[ input_index ];
+					search_count += 1;
+				}
 			}
 		}
 		input_index += key_bytes;
