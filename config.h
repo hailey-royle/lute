@@ -45,6 +45,8 @@ keybind command[] = {
 	{ "c", command_change },
 	{ "p", command_paste },
 	{ "r", command_replace },
+	{ "s", command_split },
+	{ "S", command_split_newline },
 	{ "l", command_move_char_next },
 	{ "h", command_move_char_prev },
 	{ "e", command_move_word_next },

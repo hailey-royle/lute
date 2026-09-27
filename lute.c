@@ -104,6 +104,8 @@ void command_delete();
 void command_change();
 void command_paste();
 void command_replace();
+void command_split();
+void command_split_newline();
 void command_move_char_next();
 void command_move_char_prev();
 void command_move_word_next();
@@ -849,6 +851,28 @@ void command_paste(){
 
 void command_replace(){
 	assert( 0 );
+}
+
+void command_split(){
+}
+
+void command_split_newline(){
+	command_count = 0;
+	i64 min = selection_min( primary_selection_index );
+	i64 max = selection_max( primary_selection_index );
+	i64 new_selection_count = 0;
+	while( min < max ){
+		if( file_buffer[ min ] == '\n' ){
+			selection[ new_selection_count ].cursor = min;
+			selection[ new_selection_count ].anchor = selection[ new_selection_count ].cursor + 1;
+			new_selection_count += 1;
+		}
+		min += 1;
+	}
+	if( new_selection_count > 0 ){
+		selection_count = new_selection_count;
+		primary_selection_index = 0;
+	}
 }
 
 void command_move_char_next(){
