@@ -128,6 +128,7 @@ void command_select_inside_bracket();
 void command_select_inside_curly();
 void command_select_inside_double_quote();
 void command_swap_anchor_cursor();
+void command_count_goto();
 void command_count_1();
 void command_count_2();
 void command_count_3();
@@ -428,7 +429,6 @@ void draw_line_selection_end( i8 cursor_end ){
 
 void draw_line( i64 line_index ){
 	assert( line_index >= 0 );
-	assert( line_index < max_frame_size );
 	assert( line_index == 0 || file_buffer[ line_index - 1 ] == '\n' );
 	i32 filled_cols = 0; 
 	while( filled_cols < screen_cols ){
@@ -1184,6 +1184,20 @@ void command_swap_anchor_cursor(){
 		selection[ i ].anchor = selection[ i ].cursor;
 		selection[ i ].cursor = tmp;
 	}
+}
+
+void command_count_goto(){
+	i64 index = 1;
+	while(( index < file_count - 1 ) && ( command_count > 1 )){
+		if( file_buffer[ index - 1 ] == '\n' ){
+			command_count -= 1;
+		}
+		index += 1;
+	}
+	command_count = 0;
+	selection_count = 1;
+	selection[ 0 ].cursor = index;
+	selection[ 0 ].anchor = index;
 }
 
 void command_count_1(){
