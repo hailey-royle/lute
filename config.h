@@ -37,6 +37,7 @@ keybind command[] = {
 	{ "q", command_write_quit },
 	{ "w", command_write },
 	{ " ", command_edit_mode },
+	{ "\n", command_edit_newline },
 	{ "u", command_undo },
 	{ "U", command_redo },
 	{ "y", command_copy },

@@ -96,6 +96,7 @@ void command_quit();
 void command_write();
 void command_write_quit();
 void command_edit_mode();
+void command_edit_newline();
 void command_undo();
 void command_redo();
 void command_copy();
@@ -529,6 +530,10 @@ void draw_frame(){
 	frame_count = 0;
 }
 
+void process_insert( char* insert, i64 insert_bytes );
+void process_delete();
+void deoverlap_selections();
+
 i64 selection_min( i64 index ){
 	return (selection[ index ].cursor > selection[ index ].anchor) ? selection[ index ].anchor : selection[ index ].cursor;
 }
@@ -685,6 +690,25 @@ void command_edit_mode(){
 		selection[ i ].clipboard_count = 0;
 		selection[ i ].anchor = selection[ i ].cursor;
 	}
+}
+
+void command_edit_newline(){
+	command_move_line_end();
+	deoverlap_selections();
+	mode = edit_mode;
+	command_count = 0;
+	clipboard_count = 0;
+	redo_count = 0;
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		history[ undo_count ].insert_count = 0;
+		history[ undo_count ].delete_count = 0;
+		history[ undo_count ].selection_index = i;
+		history[ undo_count ].index = selection[ i ].cursor;
+		undo_count += 1;
+		selection[ i ].clipboard_count = 0;
+		selection[ i ].anchor = selection[ i ].cursor;
+	}
+	process_insert( "\n", 1 );
 }
 
 void command_undo(){
@@ -1250,8 +1274,7 @@ void command_count_0(){
 	command_count += 0;
 }
 
-
-void process_insert( char* insert, i32 insert_bytes ){
+void process_insert( char* insert, i64 insert_bytes ){
 	assert( insert != NULL );
 	assert( insert_bytes > 0 );
 	file_modified = 1;
