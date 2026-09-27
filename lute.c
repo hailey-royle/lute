@@ -63,6 +63,10 @@ typedef double f64;
 #define command_mode 1
 #define edit_mode 2
 #define search_mode 3
+#define find_next_mode 4
+#define find_prev_mode 5
+#define append_find_next_mode 6
+#define append_find_prev_mode 7
 
 typedef struct {
 	i64 cursor;
@@ -119,10 +123,8 @@ void command_move_line_next();
 void command_move_line_prev();
 void command_move_para_next();
 void command_move_para_prev();
-void command_move_line_end();
-void command_move_line_start();
-void command_move_file_end();
-void command_move_file_start();
+void command_move_find_next();
+void command_move_find_prev();
 void command_move_append_char_next();
 void command_move_append_char_prev();
 void command_move_append_word_next();
@@ -131,6 +133,12 @@ void command_move_append_line_next();
 void command_move_append_line_prev();
 void command_move_append_para_next();
 void command_move_append_para_prev();
+void command_move_append_find_next();
+void command_move_append_find_prev();
+void command_move_line_end();
+void command_move_line_start();
+void command_move_file_end();
+void command_move_file_start();
 void command_select_inside_paren();
 void command_select_inside_bracket();
 void command_select_inside_curly();
@@ -361,6 +369,14 @@ void bar_mode(){
 		frame_append( "Edit  ", 6 );
 	} else if( mode == search_mode ){
 		frame_append( "Search  ", 8 );
+	} else if( mode == find_next_mode ){
+		frame_append( "Find next  ", 11 );
+	} else if( mode == find_prev_mode ){
+		frame_append( "Find prev  ", 11 );
+	} else if( mode == append_find_next_mode ){
+		frame_append( "Append find next  ", 18 );
+	} else if( mode == append_find_prev_mode ){
+		frame_append( "Append find prev  ", 18 );
 	}
 }
 
@@ -578,6 +594,9 @@ i64 selection_length( i64 index ){
 void new_undo(){
 	redo_count = 0;
 	for( i32 i = 0; i < selection_count; i += 1 ){
+		if( max_edit_count <= undo_count + 1 ){
+			error( "Edit count overflow, increase max_edit_count" );
+		}
 		history[ undo_count ].insert_count = 0;
 		history[ undo_count ].delete_count = 0;
 		history[ undo_count ].selection_index = i;
@@ -632,6 +651,9 @@ void selection_split( char* delim, i64 count ){
 	i64 new_selection_count = 0;
 	while( min < max ){
 		if( strncmp( &file_buffer[ min ], delim, count ) == 0 ){
+			if( max_selection_count <= new_selection_count + 1 ){
+				error( "Selection count overflow, increase max_selection_count" );
+			}
 			selection[ new_selection_count ].cursor = min;
 			selection[ new_selection_count ].anchor = selection[ new_selection_count ].cursor + count;
 			selection[ new_selection_count ].clipboard_count = 0;
@@ -722,6 +744,9 @@ void command_edit_mode(){
 	clipboard_count = 0;
 	redo_count = 0;
 	for( i32 i = 0; i < selection_count; i += 1 ){
+		if( max_edit_count <= undo_count + 1 ){
+			error( "Edit count overflow, increase max_edit_count" );
+		}
 		history[ undo_count ].insert_count = 0;
 		history[ undo_count ].delete_count = 0;
 		history[ undo_count ].selection_index = i;
@@ -740,6 +765,9 @@ void command_edit_newline(){
 	clipboard_count = 0;
 	redo_count = 0;
 	for( i32 i = 0; i < selection_count; i += 1 ){
+		if( max_edit_count <= undo_count + 1 ){
+			error( "Edit count overflow, increase max_edit_count" );
+		}
 		history[ undo_count ].insert_count = 0;
 		history[ undo_count ].delete_count = 0;
 		history[ undo_count ].selection_index = i;
@@ -911,19 +939,27 @@ void command_split_collapse(){
 }
 
 void command_split_next(){
-	if( primary_selection_index >= selection_count - 1 ){
-		primary_selection_index = 0;
-	} else {
-		primary_selection_index += 1;
-	}
+	do {
+		if( primary_selection_index >= selection_count - 1 ){
+			primary_selection_index = 0;
+		} else {
+			primary_selection_index += 1;
+		}
+		command_count -= 1;
+	} while( command_count > 0 );
+	command_count = 0;
 }
 
 void command_split_prev(){
-	if( primary_selection_index <= 0 ){
-		primary_selection_index = selection_count - 1;
-	} else {
-		primary_selection_index -= 1;
-	}
+	do {
+		if( primary_selection_index <= 0 ){
+			primary_selection_index = selection_count - 1;
+		} else {
+			primary_selection_index -= 1;
+		}
+		command_count -= 1;
+	} while( command_count > 0 );
+	command_count = 0;
 }
 
 void command_move_char_next(){
@@ -1073,6 +1109,14 @@ void command_move_para_prev(){
 	command_count = 0;
 }
 
+void command_move_find_next(){
+	mode = find_next_mode;
+}
+
+void command_move_find_prev(){
+	mode = find_prev_mode;
+}
+
 void command_move_append_char_next(){
 	do {
 		for( i32 i = 0; i < selection_count; i += 1 ){
@@ -1206,6 +1250,14 @@ void command_move_append_para_prev(){
 		command_count -= 1;
 	} while( command_count > 0 );
 	command_count = 0;
+}
+
+void command_move_append_find_next(){
+	mode = append_find_next_mode;
+}
+
+void command_move_append_find_prev(){
+	mode = append_find_prev_mode;
 }
 
 void command_move_line_end(){
@@ -1349,6 +1401,76 @@ void command_count_0(){
 	command_count += 0;
 }
 
+void process_find_next( char* key, i64 key_bytes ){
+	assert( key != NULL );
+	assert( key_bytes > 0 );
+	do {
+		for( i32 i = 0; i < selection_count; i += 1 ){
+			for( i64 j = selection[ i ].cursor + 1; j < file_count - 1; j += 1 ){
+				if( strncmp( &file_buffer[ j ], key, key_bytes ) == 0 ){
+					selection[ i ].anchor = selection[ i ].cursor;
+					selection[ i ].cursor = j;
+					break;
+				};
+			}
+		}
+		command_count -= 1;
+	} while( command_count > 0 );
+	command_count = 0;
+}
+
+void process_find_prev( char* key, i64 key_bytes ){
+	assert( key != NULL );
+	assert( key_bytes > 0 );
+	do {
+		for( i32 i = 0; i < selection_count; i += 1 ){
+			for( i64 j = selection[ i ].cursor - 1; j >= 0; j -= 1 ){
+				if( strncmp( &file_buffer[ j ], key, key_bytes ) == 0 ){
+					selection[ i ].anchor = selection[ i ].cursor;
+					selection[ i ].cursor = j;
+					break;
+				};
+			}
+		}
+		command_count -= 1;
+	} while( command_count > 0 );
+	command_count = 0;
+}
+
+void process_append_find_next( char* key, i64 key_bytes ){
+	assert( key != NULL );
+	assert( key_bytes > 0 );
+	do {
+		for( i32 i = 0; i < selection_count; i += 1 ){
+			for( i64 j = selection[ i ].cursor + 1; j < file_count - 1; j += 1 ){
+				if( strncmp( &file_buffer[ j ], key, key_bytes ) == 0 ){
+					selection[ i ].cursor = j;
+					break;
+				};
+			}
+		}
+		command_count -= 1;
+	} while( command_count > 0 );
+	command_count = 0;
+}
+
+void process_append_find_prev( char* key, i64 key_bytes ){
+	assert( key != NULL );
+	assert( key_bytes > 0 );
+	do {
+		for( i32 i = 0; i < selection_count; i += 1 ){
+			for( i64 j = selection[ i ].cursor - 1; j >= 0; j -= 1 ){
+				if( strncmp( &file_buffer[ j ], key, key_bytes ) == 0 ){
+					selection[ i ].cursor = j;
+					break;
+				};
+			}
+		}
+		command_count -= 1;
+	} while( command_count > 0 );
+	command_count = 0;
+}
+
 void process_insert( char* insert, i64 insert_bytes ){
 	assert( insert != NULL );
 	assert( insert_bytes > 0 );
@@ -1465,6 +1587,8 @@ void process_input(){
 			if(( key_bytes == 1 ) && ( input_buffer[ input_index ] == '\x1b' )){
 				mode = command_mode;
 				search_count = 0;
+			} else if(( key_bytes != 1 ) && ( input_buffer[ input_index ] == '\x1b' )){  // trying to input ansi escape sequence
+				// dont do anyting
 			} else if(( key_bytes == 1 ) && ( input_buffer[ input_index ] == '\n' )){
 				if( search_count > 0 ){
 					selection_split( search_buffer, search_count );
@@ -1480,6 +1604,42 @@ void process_input(){
 					search_buffer[ search_count ] = input_buffer[ input_index ];
 					search_count += 1;
 				}
+			}
+		} else if( mode == find_next_mode ){
+			if(( key_bytes == 1 ) && ( input_buffer[ input_index ] == '\x1b' )){
+				mode = command_mode;
+			} else if(( key_bytes != 1 ) && ( input_buffer[ input_index ] == '\x1b' )){  // trying to input ansi escape sequence
+				// do nothing
+			} else {
+				process_find_next( &input_buffer[ input_index ], key_bytes );
+				mode = command_mode;
+			}
+		} else if( mode == find_prev_mode ){
+			if(( key_bytes == 1 ) && ( input_buffer[ input_index ] == '\x1b' )){
+				mode = command_mode;
+			} else if(( key_bytes != 1 ) && ( input_buffer[ input_index ] == '\x1b' )){  // trying to input ansi escape sequence
+				// do nothing
+			} else {
+				process_find_prev( &input_buffer[ input_index ], key_bytes );
+				mode = command_mode;
+			}
+		} else if( mode == append_find_next_mode ){
+			if(( key_bytes == 1 ) && ( input_buffer[ input_index ] == '\x1b' )){
+				mode = command_mode;
+			} else if(( key_bytes != 1 ) && ( input_buffer[ input_index ] == '\x1b' )){  // trying to input ansi escape sequence
+				// do nothing
+			} else {
+				process_append_find_next( &input_buffer[ input_index ], key_bytes );
+				mode = command_mode;
+			}
+		} else if( mode == append_find_prev_mode ){
+			if(( key_bytes == 1 ) && ( input_buffer[ input_index ] == '\x1b' )){
+				mode = command_mode;
+			} else if(( key_bytes != 1 ) && ( input_buffer[ input_index ] == '\x1b' )){  // trying to input ansi escape sequence
+				// do nothing
+			} else {
+				process_append_find_prev( &input_buffer[ input_index ], key_bytes );
+				mode = command_mode;
 			}
 		}
 		input_index += key_bytes;
