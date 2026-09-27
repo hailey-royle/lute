@@ -28,6 +28,7 @@ bar_item bar[] = {
 	{ bar_selection },
 	{ bar_line_number },
 	{ bar_line_depth },
+	{ bar_command_count },
 };
 
 keybind command[] = {
@@ -51,8 +52,6 @@ keybind command[] = {
 	{ "k", command_move_line_prev },
 	{ "n", command_move_para_next },
 	{ "m", command_move_para_prev },
-	{ "x", command_move_line_end },
-	{ "z", command_move_line_start },
 	{ "L", command_move_append_char_next },
 	{ "H", command_move_append_char_prev },
 	{ "E", command_move_append_word_next },
@@ -61,8 +60,8 @@ keybind command[] = {
 	{ "K", command_move_append_line_prev },
 	{ "N", command_move_append_para_next },
 	{ "M", command_move_append_para_prev },
-	{ "X", command_move_append_line_end },
-	{ "Z", command_move_append_line_start },
+	{ "x", command_move_line_end },
+	{ "z", command_move_line_start },
 	{ "T", command_move_file_end },
 	{ "t", command_move_file_start },
 	{ "(", command_select_inside_paren },
@@ -73,4 +72,14 @@ keybind command[] = {
 	{ "}", command_select_inside_curly },
 	{ "\"", command_select_inside_double_quote },
 	{ "a", command_swap_anchor_cursor },
+	{ "1", command_count_1 },
+	{ "2", command_count_2 },
+	{ "3", command_count_3 },
+	{ "4", command_count_4 },
+	{ "5", command_count_5 },
+	{ "6", command_count_6 },
+	{ "7", command_count_7 },
+	{ "8", command_count_8 },
+	{ "9", command_count_9 },
+	{ "0", command_count_0 },
 };
