@@ -112,6 +112,16 @@ void command_move_para_next();
 void command_move_para_prev();
 void command_move_line_end();
 void command_move_line_start();
+void command_move_append_char_next();
+void command_move_append_char_prev();
+void command_move_append_word_next();
+void command_move_append_word_prev();
+void command_move_append_line_next();
+void command_move_append_line_prev();
+void command_move_append_para_next();
+void command_move_append_para_prev();
+void command_move_append_line_end();
+void command_move_append_line_start();
 void command_move_file_end();
 void command_move_file_start();
 void command_select_inside_paren();
@@ -573,6 +583,53 @@ void selection_delete(){
 	}
 }
 
+void select_inside( char* left, i64 left_count, char* right, i64 right_count ){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		i64 min = selection[ i ].cursor;
+		i64 max = selection[ i ].cursor;
+		i64 min_nest = ( strncmp( &file_buffer[ min ], right, right_count ) == 0 ) ? 1 : 0;
+		i64 max_nest = ( strncmp( &file_buffer[ max ], left, left_count ) == 0 ) ? 1 : 0;
+		if(( selection[ i ].cursor > 0 ) && 
+		   ( strncmp( &file_buffer[ selection[ i ].cursor - utf8_prev_length( &file_buffer[ selection[ i ].cursor ])], left, left_count ) == 0 ) && 
+		   ( selection[ i ].anchor < file_count - 1 ) && 
+		   ( strncmp( &file_buffer[ selection[ i ].anchor ], right, right_count ) == 0 )){
+			min_nest += 1;
+			max_nest += 1;
+		}
+		while( min > 0 ){
+			min -= 1;
+			if( strncmp( &file_buffer[ min ], left, left_count ) == 0 ){
+				if( min_nest <= 0 ){
+					min += 1;
+					break;
+				} else {
+					min_nest -= 1;
+				}
+			}
+			if( strncmp( &file_buffer[ min ], right, right_count ) == 0 ){
+				min_nest += 1;
+			}
+		}
+		while( max < file_count - 1 ){
+			max += 1;
+			if( strncmp( &file_buffer[ max ], right, right_count ) == 0 ){
+				if( max_nest <= 0 ){
+					break;
+				} else {
+					max_nest -= 1;
+				}
+			}
+			if( strncmp( &file_buffer[ max ], left, left_count ) == 0 ){
+				max_nest += 1;
+			}
+		}
+		if( min > 0 && max < file_count - 1 ){
+			selection[ i ].cursor = min;
+			selection[ i ].anchor = max;
+		}
+	}
+}
+
 void command_quit(){
 	disable_raw_mode();
 	exit( 1 );
@@ -878,6 +935,125 @@ void command_move_line_start(){
 	}
 }
 
+void command_move_append_char_next(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		if( selection[ i ].cursor < file_count - 1 ){
+			selection[ i ].cursor += utf8_ansi_next_length( &file_buffer[ selection[ i ].cursor ]);
+		}
+	}
+}
+
+void command_move_append_char_prev(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		do {
+			if( selection[ i ].cursor > 0 ){
+				selection[ i ].cursor -= 1;
+			} else {
+				continue;
+			}
+		} while(( file_buffer[ selection[ i ].cursor ] & 0xc0 ) == 0x80 ); // while is utf8_continuation_byte
+	}
+}
+
+void command_move_append_word_next(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		if(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] == '\n' )){
+			selection[ i ].cursor += 1;
+			continue;
+		}
+		while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] != '\n' ) && !is_word_whitespace( file_buffer[ selection[ i ].cursor ])){
+			selection[ i ].cursor += 1;
+		}
+		while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] != '\n' ) && is_word_whitespace( file_buffer[ selection[ i ].cursor ])){
+			selection[ i ].cursor += 1;
+		}
+	}
+}
+
+void command_move_append_word_prev(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		if(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] == '\n' )){
+			selection[ i ].cursor -= 1;
+			continue;
+		}
+		while(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] != '\n' ) && is_word_whitespace( file_buffer[ selection[ i ].cursor - 1 ])){
+			selection[ i ].cursor -= 1;
+		}
+		while(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] != '\n' ) && !is_word_whitespace( file_buffer[ selection[ i ].cursor - 1 ])){
+			selection[ i ].cursor -= 1;
+		}
+	}
+}
+
+void command_move_append_line_next(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] != '\n' )){
+			selection[ i ].cursor += 1;
+		}
+		if( selection[ i ].cursor < file_count - 1 ){
+			selection[ i ].cursor += 1;
+		}
+	}
+}
+
+void command_move_append_line_prev(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		while(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] != '\n' )){
+			selection[ i ].cursor -= 1;
+		}
+		if( selection[ i ].cursor > 0 ){
+			selection[ i ].cursor -= 1;
+		}
+		while(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] != '\n' )){
+			selection[ i ].cursor -= 1;
+		}
+	}
+}
+
+void command_move_append_para_next(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		while( selection[ i ].cursor < file_count - 1 ){
+			if(( file_buffer[ selection[ i ].cursor ] == '\n' ) && ( selection[ i ].cursor + 1 < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor + 1 ] == '\n' )){
+				while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] == '\n' )){
+					selection[ i ].cursor += 1;
+				}
+				break;
+			}
+			selection[ i ].cursor += 1;
+		}
+	}
+}
+
+void command_move_append_para_prev(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		while(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] == '\n' )){
+			selection[ i ].cursor -= 1;
+		}
+		while( selection[ i ].cursor > 0 ){
+			if(( file_buffer[ selection[ i ].cursor - 1 ] == '\n' ) && ( selection[ i ].cursor - 1 > 0 ) && ( file_buffer[ selection[ i ].cursor - 2 ] == '\n' )){
+				break;
+			}
+			selection[ i ].cursor -= 1;
+		}
+	}
+}
+
+void command_move_append_line_end(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] != '\n' )){
+			selection[ i ].cursor += 1;
+		}
+	}
+}
+
+void command_move_append_line_start(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		while(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] != '\n' )){
+			selection[ i ].cursor -= 1;
+		}
+	}
+}
+
 void command_move_file_end(){
 	for( i32 i = 0; i < selection_count; i += 1 ){
 		selection[ i ].anchor = selection[ i ].cursor;
@@ -889,53 +1065,6 @@ void command_move_file_start(){
 	for( i32 i = 0; i < selection_count; i += 1 ){
 		selection[ i ].anchor = selection[ i ].cursor;
 		selection[ i ].cursor = 0;
-	}
-}
-
-void select_inside( char* left, i64 left_count, char* right, i64 right_count ){
-	for( i32 i = 0; i < selection_count; i += 1 ){
-		i64 min = selection[ i ].cursor;
-		i64 max = selection[ i ].cursor;
-		i64 min_nest = ( strncmp( &file_buffer[ min ], right, right_count ) == 0 ) ? 1 : 0;
-		i64 max_nest = ( strncmp( &file_buffer[ max ], left, left_count ) == 0 ) ? 1 : 0;
-		if(( selection[ i ].cursor > 0 ) && 
-		   ( strncmp( &file_buffer[ selection[ i ].cursor - utf8_prev_length( &file_buffer[ selection[ i ].cursor ])], left, left_count ) == 0 ) && 
-		   ( selection[ i ].anchor < file_count - 1 ) && 
-		   ( strncmp( &file_buffer[ selection[ i ].anchor ], right, right_count ) == 0 )){
-			min_nest += 1;
-			max_nest += 1;
-		}
-		while( min > 0 ){
-			min -= 1;
-			if( strncmp( &file_buffer[ min ], left, left_count ) == 0 ){
-				if( min_nest <= 0 ){
-					min += 1;
-					break;
-				} else {
-					min_nest -= 1;
-				}
-			}
-			if( strncmp( &file_buffer[ min ], right, right_count ) == 0 ){
-				min_nest += 1;
-			}
-		}
-		while( max < file_count - 1 ){
-			max += 1;
-			if( strncmp( &file_buffer[ max ], right, right_count ) == 0 ){
-				if( max_nest <= 0 ){
-					break;
-				} else {
-					max_nest -= 1;
-				}
-			}
-			if( strncmp( &file_buffer[ max ], left, left_count ) == 0 ){
-				max_nest += 1;
-			}
-		}
-		if( min > 0 && max < file_count - 1 ){
-			selection[ i ].cursor = min;
-			selection[ i ].anchor = max;
-		}
 	}
 }
 
