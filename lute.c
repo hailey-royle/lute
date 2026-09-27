@@ -144,6 +144,7 @@ void command_select_inside_bracket();
 void command_select_inside_curly();
 void command_select_inside_double_quote();
 void command_swap_anchor_cursor();
+void command_select_entire_file();
 void command_count_goto();
 void command_count_1();
 void command_count_2();
@@ -1335,6 +1336,16 @@ void command_swap_anchor_cursor(){
 		selection[ i ].anchor = selection[ i ].cursor;
 		selection[ i ].cursor = tmp;
 	}
+}
+
+void command_select_entire_file(){
+	command_count = 0;
+	selection[ 0 ].cursor = 0;
+	selection[ 0 ].anchor = file_count - 1;
+	selection[ 0 ].clipboard_count = 0;
+	selection_count = 1;
+	primary_selection_index = 0;
+	clipboard_count = 0;
 }
 
 void command_count_goto(){

@@ -84,6 +84,7 @@ keybind command[] = {
 	{ "}", command_select_inside_curly },
 	{ "\"", command_select_inside_double_quote },
 	{ "a", command_swap_anchor_cursor },
+	{ "A", command_select_entire_file },
 	{ "g", command_count_goto },
 	{ "1", command_count_1 },
 	{ "2", command_count_2 },
