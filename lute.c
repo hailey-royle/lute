@@ -1820,12 +1820,12 @@ void get_window_size(){
 }
 
 i32 main( i32 argc, char* argv[] ){
+	enable_raw_mode();
 	if( argc != 2 ){
 		error( "Usage: lute <filename>" );
 	}
 	file_name = argv[ 1 ];
 	open_file();
-	enable_raw_mode();
 	get_window_size();
 	draw_frame();
 	while( 1 ){
