@@ -40,6 +40,8 @@ keybind command[] = {
 	{ "w", command_write },
 	{ " ", command_edit_mode },
 	{ "\n", command_edit_newline },
+	{ ">", command_indent },
+	{ "<", command_deindent },
 	{ "u", command_undo },
 	{ "U", command_redo },
 	{ "y", command_copy },

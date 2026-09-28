@@ -103,6 +103,8 @@ void command_write();
 void command_write_quit();
 void command_edit_mode();
 void command_edit_newline();
+void command_indent();
+void command_deindent();
 void command_undo();
 void command_redo();
 void command_copy();
@@ -520,7 +522,7 @@ void draw_frame(){
 	assert( frame_count == 0 );
 	assert( selection_count > 0 );
 	frame_append( ansi_cursor_home ansi_reset_graphics ansi_erase_screen, strlen( ansi_cursor_home ansi_reset_graphics ansi_erase_screen ));
-	i64 file_frame_index = string_line_start( file_buffer, file_count, selection[ 0 ].cursor );
+	i64 file_frame_index = string_line_start( file_buffer, file_count, selection[ primary_selection_index ].cursor );
 	i32 preceding_empty_lines = 0;
 	for( i32 i = 0; i < screen_rows / 2; i += 1 ){
 		if( file_frame_index > 0 ){
@@ -534,7 +536,7 @@ void draw_frame(){
 	for( i32 i = 0; i < (i32)( sizeof( bar ) / sizeof( bar_item )); i += 1 ){
 		bar[ i ].function();
 	}
-	if( selection[ 0 ].anchor < file_frame_index ){
+	if( selection[ primary_selection_index ].anchor < file_frame_index ){
 		frame_append( primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
 	} else {
 		i8 highlight = 0;
@@ -808,6 +810,29 @@ void command_edit_newline(){
 		selection[ i ].anchor = selection[ i ].cursor;
 	}
 	process_insert( "\n", 1 );
+}
+
+void command_indent(){
+	command_count = 0;
+	command_move_line_start();
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		selection[ i ].anchor = selection[ i ].cursor;
+	}
+	deoverlap_selections();
+	new_undo();
+	process_insert( "\t", 1 );
+	command_move_line_start();
+}
+
+void command_deindent(){
+	command_count = 0;
+	command_move_line_start();
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		selection[ i ].anchor = selection[ i ].cursor + 1;
+	}
+	deoverlap_selections();
+	new_undo();
+	selection_delete();
 }
 
 void command_undo(){
