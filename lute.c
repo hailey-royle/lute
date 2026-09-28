@@ -808,16 +808,8 @@ void command_edit_mode(){
 	mode = edit_mode;
 	command_count = 0;
 	clipboard_count = 0;
-	redo_count = 0;
+	new_undo_cursor();
 	for( i32 i = 0; i < selection_count; i += 1 ){
-		if( max_edit_count <= undo_count + 1 ){
-			error( "Edit count overflow, increase max_edit_count" );
-		}
-		history[ undo_count ].insert_count = 0;
-		history[ undo_count ].delete_count = 0;
-		history[ undo_count ].selection_index = i;
-		history[ undo_count ].index = selection[ i ].cursor;
-		undo_count += 1;
 		selection[ i ].clipboard_count = 0;
 		selection[ i ].anchor = selection[ i ].cursor;
 	}
@@ -829,16 +821,8 @@ void command_edit_newline(){
 	mode = edit_mode;
 	command_count = 0;
 	clipboard_count = 0;
-	redo_count = 0;
+	new_undo_cursor();
 	for( i32 i = 0; i < selection_count; i += 1 ){
-		if( max_edit_count <= undo_count + 1 ){
-			error( "Edit count overflow, increase max_edit_count" );
-		}
-		history[ undo_count ].insert_count = 0;
-		history[ undo_count ].delete_count = 0;
-		history[ undo_count ].selection_index = i;
-		history[ undo_count ].index = selection[ i ].cursor;
-		undo_count += 1;
 		selection[ i ].clipboard_count = 0;
 		selection[ i ].anchor = selection[ i ].cursor;
 	}
