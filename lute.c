@@ -234,6 +234,7 @@ void error( char* format, ... ){
 }
 
 i32 utf8_ansi_next_length( char* src ){
+	assert( src != NULL );
 	if( *src == 0x1b /* escape */ ){  // possible ansi escape sequence
 		if( *src + 1 == '[' ){
 			if( *src + 2 == 'A' ){  // up arrow
@@ -256,6 +257,7 @@ i32 utf8_ansi_next_length( char* src ){
 }
 
 i32 utf8_next_length( char* src ){
+	assert( src != NULL );
 	if(( *src & 0x80 ) == 0 ){  // ascii
 		return 1;
 	} else if(( *src & 0xe0 ) == 0xc0 ){  // two byte unicode
@@ -271,6 +273,7 @@ i32 utf8_next_length( char* src ){
 }
 
 i32 utf8_prev_length( char* src ){
+	assert( src != NULL );
 	i32 length = 1;
 	src -= 1;
 	while(( *src & 0xc0 ) == 0x80 ){  // while is utf8 continuation byte
@@ -598,7 +601,7 @@ i64 selection_length( i64 index ){
 	return length;
 }
 
-void new_undo(){
+void new_undo_min(){
 	redo_count = 0;
 	for( i32 i = 0; i < selection_count; i += 1 ){
 		if( max_edit_count <= undo_count + 1 ){
@@ -608,6 +611,20 @@ void new_undo(){
 		history[ undo_count ].delete_count = 0;
 		history[ undo_count ].selection_index = i;
 		history[ undo_count ].index = selection_min( i );
+		undo_count += 1;
+	}
+}
+
+void new_undo_cursor(){
+	redo_count = 0;
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		if( max_edit_count <= undo_count + 1 ){
+			error( "Edit count overflow, increase max_edit_count" );
+		}
+		history[ undo_count ].insert_count = 0;
+		history[ undo_count ].delete_count = 0;
+		history[ undo_count ].selection_index = i;
+		history[ undo_count ].index = selection[ i ].cursor;
 		undo_count += 1;
 	}
 }
@@ -835,7 +852,7 @@ void command_indent(){
 		selection[ i ].anchor = selection[ i ].cursor;
 	}
 	deoverlap_selections();
-	new_undo();
+	new_undo_min();
 	process_insert( "\t", 1 );
 	command_move_line_start();
 }
@@ -851,7 +868,7 @@ void command_deindent(){
 		}
 	}
 	deoverlap_selections();
-	new_undo();
+	new_undo_min();
 	selection_delete();
 }
 
@@ -935,7 +952,7 @@ void command_redo(){
 
 void command_paste(){
 	command_count = 0;
-	new_undo();
+	new_undo_cursor();
 	selection_paste();
 }
 
@@ -947,14 +964,14 @@ void command_copy(){
 void command_delete(){
 	command_count = 0;
 	selection_copy();
-	new_undo();
+	new_undo_min();
 	selection_delete();
 }
 
 void command_change(){
 	command_count = 0;
 	selection_copy();
-	new_undo();
+	new_undo_min();
 	selection_delete();
 	mode = edit_mode;
 	clipboard_count = 0;
@@ -966,7 +983,7 @@ void command_change(){
 
 void command_replace(){
 	command_count = 0;
-	new_undo();
+	new_undo_min();
 	selection_delete();
 	selection_paste();
 }
