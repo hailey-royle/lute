@@ -646,6 +646,36 @@ void selection_delete(){
 	}
 }
 
+void selection_paste(){
+	file_modified = 1;
+	i64 edit_index = 0;
+	for( i32 i = 0; i < undo_count - selection_count; i += 1 ){
+		edit_index += history[ i ].insert_count;
+		edit_index += history[ i ].delete_count;
+	}
+	i64 clipboard_index = 0;
+	for( i32 i = 0; i < selection_count; i += 1 ){
+// history
+		i64 history_index = undo_count - selection_count + i;
+		assert( i == history[ history_index ].selection_index );
+		edit_index += history[ history_index ].insert_count;
+		if( max_edit_size <= edit_count + selection[ i ].clipboard_count ){
+			error( "Edit buffer overflow, increase max_edit_size" );
+		}
+		buffer_insert( edit_buffer, &edit_count, edit_index, &clipboard_buffer[ clipboard_index ], selection[ i ].clipboard_count );
+		history[ history_index ].insert_count += selection[ i ].clipboard_count;
+		edit_index += history[ history_index ].delete_count;
+// selection
+		selection[ i ].cursor += clipboard_index;
+		selection[ i ].anchor = selection[ i ].cursor + selection[ i ].clipboard_count;
+		if( max_file_size <= file_count + clipboard_index ){
+			error( "File buffer overflow, increase max_file_size" );
+		}
+		buffer_insert( file_buffer, &file_count, selection[ i ].cursor, &clipboard_buffer[ clipboard_index ], selection[ i ].clipboard_count );
+		clipboard_index += selection[ i ].clipboard_count;
+	}
+}
+
 void selection_split( char* delim, i64 count ){
 	i64 min = selection_min( primary_selection_index );
 	i64 max = selection_max( primary_selection_index );
@@ -885,39 +915,15 @@ void command_change(){
 
 void command_paste(){
 	command_count = 0;
-	file_modified = 1;
-	redo_count = 0;
-	i64 clipboard_index = 0;
-	i64 edit_index = 0;
-	for( i32 i = 0; i < undo_count; i += 1 ){
-		edit_index += history[ i ].insert_count;
-		edit_index += history[ i ].delete_count;
-	}
-	for( i32 i = 0; i < selection_count; i += 1 ){
-// history
-		history[ undo_count ].insert_count = selection[ i ].clipboard_count;
-		history[ undo_count ].delete_count = 0;
-		history[ undo_count ].selection_index = i;
-		history[ undo_count ].index = selection[ i ].cursor;
-		if( max_edit_size <= edit_count + selection[ i ].clipboard_count ){
-			error( "Edit buffer overflow, increase max_edit_size" );
-		}
-		buffer_insert( edit_buffer, &edit_count, edit_index, &clipboard_buffer[ clipboard_index ], selection[ i ].clipboard_count );
-		edit_index += selection[ i ].clipboard_count;
-		undo_count += 1;
-// selection
-		selection[ i ].cursor += clipboard_index;
-		selection[ i ].anchor = selection[ i ].cursor + selection[ i ].clipboard_count;
-		if( max_file_size <= file_count + clipboard_index ){
-			error( "File buffer overflow, increase max_file_size" );
-		}
-		buffer_insert( file_buffer, &file_count, selection[ i ].cursor, &clipboard_buffer[ clipboard_index ], selection[ i ].clipboard_count );
-		clipboard_index += selection[ i ].clipboard_count;
-	}
+	new_undo();
+	selection_paste();
 }
 
 void command_replace(){
-	assert( 0 );
+	command_count = 0;
+	new_undo();
+	selection_delete();
+	selection_paste();
 }
 
 void command_split(){
