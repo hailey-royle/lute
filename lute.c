@@ -107,11 +107,15 @@ void command_indent();
 void command_deindent();
 void command_undo();
 void command_redo();
+void command_paste();
 void command_copy();
 void command_delete();
 void command_change();
-void command_paste();
 void command_replace();
+void command_line_copy();
+void command_line_delete();
+void command_line_change();
+void command_line_replace();
 void command_split();
 void command_split_newline();
 void command_split_collapse();
@@ -701,6 +705,18 @@ void selection_split( char* delim, i64 count ){
 	}
 }
 
+void select_cursor_line(){
+	for( i32 i = 0; i < selection_count; i += 1 ){
+		selection[ i ].anchor = selection[ i ].cursor + 1;
+		while(( selection[ i ].anchor < file_count - 1 ) && ( file_buffer[ selection[ i ].anchor - 1 ] != '\n' )){
+			selection[ i ].anchor += 1;
+		}
+		while(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] != '\n' )){
+			selection[ i ].cursor -= 1;
+		}
+	}
+}
+
 void select_inside( char* left, i64 left_count, char* right, i64 right_count ){
 	for( i32 i = 0; i < selection_count; i += 1 ){
 		i64 min = selection[ i ].cursor;
@@ -828,7 +844,11 @@ void command_deindent(){
 	command_count = 0;
 	command_move_line_start();
 	for( i32 i = 0; i < selection_count; i += 1 ){
-		selection[ i ].anchor = selection[ i ].cursor + 1;
+		if( file_buffer[ selection[ i ].cursor ] == '\t' ){
+			selection[ i ].anchor = selection[ i ].cursor + 1;
+		} else {
+			selection[ i ].anchor = selection[ i ].cursor;
+		}
 	}
 	deoverlap_selections();
 	new_undo();
@@ -913,6 +933,12 @@ void command_redo(){
 	}
 }
 
+void command_paste(){
+	command_count = 0;
+	new_undo();
+	selection_paste();
+}
+
 void command_copy(){
 	command_count = 0;
 	selection_copy();
@@ -938,17 +964,31 @@ void command_change(){
 	}
 }
 
-void command_paste(){
-	command_count = 0;
-	new_undo();
-	selection_paste();
-}
-
 void command_replace(){
 	command_count = 0;
 	new_undo();
 	selection_delete();
 	selection_paste();
+}
+
+void command_line_copy(){
+	select_cursor_line();
+	command_copy();
+}
+
+void command_line_delete(){
+	select_cursor_line();
+	command_delete();
+}
+
+void command_line_change(){
+	select_cursor_line();
+	command_change();
+}
+
+void command_line_replace(){
+	select_cursor_line();
+	command_replace();
 }
 
 void command_split(){
