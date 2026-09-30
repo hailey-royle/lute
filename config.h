@@ -23,6 +23,16 @@
 char* tab_chars = "\t";
 i32 tab_width = 8;
 
+i8 draw_line_numbers = 2;
+// 0 -> no line numbers
+// 1 -> line numbers
+// 2 -> relitive line numbers
+
+i8 bar_possition = 1;
+// 0 -> no bar
+// 1 -> bottom line
+// 2 -> top line
+
 bar_item bar[] = {
 //	{ function },
 	{ bar_file_name },

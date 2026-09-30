@@ -424,16 +424,19 @@ void bar_search_string(){
 	}
 }
 
-void draw_line_selection_start( i64 line_index, i8* cursor_end ){
+void draw_line_selection_start( i64 line_index, i8* highlight, i8* cursor_end ){
 	for( i32 i = 0; i < selection_count; i += 1 ){
 		if( selection[ i ].anchor == line_index ){
 			if( selection[ i ].anchor < selection[ i ].cursor ){
 				if( i == primary_selection_index ){
+					*highlight = 2;
 					frame_append( primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
 				} else {
+					*highlight = 1;
 					frame_append( selection_highlight_start, strlen( selection_highlight_start ));
 				}
 			} else if( selection[ i ].anchor > selection[ i ].cursor ){
+				*highlight = 0;
 				if( i == primary_selection_index ){
 					frame_append( primary_selection_highlight_end, strlen( primary_selection_highlight_end ));
 				} else {
@@ -444,11 +447,14 @@ void draw_line_selection_start( i64 line_index, i8* cursor_end ){
 		if( selection[ i ].cursor == line_index ){
 			if( selection[ i ].cursor < selection[ i ].anchor ){
 				if( i == primary_selection_index ){
+					*highlight = 2;
 					frame_append( primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
 				} else {
+					*highlight = 1;
 					frame_append( selection_highlight_start, strlen( selection_highlight_start ));
 				}
 			} else if( selection[ i ].cursor > selection[ i ].anchor ){
+				*highlight = 0;
 				if( i == primary_selection_index ){
 					frame_append( primary_selection_highlight_end, strlen( primary_selection_highlight_end ));
 				} else {
@@ -456,10 +462,10 @@ void draw_line_selection_start( i64 line_index, i8* cursor_end ){
 				}
 			}
 			if( i == primary_selection_index ){
-				*cursor_end = 1;
+				*cursor_end = 2;
 				frame_append( primary_cursor_highlight_start, strlen( primary_cursor_highlight_start ));
 			} else {
-				*cursor_end = 2;
+				*cursor_end = 1;
 				frame_append( cursor_highlight_start, strlen( cursor_highlight_start ));
 			}
 		}
@@ -467,21 +473,26 @@ void draw_line_selection_start( i64 line_index, i8* cursor_end ){
 }
 
 void draw_line_selection_end( i8 cursor_end ){
-	if( cursor_end == 1 ){
+	if( cursor_end == 2 ){
 		frame_append( primary_cursor_highlight_end, strlen( primary_cursor_highlight_end ));
-	} else if( cursor_end == 2 ){
+	} else if( cursor_end == 1 ){
 		frame_append( cursor_highlight_end, strlen( cursor_highlight_end ));
 	}
 }
 
-void draw_line( i64 line_index ){
+void draw_line( i64 line_index, i64 max_cols, i8* highlight ){
 	assert( line_index >= 0 );
 	assert( line_index == 0 || file_buffer[ line_index - 1 ] == '\n' );
 	i32 filled_cols = 0; 
-	while( filled_cols < screen_cols ){
+	if( *highlight == 1 ){
+		frame_append( selection_highlight_start, strlen( selection_highlight_start ));
+	} else if( *highlight == 2 ){
+		frame_append( primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
+	}
+	while( filled_cols < max_cols ){
 		i32 col_bytes = 0;
 		i8 cursor_end = 0;
-		draw_line_selection_start( line_index, &cursor_end );
+		draw_line_selection_start( line_index, highlight, &cursor_end );
 		if(( file_buffer[ line_index ] == '\n' ) || ( file_buffer[ line_index ] == '\r' )){
 			frame_append( " ", 1 );
 			draw_line_selection_end( cursor_end );
@@ -512,6 +523,11 @@ void draw_line( i64 line_index ){
 		draw_line_selection_end( cursor_end );
 		line_index += col_bytes;
 	}
+	if( *highlight == 1 ){
+		frame_append( selection_highlight_end, strlen( selection_highlight_end ));
+	} else if( *highlight == 2 ){
+		frame_append( primary_selection_highlight_end, strlen( primary_selection_highlight_end ));
+	}
 }
 
 i32 string_line_start( char* source, i64 count, i64 index ){
@@ -523,6 +539,29 @@ i32 string_line_start( char* source, i64 count, i64 index ){
 		index -= 1;
 	}
 	return index;
+}
+
+void draw_bar(){
+	for( i32 i = 0; i < (i32)( sizeof( bar ) / sizeof( bar_item )); i += 1 ){
+		bar[ i ].function();
+	}
+}
+
+i8 pre_screen_highlight( i64 start_index ){
+	if( selection[ primary_selection_index ].anchor < start_index ){
+		return 2;
+	} else {
+		i8 highlight = 0;
+		for( i32 i = 1; i < selection_count; i += 1 ){
+			if( selection[ i ].cursor < start_index ){
+				highlight = !highlight;
+			}
+			if( selection[ i ].anchor < start_index ){
+				highlight = !highlight;
+			}
+		}
+		return highlight;
+	}
 }
 
 void draw_frame(){
@@ -540,37 +579,55 @@ void draw_frame(){
 		}
 		file_frame_index = string_line_start( file_buffer, file_count, file_frame_index );
 	}
-	for( i32 i = 0; i < (i32)( sizeof( bar ) / sizeof( bar_item )); i += 1 ){
-		bar[ i ].function();
-	}
-	if( selection[ primary_selection_index ].anchor < file_frame_index ){
-		frame_append( primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
-	} else {
-		i8 highlight = 0;
-		for( i32 i = 1; i < selection_count; i += 1 ){
-			if( selection[ i ].cursor < file_frame_index ){
-				highlight = !highlight;
-			}
-			if( selection[ i ].anchor < file_frame_index ){
-				highlight = !highlight;
-			}
-		}
-		if( highlight ){
-			frame_append( selection_highlight_start, strlen( selection_highlight_start ));
-		}
-	}
-	for( i32 i = 1; i < screen_rows; i += 1 ){
+	if( bar_possition == 2 ){
+		draw_bar();
 		frame_append( "\n", 1 );
+	}
+	i8 highlight = pre_screen_highlight( file_frame_index );
+	i64 primary_line_number = line_number( file_buffer, file_count, selection[ primary_selection_index ].cursor );
+	for( i32 i = 0; i < ((bar_possition == 0) ? screen_rows : screen_rows - 1 ); i += 1 ){
+		if( i != 0 ){
+			frame_append( "\n", 1 );
+		}
 		if( preceding_empty_lines > 0 || file_frame_index >= file_count ){
 			frame_append( "~", 1 );
 			preceding_empty_lines -= 1;
 		} else {
-			draw_line( file_frame_index );
+			i64 cols = screen_cols;
+			if( draw_line_numbers == 0 ){  // no line numbers
+			} else if( draw_line_numbers == 1 ){  // line numbers
+				i64 line_number_cols = 2;
+				for( i64 i = primary_line_number + screen_rows / 2 - 1; i > 0; i /= 10 ){
+					line_number_cols += 1;
+				}
+				cols -= line_number_cols;
+				char buffer[ 128 ] = { '\0' };
+				i64 line_print = primary_line_number - screen_rows / 2 + i;
+				sprintf( buffer, "%*ld  ", (i32) line_number_cols - 1, line_print );
+				frame_append( buffer, line_number_cols );
+			} else if( draw_line_numbers == 2 ){  // relitive line numbers
+				i64 line_number_cols = 2;
+				for( i64 i = primary_line_number + screen_rows / 2 - 1; i > 0; i /= 10 ){
+					line_number_cols += 1;
+				}
+				cols -= line_number_cols;
+				char buffer[ 128 ] = { '\0' };
+				i64 line_print = ( i == screen_rows / 2 ) ? primary_line_number : abs( screen_rows / 2 - i );
+				sprintf( buffer, " %*ld  ", (i32) line_number_cols - 3, line_print );
+				frame_append( buffer, line_number_cols );
+			} else {
+				error( "Invalid draw_line_numbers value" );
+			}
+			draw_line( file_frame_index, cols, &highlight );
 			while( file_frame_index < file_count - 1 && file_buffer[ file_frame_index ] != '\n' ){
 				file_frame_index += 1;
 			}
 			file_frame_index += 1;
 		}
+	}
+	if( bar_possition == 1 ){
+		frame_append( "\n", 1 );
+		draw_bar();
 	}
 	write( STDOUT_FILENO, frame_buffer, frame_count );
 	frame_count = 0;
