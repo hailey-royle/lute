@@ -1637,10 +1637,65 @@ void process_delete(){
 	}
 }
 
+i64 validate_input_utf8(){
+	assert( max_input_size >= 4 );
+	i64 clip = 0;
+	if( input_count == max_input_size ){
+		if((( input_buffer[ input_count - 1 ] & 0x80 ) == 0 ) || 
+		   (( input_buffer[ input_count - 2 ] & 0xe0 ) == 0xc0 ) || 
+		   (( input_buffer[ input_count - 3 ] & 0xf0 ) == 0xe0 ) || 
+		   (( input_buffer[ input_count - 4 ] & 0xf8 ) == 0xf0 )){
+			// input ending is not clipped
+		} else {
+			if(( input_buffer[ input_count - 1 ] & 0xc0 ) == 0x80 ){
+				if(( input_buffer[ input_count - 2 ] & 0xc0 ) == 0x80 ){
+					if(( input_buffer[ input_count - 3 ] & 0xf8 ) == 0xf0 ){
+						clip = 3;
+					} else {
+						error( "Invalid utf-8 encoding" );
+					}
+				} else if(( input_buffer[ input_count - 2 ] & 0xf0 ) == 0xe0 ){
+					clip = 2;
+				} else if(( input_buffer[ input_count - 2 ] & 0xf8 ) == 0xf0 ){
+					clip = 2;
+				} else {
+					error( "Invalid utf-8 encoding" );
+				}
+			} else if(( input_buffer[ input_count - 1 ] & 0xe0 ) == 0xc0 ){
+				clip = 1;
+			} else if(( input_buffer[ input_count - 1 ] & 0xf0 ) == 0xe0 ){
+				clip = 1;
+			} else if(( input_buffer[ input_count - 1 ] & 0xf8 ) == 0xf0 ){
+				clip = 1;
+			} else {
+				error( "Invalid utf-8 encoding" );
+			}
+		}
+	}
+	i64 index = 0;
+	while( index < input_count ){
+		if(( input_buffer[ index ] & 0x80 ) == 0 ){  // ascii
+			index += 1;
+		} else if(( input_buffer[ index ] & 0xe0 ) == 0xc0 ){
+			index += 2;
+		} else if(( input_buffer[ index ] & 0xf0 ) == 0xe0 ){
+			index += 3;
+		} else if(( input_buffer[ index ] & 0xf8 ) == 0xf0 ){
+			index += 4;
+		} else {
+			error( "Invalid utf-8 encoding" );
+		}
+	}
+	return clip;
+}
+
 void process_input(){
-	i64 input_index = 0;
-	input_count = read( STDIN_FILENO, &input_buffer, max_input_size );
+	assert( input_count >= 0 );
+	input_count = read( STDIN_FILENO, &input_buffer[ input_count ], max_input_size - input_count ) + input_count;
 	assert( input_count > 0 );
+	i64 input_index = 0;
+	i64 input_clip = validate_input_utf8();
+	input_count -= input_clip;
 	while( input_index < input_count ){
 		i64 key_bytes = utf8_ansi_next_length( &input_buffer[ input_index ]);
 		assert( key_bytes > 0 );
@@ -1727,7 +1782,8 @@ void process_input(){
 		}
 		input_index += key_bytes;
 	}
-	input_count = 0;
+	memmove( input_buffer, &input_buffer[ input_count ], input_clip );
+	input_count = input_clip;
 }
 
 void deoverlap_selections(){
@@ -1762,6 +1818,26 @@ void deoverlap_selections(){
 	}
 }
 
+i64 validate_utf8( char* src, i64 count ){
+	assert( src != NULL );
+	assert( count > 0 );
+	i64 index = 0;
+	while( index < count ){
+		if(( src[ index ] & 0x80 ) == 0 ){  // ascii
+			index += 1;
+		} else if((( src[ index ] & 0xe0 ) == 0xc0 ) && (( src[ index + 1 ] & 0xc0 ) == 0x80 )){  // two byte unicode
+			index += 2;
+		} else if((( src[ index ] & 0xf0 ) == 0xe0 ) && (( src[ index + 1 ] & 0xc0 ) == 0x80 ) && (( src[ index + 2 ] & 0xc0 ) == 0x80 )){  // three byte unicode
+			index += 3;
+		} else if((( src[ index ] & 0xf8 ) == 0xf0 ) && (( src[ index + 1 ] & 0xc0 ) == 0x80 ) && (( src[ index + 2 ] & 0xc0 ) == 0x80 ) && (( src[ index + 3 ] & 0xc0 ) == 0x80 )){  // four byte unicode
+			index += 4;
+		} else {
+			error( "File '%s' has an invalid utf-8 encoding", file_name );
+		}
+	}
+	return 0;
+}
+
 void open_file(){
 	if( access( file_name, F_OK ) == 0 ){
 		i32 fd = open( file_name, O_RDWR | O_CREAT );
@@ -1788,6 +1864,7 @@ void open_file(){
 		// can not start with an empty file
 		buffer_append( file_buffer, &file_count, "\n", 1 );
 	}
+	validate_utf8( file_buffer, file_count );
 }
 
 void enable_raw_mode(){

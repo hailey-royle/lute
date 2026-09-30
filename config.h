@@ -2,7 +2,7 @@
 #define max_clipboard_size    0x4000000    //  64 Mib
 #define max_edit_size         0x4000000    //  64 Mib
 #define max_frame_size        0x10000      //  64 Kib
-#define max_input_size        0x400        //   1 Kib
+#define max_input_size        0x1000       //   4 Kib
 #define max_search_size       0x400        //   1 Kib
 
 #define max_edit_count        1024 * 1024
