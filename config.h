@@ -20,6 +20,7 @@
 #define selection_highlight_start ( ansi_background_green )
 #define selection_highlight_end ( ansi_background_default )
 
+char* tab_chars = "\t";
 i32 tab_width = 8;
 
 bar_item bar[] = {

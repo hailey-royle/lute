@@ -837,7 +837,7 @@ void command_indent(){
 	}
 	deoverlap_selections();
 	new_undo_min();
-	process_insert( "\t", 1 );
+	process_insert( tab_chars, strlen( tab_chars ));
 	command_move_line_start();
 }
 
