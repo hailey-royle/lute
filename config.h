@@ -2,8 +2,8 @@
 #define max_clipboard_size    0x4000000    //  64 Mib
 #define max_edit_size         0x4000000    //  64 Mib
 #define max_frame_size        0x10000      //  64 Kib
-#define max_input_size        0x1000       //   4 Kib
-#define max_search_size       0x400        //   1 Kib
+#define max_search_size       0x1000       //   4 Kib
+#define max_input_size        0xfff        //   4 Kib - 1
 
 #define max_edit_count        1024 * 1024
 #define max_selection_count   1024
@@ -23,15 +23,17 @@
 char* tab_chars = "\t";
 i32 tab_width = 8;
 
-i8 draw_line_numbers = 2;
-// 0 -> no line numbers
-// 1 -> line numbers
-// 2 -> relitive line numbers
+#define no_line_numbers 0
+#define regular_line_numbers 1
+#define relitive_line_numbers 2
 
-i8 bar_possition = 1;
-// 0 -> no bar
-// 1 -> bottom line
-// 2 -> top line
+i8 draw_line_numbers = no_line_numbers;
+
+#define no_bar 0
+#define bottom_bar 1
+#define top_bar 2
+
+i8 bar_possition = top_bar;
 
 bar_item bar[] = {
 //	{ function },
