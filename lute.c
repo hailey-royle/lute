@@ -415,8 +415,42 @@ void new_undo(){
 	}
 }
 
-void insert( char* insert, i64 insert_bytes ){
-	assert( 0 );
+void selection_insert( char* insert, i64 insert_bytes ){
+	assert( insert != NULL );
+	assert( insert_bytes > 0 );
+	file_modified = 1;
+	i64 edit_index = 0;
+	for( i32 i = 0; i < undo_count - selection_count; i += 1 ){
+		edit_index += history[ i ].insert_count;
+		edit_index += history[ i ].delete_count;
+	}
+	i64 clipboard_index = 0;
+	for( i32 i = 0; i < selection_count; i += 1 ){
+// edit history
+		i64 history_index = undo_count - selection_count + i;
+		if( max_edit_bytes <= edit_count + insert_bytes ){
+			error( "Edit buffer overflow, increase max_edit_bytes" );
+		}
+		buffer_insert( edit_buffer, &edit_count, edit_index + history[ history_index ].insert_count, insert, insert_bytes );
+		history[ history_index ].insert_count += insert_bytes;
+		edit_index += history[ history_index ].insert_count;
+		edit_index += history[ history_index ].delete_count;
+// clipboard
+		if( max_clipboard_bytes <= clipboard_count + insert_bytes ){
+			error( "Clipboard buffer overflow, increase max_clipboard_bytes" );
+		}
+		buffer_insert( clipboard_buffer, &clipboard_count, clipboard_index + selection[ i ].clipboard_count, insert, insert_bytes );
+		selection[ i ].clipboard_count += insert_bytes;
+		clipboard_index += selection[ i ].clipboard_count;
+// selection
+		selection[ i ].cursor += i * insert_bytes;
+		if( max_file_bytes <= file_count + insert_bytes ){
+			error( "File buffer overflow, increase max_file_bytes" );
+		}
+		buffer_insert( file_buffer, &file_count, selection[ i ].cursor, insert, insert_bytes );
+		selection[ i ].cursor += insert_bytes;
+		selection[ i ].anchor = selection[ i ].cursor;
+	}
 }
 
 void selection_delete(){
@@ -625,45 +659,7 @@ void select_prev( char* select, i64 select_bytes ){
 	assert( 0 );
 }
 
-void process_insert( char* insert, i64 insert_bytes ){
-	assert( insert != NULL );
-	assert( insert_bytes > 0 );
-	file_modified = 1;
-	i64 edit_index = 0;
-	for( i32 i = 0; i < undo_count - selection_count; i += 1 ){
-		edit_index += history[ i ].insert_count;
-		edit_index += history[ i ].delete_count;
-	}
-	i64 clipboard_index = 0;
-	for( i32 i = 0; i < selection_count; i += 1 ){
-// edit history
-		i64 history_index = undo_count - selection_count + i;
-		if( max_edit_bytes <= edit_count + insert_bytes ){
-			error( "Edit buffer overflow, increase max_edit_bytes" );
-		}
-		buffer_insert( edit_buffer, &edit_count, edit_index + history[ history_index ].insert_count, insert, insert_bytes );
-		history[ history_index ].insert_count += insert_bytes;
-		edit_index += history[ history_index ].insert_count;
-		edit_index += history[ history_index ].delete_count;
-// clipboard
-		if( max_clipboard_bytes <= clipboard_count + insert_bytes ){
-			error( "Clipboard buffer overflow, increase max_clipboard_bytes" );
-		}
-		buffer_insert( clipboard_buffer, &clipboard_count, clipboard_index + selection[ i ].clipboard_count, insert, insert_bytes );
-		selection[ i ].clipboard_count += insert_bytes;
-		clipboard_index += selection[ i ].clipboard_count;
-// selection
-		selection[ i ].cursor += i * insert_bytes;
-		if( max_file_bytes <= file_count + insert_bytes ){
-			error( "File buffer overflow, increase max_file_bytes" );
-		}
-		buffer_insert( file_buffer, &file_count, selection[ i ].cursor, insert, insert_bytes );
-		selection[ i ].cursor += insert_bytes;
-		selection[ i ].anchor = selection[ i ].cursor;
-	}
-}
-
-void deoverlap_selections(){
+void clip_selection_overlap(){
 	for( i32 i = 0; i < selection_count; i += 1 ){
 		i64 selection_min = ( selection[ i ].cursor < selection[ i ].anchor ) ? selection[ i ].cursor : selection[ i ].anchor;
 		i64 selection_max = ( selection[ i ].cursor > selection[ i ].anchor ) ? selection[ i ].cursor : selection[ i ].anchor;
@@ -731,7 +727,7 @@ void command_edit_mode(){
 
 void command_edit_newline(){
 	command_move_line_end();
-	deoverlap_selections();
+	clip_selection_overlap();
 	mode = edit_mode;
 	command_count = 0;
 	clipboard_count = 0;
@@ -740,7 +736,7 @@ void command_edit_newline(){
 		selection[ i ].anchor = selection[ i ].cursor;
 	}
 	new_undo();
-	process_insert( "\n", 1 );
+	selection_insert( "\n", 1 );
 }
 
 void command_indent(){
@@ -749,9 +745,9 @@ void command_indent(){
 	for( i32 i = 0; i < selection_count; i += 1 ){
 		selection[ i ].anchor = selection[ i ].cursor;
 	}
-	deoverlap_selections();
+	clip_selection_overlap();
 	new_undo();
-	process_insert( tab_chars, strlen( tab_chars ));
+	selection_insert( tab_chars, strlen( tab_chars ));
 	command_move_line_start();
 }
 
@@ -765,7 +761,7 @@ void command_deindent(){
 			selection[ i ].anchor = selection[ i ].cursor;
 		}
 	}
-	deoverlap_selections();
+	clip_selection_overlap();
 	new_undo();
 	selection_delete();
 }
@@ -1858,7 +1854,7 @@ i32 main( i32 argc, char* argv[] ){
 							break;
 						} else if( input_buffer[ loop_index ] == 0x7f /* delete */ ){
 							if( insert_bytes > 0 ){
-								process_insert( &input_buffer[ start_index ], insert_bytes );
+								selection_insert( &input_buffer[ start_index ], insert_bytes );
 							}
 							selection_delete_backspace();
 							insert_bytes = 0;
@@ -1870,7 +1866,7 @@ i32 main( i32 argc, char* argv[] ){
 						insert_bytes += input_index - loop_index;
 					} while( input_index < input_count );
 					if( insert_bytes > 0 ){
-						process_insert( &input_buffer[ start_index ], insert_bytes );
+						selection_insert( &input_buffer[ start_index ], insert_bytes );
 					}
 					if( input_clip != 0 ){
 						break;
@@ -1963,13 +1959,12 @@ i32 main( i32 argc, char* argv[] ){
 					assert( 0 && "invalid mode" );
 				}
 			}
-loop_end:
 			assert( input_index == input_count );
 			assert( input_index - input_clip > 0 );
 			memmove( input_buffer, &input_buffer[ input_count - input_clip ], input_clip );
 			input_count = input_clip;
 		}
-		deoverlap_selections();
+		clip_selection_overlap();
 	}
 	error( "Somehow broke out of main loop" );
 }
