@@ -1402,6 +1402,7 @@ i64 input_validate_next( char* buffer, i64 count, i64* index ){
   Move foward one utf8 codepoint, or ansi escape sequence.
   If the codepoint is cut in half, return how many bytes of this codepoint are at the end of the buffer.
   This must handle any input that is valid in any part of the program.
+  TODO: check for all possible ansi escapes.
   TODO: check for all possible invalid utf8.
   Currently does not throw out utf16 surrogates, overlong encodings, or codepoints above U+10ffff.
 */
@@ -1411,23 +1412,25 @@ i64 input_validate_next( char* buffer, i64 count, i64* index ){
 	assert( count > 0 );
 	assert( *index >= 0 );
 	i64 clip = 0;
-	if(( buffer[ *index ] & 0x80 ) == 0 ){  // ascii
-		if( buffer[ *index ] == 0x1b /* escape */ ){
-			if(( *index + 1 < count ) && ( buffer[ *index + 1 ] == '[' )){
-				if(( *index + 2 < count ) && ( buffer[ *index + 2 ] == 'A' )){  // up arrow
+	if( buffer[ *index ] == 0x1b /* escape */ ){
+		if( *index + 1 < count ){
+			if( *index + 2 < count ){
+				if(( buffer[ *index + 1 ] == 'O' ) && ( buffer[ *index + 2 ] >= 'P' ) && ( buffer[ *index + 2 ] <= 'S' )){  // ansi_f1-4
+					*index += 3;
+				} else if( buffer[ *index + 1 ] == '[' ){
+					if(( buffer[ *index + 2 ] >= 'A' ) && ( buffer[ *index + 2 ] <= 'H' )){  // ansi page / arrows / home / end
+						*index += 3;
+					} // "\x1b[1"... - "\x1b[6}...
+				} else {
 					*index += 2;
 				}
-				if(( *index + 2 < count ) && ( buffer[ *index + 2 ] == 'B' )){  // down arrow
-					*index += 2;
-				}
-				if(( *index + 2 < count ) && ( buffer[ *index + 2 ] == 'C' )){  // right arrow
-					*index += 2;
-				}
-				if(( *index + 2 < count ) && ( buffer[ *index + 2 ] == 'D' )){  // left arrow
-					*index += 2;
-				}
+			} else {
+				*index += 2;
 			}
+		} else {
+			*index += 1;
 		}
+	} else if(( buffer[ *index ] & 0x80 ) == 0 ){  // ascii
 		*index += 1;
 	} else if(( buffer[ *index ] & 0xe0 ) == 0xc0 ){  // two byte unicode
 		*index += 1;
