@@ -449,7 +449,7 @@ void selection_delete(){
 	}
 }
 
-void process_delete(){
+void selection_delete_backspace(){
 	file_modified = 1;
 	i64 total_deleted = 0;
 	i64 edit_index = 0;
@@ -1591,6 +1591,16 @@ i32 main( i32 argc, char* argv[] ){
 		}
 	}
 	while( 1 ){
+/*
+  Main program loop
+   +-> get window size
+   |    v
+   |   draw frame
+   |    v
+   |   get and process input
+   |    v
+   +-< clip overlaped selections
+*/
 		{
 /*
   Get the dimensions of the terminal window.
@@ -1832,7 +1842,9 @@ i32 main( i32 argc, char* argv[] ){
 					}
 				} else if( mode == edit_mode ){
 					i64 start_index = input_index;
+					i64 insert_bytes = 0;
 					do {
+						assert( start_index + insert_bytes == input_index );
 						i64 loop_index = input_index;
 						input_clip = input_validate_next( input_buffer, input_count, &input_index );
 						if( input_clip != 0 ){
@@ -1845,23 +1857,21 @@ i32 main( i32 argc, char* argv[] ){
 							mode = command_mode;
 							break;
 						} else if( input_buffer[ loop_index ] == 0x7f /* delete */ ){
-							i64 insert_bytes = input_index - start_index - 1;
 							if( insert_bytes > 0 ){
 								process_insert( &input_buffer[ start_index ], insert_bytes );
 							}
-							process_delete();
-							goto loop_end;
+							selection_delete_backspace();
+							insert_bytes = 0;
 							break;
 						} else if( is_ascii_unprintable( input_buffer, loop_index, input_index - loop_index )){
 							warning = "Can only input text";
 							break;
 						}
+						insert_bytes += input_index - loop_index;
 					} while( input_index < input_count );
-					i64 insert_bytes = input_index - start_index - input_clip;
-					if( insert_bytes == 0 ){
-						break;
+					if( insert_bytes > 0 ){
+						process_insert( &input_buffer[ start_index ], insert_bytes );
 					}
-					process_insert( &input_buffer[ start_index ], insert_bytes );
 					if( input_clip != 0 ){
 						break;
 					}
