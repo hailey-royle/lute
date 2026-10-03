@@ -38,6 +38,7 @@ i8 bar_possition = top_bar;
 bar_item bar[] = {
 //	{ function },
 	{ bar_file_name },
+	{ bar_warning },
 	{ bar_mode },
 	{ bar_selection },
 	{ bar_line_number },

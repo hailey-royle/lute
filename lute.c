@@ -9,6 +9,8 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include "ansi.h"
+
 typedef int8_t i8;
 typedef int16_t i16;
 typedef int32_t i32;
@@ -21,43 +23,6 @@ typedef uint64_t u64;
 
 typedef float f32;
 typedef double f64;
-
-#define ansi_cursor_home "\x1b[H"
-#define ansi_erase_screen "\x1b[2J"
-#define ansi_erase_line "\x1b[2K"
-#define ansi_erase_line_after_cursor "\x1b[0K"
-
-#define ansi_cursor_show "\x1b[?25h"
-#define ansi_cursor_hidden "\x1b[?25l"
-#define ansi_start_alt_screen "\x1b[?1049h"
-#define ansi_end_alt_screen "\x1b[?1049l"
-
-#define ansi_reset_graphics "\x1b[0m"
-#define ansi_bold_start "\x1b[1m"
-#define ansi_bold_end "\x1b[22m"
-#define ansi_underline_start "\x1b[4m"
-#define ansi_underline_end "\x1b[24m"
-#define ansi_inverse_start "\x1b[7m"
-#define ansi_inverse_end "\x1b[27m"
-
-#define ansi_background_black "\x1b[40m"
-#define ansi_foreground_black "\x1b[30m"
-#define ansi_foreground_red "\x1b[31m"
-#define ansi_background_red "\x1b[41m"
-#define ansi_foreground_green "\x1b[32m"
-#define ansi_background_green "\x1b[42m"
-#define ansi_foreground_yellow "\x1b[33m"
-#define ansi_background_yellow "\x1b[43m"
-#define ansi_foreground_blue "\x1b[34m"
-#define ansi_background_blue "\x1b[44m"
-#define ansi_foreground_magenta "\x1b[35m"
-#define ansi_background_magenta "\x1b[45m"
-#define ansi_foreground_cyan "\x1b[36m"
-#define ansi_background_cyan "\x1b[46m"
-#define ansi_foreground_white "\x1b[37m"
-#define ansi_background_white "\x1b[47m"
-#define ansi_foreground_default "\x1b[39m"
-#define ansi_background_default "\x1b[49m"
 
 #define error_mode 0
 #define command_mode 1
@@ -91,6 +56,7 @@ typedef struct {
 } bar_item;
 
 void bar_file_name();
+void bar_warning();
 void bar_mode();
 void bar_selection();
 void bar_line_number();
@@ -201,6 +167,7 @@ i8 mode = command_mode;
 i64 command_count = 0;
 
 i8 file_modified = 0;
+char* warning = NULL;
 
 void disable_raw_mode(){
 	if( raw_mode_enabled ){
@@ -352,6 +319,15 @@ void bar_file_name(){
 	frame_append( "  ", 2 );
 }
 
+void bar_warning(){
+	if( warning != NULL ){
+		frame_append( ansi_background_red, strlen( ansi_background_red ));
+		frame_append( warning, strlen( warning ));
+		frame_append( ansi_background_default, strlen( ansi_background_default ));
+		frame_append( "  ", 2 );
+	}
+}
+
 void bar_mode(){
 	if( mode == command_mode ){
 		frame_append( "Command  ", 9 );
@@ -360,13 +336,13 @@ void bar_mode(){
 	} else if( mode == search_mode ){
 		frame_append( "Search  ", 8 );
 	} else if( mode == find_next_mode ){
-		frame_append( "Find next  ", 11 );
+		frame_append( "Find Next  ", 11 );
 	} else if( mode == find_prev_mode ){
-		frame_append( "Find prev  ", 11 );
+		frame_append( "Find Prev  ", 11 );
 	} else if( mode == append_find_next_mode ){
-		frame_append( "Append find next  ", 18 );
+		frame_append( "Append Find Next  ", 18 );
 	} else if( mode == append_find_prev_mode ){
-		frame_append( "Append find prev  ", 18 );
+		frame_append( "Append Find Prev  ", 18 );
 	}
 }
 
@@ -1627,6 +1603,119 @@ void command_count_0(){
 	command_count += 0;
 }
 
+i64 input_validate_next( char* buffer, i64 count, i64* index ){
+/*
+  Move foward one utf8 codepoint, or ansi escape sequence.
+  If the codepoint is cut in half, return how many bytes of this codepoint are at the end of the buffer.
+  This must handle any input that is valid in any part of the program.
+  TODO: check for all possible invalid utf8.
+  Currently does not throw out utf16 surrogates, overlong encodings, or codepoints above U+10ffff.
+*/
+	assert( buffer != NULL );
+	assert( index != NULL );
+	assert( count > *index );
+	assert( count > 0 );
+	assert( *index >= 0 );
+	i64 clip = 0;
+	if(( buffer[ *index ] & 0x80 ) == 0 ){  // ascii
+		if( buffer[ *index ] == 0x1b /* escape */ ){
+			if(( *index + 1 < count ) && ( buffer[ *index + 1 ] == '[' )){
+				if(( *index + 2 < count ) && ( buffer[ *index + 2 ] == 'A' )){  // up arrow
+					*index += 2;
+				}
+				if(( *index + 2 < count ) && ( buffer[ *index + 2 ] == 'B' )){  // down arrow
+					*index += 2;
+				}
+				if(( *index + 2 < count ) && ( buffer[ *index + 2 ] == 'C' )){  // right arrow
+					*index += 2;
+				}
+				if(( *index + 2 < count ) && ( buffer[ *index + 2 ] == 'D' )){  // left arrow
+					*index += 2;
+				}
+			}
+		}
+		*index += 1;
+	} else if(( buffer[ *index ] & 0xe0 ) == 0xc0 ){  // two byte unicode
+		*index += 1;
+		if( *index >= count ){
+			clip = 1;
+			goto end;
+		}
+		if(( buffer[ *index ] & 0xc0 ) != 0x80 ){
+			error( "Input invalid utf8" );
+		}
+		*index += 1;
+	} else if(( buffer[ *index ] & 0xf0 ) == 0xe0 ){  // three byte unicode
+		*index += 1;
+		if( *index >= count ){
+			clip = 1;
+			goto end;
+		}
+		if(( buffer[ *index ] & 0xc0 ) != 0x80 ){
+			error( "Input invalid utf8" );
+		}
+		*index += 1;
+		if( *index >= count ){
+			clip = 2;
+			goto end;
+		}
+		if(( buffer[ *index ] & 0xc0 ) != 0x80 ){
+			error( "Input invalid utf8" );
+		}
+		*index += 1;
+	} else if(( buffer[ *index ] & 0xf8 ) == 0xf0 ){  // four byte unicode
+		*index += 1;
+		if( *index >= count ){
+			clip = 1;
+			goto end;
+		}
+		if(( buffer[ *index ] & 0xc0 ) != 0x80 ){
+			error( "Input invalid utf8" );
+		}
+		*index += 1;
+		if( *index >= count ){
+			clip = 2;
+			goto end;
+		}
+		if(( buffer[ *index ] & 0xc0 ) != 0x80 ){
+			error( "Input invalid utf8" );
+		}
+		*index += 1;
+		if( *index >= count ){
+			clip = 3;
+			goto end;
+		}
+		if(( buffer[ *index ] & 0xc0 ) != 0x80 ){
+			error( "Input invalid utf8" );
+		}
+		*index += 1;
+	} else {
+		error( "Input invalid utf8" );
+	}
+end:
+	return clip;
+}
+
+i8 is_ascii_unprintable( char* buffer, i64 index, i64 bytes ){
+	assert( buffer != NULL );
+	assert( index >= 0 );
+	assert( bytes > 0 );
+	if(( bytes == 1 ) && (( buffer[ index ] >= 127 || buffer[ index ] < 32 )) && ( buffer[ index ] != '\n' ) && ( buffer[ index ] != '\t' )){
+		return 1;
+	}
+	return 0;
+}
+
+i8 is_ansi_escape( char* buffer, i64 index, i64 bytes ){
+	assert( buffer != NULL );
+	assert( index >= 0 );
+	assert( bytes > 0 );
+	if(( bytes > 1 ) && ( buffer[ index ] == 0x1b )){
+		return 1;
+	}
+	return 0;
+}
+
 void process_input(){
 	i64 input_index = 0;
 	i64 input_clip = 0;
@@ -1637,78 +1726,11 @@ void process_input(){
 	while( input_index < input_count ){
 		if( mode == command_mode ){
 			i64 start_index = input_index;
-/*
-  Move foward one utf8 codepoint, or ansi escape sequence.
-  If the codepoint is cut in half, then note how many bytes to input_clip and break out of the loop.
-  TODO: check for all possible invalid utf8.
-  Currently does not throw out utf16 surrogates, overlong encodings, or codepoints above U+10ffff.
-*/
-			if( input_buffer[ input_index ] == 0x1b /* escape */ ){
-				input_index += 1;
-				if(( input_index < input_count ) && ( input_buffer[ input_index ] == '[' )){
-					if(( input_index + 1 < input_count ) && ( input_buffer[ input_index + 1 ] == 'A' )){  // up arrow
-						input_index += 2;
-					}
-				}
-			} else if(( input_buffer[ input_index ] & 0x80 ) == 0 ){  // ascii
-				input_index += 1;
-			} else if(( input_buffer[ input_index ] & 0xe0 ) == 0xc0 ){  // two byte unicode
-				input_index += 1;
-				if( input_index >= input_count ){
-					input_clip = 1;
-					break;
-				}
-				if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-					error( "Input invalid utf8" );
-				}
-				input_index += 1;
-			} else if(( input_buffer[ input_index ] & 0xf0 ) == 0xe0 ){  // three byte unicode
-				input_index += 1;
-				if( input_index >= input_count ){
-					input_clip = 1;
-					break;
-				}
-				if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-					error( "Input invalid utf8" );
-				}
-				input_index += 1;
-				if( input_index >= input_count ){
-					input_clip = 2;
-					break;
-				}
-				if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-					error( "Input invalid utf8" );
-				}
-				input_index += 1;
-			} else if(( input_buffer[ input_index ] & 0xf8 ) == 0xf0 ){  // four byte unicode
-				input_index += 1;
-				if( input_index >= input_count ){
-					input_clip = 1;
-					break;
-				}
-				if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-					error( "Input invalid utf8" );
-				}
-				input_index += 1;
-				if( input_index >= input_count ){
-					input_clip = 2;
-					break;
-				}
-				if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-					error( "Input invalid utf8" );
-				}
-				input_index += 1;
-				if( input_index >= input_count ){
-					input_clip = 3;
-					break;
-				}
-				if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-					error( "Input invalid utf8" );
-				}
-				input_index += 1;
-			} else {
-				error( "Input invalid utf8" );
+			input_clip = input_validate_next( input_buffer, input_count, &input_index );
+			if( input_clip != 0 ){
+				break;
 			}
+			assert( start_index < input_index );
 			i64 key_bytes = input_index - start_index;
 			assert( key_bytes > 0 );
 			for( i64 i = 0; i < (i64)( sizeof( command ) / sizeof( keybind )); i += 1 ){
@@ -1716,258 +1738,85 @@ void process_input(){
 					command[ i ].function();
 				}
 			}
+			if(( key_bytes == 1 ) && ( input_buffer[ start_index ] == 0x1b )){
+				command_count = 0;
+				warning = NULL;
+			}
 		} else if( mode == edit_mode ){
 			i64 start_index = input_index;
-			if( input_buffer[ input_index ] == 0x1b /* escape */ ){
-				input_index += 1;
-				mode = command_mode;
-			} else if(( input_buffer[ input_index ] == 0x7f /* delete */ ) || ( input_buffer[ input_index ] == '\b' )){
-				input_index += 1;
-				process_delete();
-			} else {
-				while( input_index < input_count ){
-/*
-  TODO: check for all possible invalid utf8.
-  Currently does not throw out utf16 surrogates, overlong encodings, or codepoints above U+10ffff.
-*/
-					if((( input_buffer[ input_index ] < 127 ) && ( input_buffer[ input_index ] >= 32 )) || ( input_buffer[ input_index ] == '\t' ) || ( input_buffer[ input_index ] == '\n' )){  // printable ascii
-						input_index += 1;
-					} else if(( input_buffer[ input_index ] & 0xe0 ) == 0xc0 ){  // two byte unicode
-						input_index += 1;
-						if( input_index >= input_count ){
-							input_clip = 1;
-							break;
-						}
-						if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-							error( "Input invalid utf8" );
-						}
-						input_index += 1;
-					} else if(( input_buffer[ input_index ] & 0xf0 ) == 0xe0 ){  // three byte unicode
-						input_index += 1;
-						if( input_index >= input_count ){
-							input_clip = 1;
-							break;
-						}
-						if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-							error( "Input invalid utf8" );
-						}
-						input_index += 1;
-						if( input_index >= input_count ){
-							input_clip = 2;
-							break;
-						}
-						if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-							error( "Input invalid utf8" );
-						}
-						input_index += 1;
-					} else if(( input_buffer[ input_index ] & 0xf8 ) == 0xf0 ){  // four byte unicode
-						input_index += 1;
-						if( input_index >= input_count ){
-							input_clip = 1;
-							break;
-						}
-						if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-							error( "Input invalid utf8" );
-						}
-						input_index += 1;
-						if( input_index >= input_count ){
-							input_clip = 2;
-							break;
-						}
-						if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-							error( "Input invalid utf8" );
-						}
-						input_index += 1;
-						if( input_index >= input_count ){
-							input_clip = 3;
-							break;
-						}
-						if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-							error( "Input invalid utf8" );
-						}
-						input_index += 1;
-					} else {
-						error( "Input invalid utf8" );
-					}
-				}
-				i64 insert_bytes = input_index - start_index - input_clip;
-				assert( insert_bytes >= 0 );
-				if( insert_bytes == 0 ){
-					break;
-				}
-				process_insert( &input_buffer[ start_index ], insert_bytes );
+			do {
+				i64 loop_index = input_index;
+				input_clip = input_validate_next( input_buffer, input_count, &input_index );
 				if( input_clip != 0 ){
 					break;
 				}
+				if( is_ansi_escape( input_buffer, loop_index, input_index - loop_index )){
+					warning = "Can only input text";
+					break;
+				} else if( input_buffer[ loop_index ] == 0x1b /* escape */ ){
+					mode = command_mode;
+					break;
+				} else if( input_buffer[ loop_index ] == 0x7f /* delete */ ){
+					input_index = loop_index;
+					break;
+				} else if( is_ascii_unprintable( input_buffer, loop_index, input_index - loop_index )){
+					warning = "Can only input text";
+					break;
+				}
+			} while( input_index < input_count );
+			i64 insert_bytes = input_index - start_index - input_clip;
+			if( insert_bytes == 0 ){
+				break;
+			}
+			process_insert( &input_buffer[ start_index ], insert_bytes );
+			if( input_clip != 0 ){
+				break;
 			}
 		} else if( mode == search_mode ){
 			i64 start_index = input_index;
-			if( input_buffer[ input_index ] == '\x1b' ){
-				input_index += 1;
+			input_clip = input_validate_next( input_buffer, input_count, &input_index );
+			if( input_clip != 0 ){
+				break;
+			}
+			assert( input_index > start_index );
+			if( is_ansi_escape( input_buffer, start_index, input_index - start_index )){
+				warning = "Can only input text";
+			} else if( input_buffer[ start_index ] == 0x1b /* escape */ ){
 				mode = command_mode;
 				search_count = 0;
-			} else if(( input_buffer[ input_index ] == '\b' ) || ( input_buffer[ input_index ] == 0x7f /* delete */  )){
-				input_index += 1;
+			} else if( input_buffer[ start_index ] == 0x7f /* delete */ ){
 				if( search_count > 0 ){
 					search_count -= 1;
 				}
-			} else if( input_buffer[ input_index ] == '\n' ){
-				input_index += 1;
+			} else if( input_buffer[ start_index ] == '\n' ){
 				if( search_count > 0 ){
 					selection_split( search_buffer, search_count );
 				}
 				mode = command_mode;
 				search_count = 0;
+			} else if( is_ascii_unprintable( input_buffer, start_index, input_index - start_index )){
+				warning = "Can only input text";
 			} else {
-				while( input_index < input_count ){
-/*
-  TODO: check for all possible invalid utf8.
-  Currently does not throw out utf16 surrogates, overlong encodings, or codepoints above U+10ffff.
-*/
-					if((( input_buffer[ input_index ] < 127 ) && ( input_buffer[ input_index ] >= 32 )) || ( input_buffer[ input_index ] == '\t' )){  // searchable ascii
-						input_index += 1;
-					} else if(( input_buffer[ input_index ] & 0xe0 ) == 0xc0 ){  // two byte unicode
-						input_index += 1;
-						if( input_index >= input_count ){
-							input_clip = 1;
-							break;
-						}
-						if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-							error( "Input invalid utf8" );
-						}
-						input_index += 1;
-					} else if(( input_buffer[ input_index ] & 0xf0 ) == 0xe0 ){  // three byte unicode
-						input_index += 1;
-						if( input_index >= input_count ){
-							input_clip = 1;
-							break;
-						}
-						if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-							error( "Input invalid utf8" );
-						}
-						input_index += 1;
-						if( input_index >= input_count ){
-							input_clip = 2;
-							break;
-						}
-						if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-							error( "Input invalid utf8" );
-						}
-						input_index += 1;
-					} else if(( input_buffer[ input_index ] & 0xf8 ) == 0xf0 ){  // four byte unicode
-						input_index += 1;
-						if( input_index >= input_count ){
-							input_clip = 1;
-							break;
-						}
-						if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-							error( "Input invalid utf8" );
-						}
-						input_index += 1;
-						if( input_index >= input_count ){
-							input_clip = 2;
-							break;
-						}
-						if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-							error( "Input invalid utf8" );
-						}
-						input_index += 1;
-						if( input_index >= input_count ){
-							input_clip = 3;
-							break;
-						}
-						if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-							error( "Input invalid utf8" );
-						}
-						input_index += 1;
-					} else {
-						error( "Input invalid utf8" );
-					}
-				}
-				i64 search_bytes = input_index - start_index - input_clip;
-				assert( search_bytes >= 0 );
-				if( search_bytes == 0 ){
-					break;
-				}
-				for( i32 i = 0; i < search_bytes; i += 1 ){
+				for( i32 i = 0; i < input_index - start_index; i += 1 ){
 					search_buffer[ search_count ] = input_buffer[ start_index + i ];
 					search_count += 1;
-				}
-				if( input_clip != 0 ){
-					break;
 				}
 			}
 		} else if(( mode == find_next_mode ) || ( mode == find_prev_mode ) || ( mode == append_find_next_mode ) || ( mode == append_find_prev_mode )){
 			i64 start_index = input_index;
-			if( input_buffer[ input_index ] == '\x1b' ){
-				input_index += 1;
-				mode = command_mode;
+			input_clip = input_validate_next( input_buffer, input_count, &input_index );
+			if( input_clip != 0 ){
+				break;
+			}
+			assert( input_index > start_index );
+			i64 key_bytes = input_index - start_index;
+			if( is_ansi_escape( input_buffer, start_index, key_bytes )){
+				warning = "Can only input text";
+			} else if( input_buffer[ start_index ] == 0x1b /* escape */ ){
+				// do nothing
+			} else if( is_ascii_unprintable( input_buffer, start_index, key_bytes )){
+				warning = "Can only input text";
 			} else {
-/*
-  TODO: check for all possible invalid utf8.
-  Currently does not throw out utf16 surrogates, overlong encodings, or codepoints above U+10ffff.
-*/
-				if((( input_buffer[ input_index ] < 127 ) && ( input_buffer[ input_index ] >= 32 )) || ( input_buffer[ input_index ] == '\t' )){  // searchable ascii
-					input_index += 1;
-				} else if(( input_buffer[ input_index ] & 0xe0 ) == 0xc0 ){  // two byte unicode
-					input_index += 1;
-					if( input_index >= input_count ){
-						input_clip = 1;
-						break;
-					}
-					if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-						error( "Input invalid utf8" );
-					}
-					input_index += 1;
-				} else if(( input_buffer[ input_index ] & 0xf0 ) == 0xe0 ){  // three byte unicode
-					input_index += 1;
-					if( input_index >= input_count ){
-						input_clip = 1;
-						break;
-					}
-					if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-						error( "Input invalid utf8" );
-					}
-					input_index += 1;
-					if( input_index >= input_count ){
-						input_clip = 2;
-						break;
-					}
-					if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-						error( "Input invalid utf8" );
-					}
-					input_index += 1;
-				} else if(( input_buffer[ input_index ] & 0xf8 ) == 0xf0 ){  // four byte unicode
-					input_index += 1;
-					if( input_index >= input_count ){
-						input_clip = 1;
-						break;
-					}
-					if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-						error( "Input invalid utf8" );
-					}
-					input_index += 1;
-					if( input_index >= input_count ){
-						input_clip = 2;
-						break;
-					}
-					if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-						error( "Input invalid utf8" );
-					}
-					input_index += 1;
-					if( input_index >= input_count ){
-						input_clip = 3;
-						break;
-					}
-					if(( input_buffer[ input_index ] & 0xc0 ) != 0x80 ){
-						error( "Input invalid utf8" );
-					}
-					input_index += 1;
-				} else {
-					error( "Input invalid utf8" );
-				}
-				i64 key_bytes = input_index - start_index;
-				assert( key_bytes > 0 );
 				do {
 					for( i32 i = 0; i < selection_count; i += 1 ){
 						if( mode == find_next_mode ){
@@ -2005,12 +1854,14 @@ void process_input(){
 					command_count -= 1;
 				} while( command_count > 0 );
 				command_count = 0;
-				mode = command_mode;
 			}
-
+			mode = command_mode;
+		} else {
+			assert( 0 && "invalid mode" );
 		}
 	}
-	assert( input_count - input_clip > 0 );
+	assert( input_index == input_count );
+	assert( input_index - input_clip > 0 );
 	memmove( input_buffer, &input_buffer[ input_count - input_clip ], input_clip );
 	input_count = input_clip;
 }
@@ -2077,43 +1928,16 @@ i32 main( i32 argc, char* argv[] ){
 			buffer_append( file_buffer, &file_count, "\n", 1 );
 		}
 		while( file_index < file_count ){
-/*
-  TODO: check for all possible invalid utf8.
-  Currently does not throw out utf16 surrogates, overlong encodings, or codepoints above U+10ffff.
-*/
-			if((( file_buffer[ file_index ] < 127 ) && ( file_buffer[ file_index ] >= 32 )) || ( file_buffer[ file_index ] == '\t' ) || ( file_buffer[ file_index ] == '\n' )){  // printable ascii
-				file_index += 1;
-			} else if(( file_buffer[ file_index ] & 0xe0 ) == 0xc0 ){  // two byte unicode
-				file_index += 1;
-				if(( file_index >= file_count ) || ( file_buffer[ file_index ] & 0xc0 ) != 0x80 ){
-					error( "File '%s' has an invalid utf-8 encoding", file_name );
-				}
-				file_index += 1;
-			} else if(( file_buffer[ file_index ] & 0xf0 ) == 0xe0 ){  // three byte unicode
-				file_index += 1;
-				if(( file_index >= file_count ) || ( file_buffer[ file_index ] & 0xc0 ) != 0x80 ){
-					error( "File '%s' has an invalid utf-8 encoding", file_name );
-				}
-				file_index += 1;
-				if(( file_index >= file_count ) || ( file_buffer[ file_index ] & 0xc0 ) != 0x80 ){
-					error( "File '%s' has an invalid utf-8 encoding", file_name );
-				}
-				file_index += 1;
-			} else if(( file_buffer[ file_index ] & 0xf8 ) == 0xf0 ){  // four byte unicode
-				file_index += 1;
-				if(( file_index >= file_count ) || ( file_buffer[ file_index ] & 0xc0 ) != 0x80 ){
-					error( "File '%s' has an invalid utf-8 encoding", file_name );
-				}
-				file_index += 1;
-				if(( file_index >= file_count ) || ( file_buffer[ file_index ] & 0xc0 ) != 0x80 ){
-					error( "File '%s' has an invalid utf-8 encoding", file_name );
-				}
-				file_index += 1;
-				if(( file_index >= file_count ) || ( file_buffer[ file_index ] & 0xc0 ) != 0x80 ){
-					error( "File '%s' has an invalid utf-8 encoding", file_name );
-				}
-				file_index += 1;
-			} else {
+			i64 start_index = file_index;
+			i64 clip = input_validate_next( file_buffer, file_count, &file_index );
+			if( clip != 0 ){
+				error( "File '%s' has an invalid or unsuported utf-8 encoding", file_name );
+			}
+			assert( start_index < file_index );
+			if( is_ascii_unprintable( file_buffer, start_index, file_index - start_index )){
+				error( "File '%s' has an invalid or unsuported utf-8 encoding", file_name );
+			}
+			if( is_ansi_escape( file_buffer, start_index, file_index - start_index )){
 				error( "File '%s' has an invalid or unsuported utf-8 encoding", file_name );
 			}
 		}
