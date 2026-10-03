@@ -421,29 +421,30 @@ void insert( char* insert, i64 insert_bytes ){
 
 void selection_delete(){
 	file_modified = 1;
+	i64 total_deleted = 0;
 	i64 edit_index = 0;
 	for( i32 i = 0; i < undo_count - selection_count; i += 1 ){
 		edit_index += history[ i ].insert_count;
 		edit_index += history[ i ].delete_count;
 	}
 	for( i32 i = 0; i < selection_count; i += 1 ){
+		i64 delete_bytes = selection_bytes( i );
+		i64 selection_delete_index = selection_min( i ) - total_deleted;
+		total_deleted += delete_bytes;
+// edit history
 		i64 history_index = undo_count - selection_count + i;
 		assert( i == history[ history_index ].selection_index );
 		edit_index += history[ history_index ].insert_count;
-		if( max_edit_bytes <= edit_count + selection_bytes( i )){
+		if( max_edit_bytes <= edit_count + delete_bytes ){
 			error( "Edit buffer overflow, increase max_edit_bytes" );
 		}
-		buffer_insert( edit_buffer, &edit_count, edit_index, &file_buffer[ selection_min( i )], selection_bytes( i ));
-		history[ history_index ].delete_count += selection_bytes( i );
+		assert( history[ history_index ].delete_count == 0 );
+		buffer_insert( edit_buffer, &edit_count, edit_index, &file_buffer[ selection_delete_index ], delete_bytes );
+		history[ history_index ].delete_count += delete_bytes;
 		edit_index += history[ history_index ].delete_count;
-	}
-	for( i32 i = selection_count - 1; i >= 0; i -= 1 ){
-		for( i32 j = i + 1; j < selection_count; j += 1 ){
-			selection[ j ].cursor -= selection_bytes( i );
-			selection[ j ].anchor = selection[ j ].cursor;
-		}
-		buffer_delete( file_buffer, &file_count, selection_min( i ), selection_bytes( i ));
-		selection[ i ].cursor = selection_min( i );
+// file
+		buffer_delete( file_buffer, &file_count, selection_delete_index, delete_bytes );
+		selection[ i ].cursor = selection_delete_index;
 		selection[ i ].anchor = selection[ i ].cursor;
 	}
 }
