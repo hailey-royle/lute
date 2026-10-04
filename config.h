@@ -1,9 +1,9 @@
-#define max_file_bytes         0x4000000    //  64 Mib
-#define max_clipboard_bytes    0x4000000    //  64 Mib
-#define max_edit_bytes         0x4000000    //  64 Mib
-#define max_frame_bytes        0x10000      //  64 Kib
-#define max_search_bytes       0x1000       //   4 Kib
-#define max_input_bytes        0xfff        //   4 Kib - 1
+#define max_file_bytes         0x4000000    /* 64 Mib */
+#define max_clipboard_bytes    0x4000000    /* 64 Mib */
+#define max_edit_bytes         0x4000000    /* 64 Mib */
+#define max_frame_bytes        0x10000      /* 64 Kib */
+#define max_search_bytes       0x1000       /* 4 Kib */
+#define max_input_bytes        0xfff        /* 4 Kib - 1 */
 
 #define max_edit_count        1024 * 1024
 #define max_selection_count   1024
@@ -36,7 +36,7 @@ i8 draw_line_numbers = no_line_numbers;
 i8 bar_possition = top_bar;
 
 bar_item bar[] = {
-//	{ function },
+/*	{ function }, */
 	{ bar_file_name },
 	{ bar_warning },
 	{ bar_mode },
@@ -48,7 +48,7 @@ bar_item bar[] = {
 };
 
 keybind command[] = {
-//	{ key, function },
+/*	{ key, function }, */
 	{ "Q", command_quit },
 	{ "q", command_write_quit },
 	{ "w", command_write },
