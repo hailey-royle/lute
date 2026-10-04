@@ -133,30 +133,30 @@ void command_count_0();
 
 #include "config.h"
 
-struct termios cache_termios = { 0 };
+struct termios cache_termios;
 i8 raw_mode_enabled = 0;
 
-char file_buffer[ max_file_bytes ] = { 0 };
+char file_buffer[ max_file_bytes ];
 i64 file_count = 0;
 
-char frame_buffer[ max_frame_bytes ] = { 0 };
+char frame_buffer[ max_frame_bytes ];
 i64 frame_count = 0;
 
-char input_buffer[ max_input_bytes ] = { 0 };
+char input_buffer[ max_input_bytes ];
 i64 input_count = 0;
 
-char search_buffer[ max_search_bytes ] = { 0 };
+char search_buffer[ max_search_bytes ];
 i64 search_count = 0;
 
-char clipboard_buffer[ max_clipboard_bytes ] = { 0 };
+char clipboard_buffer[ max_clipboard_bytes ];
 i64 clipboard_count = 0;
-selection_struct selection[ max_selection_count ] = { 0 };
+selection_struct selection[ max_selection_count ];
 i64 selection_count = 1;  /* first selection is initalized to all zeros */
 i64 primary_selection_index = 0;
 
-char edit_buffer[ max_edit_bytes ] = { 0 };
+char edit_buffer[ max_edit_bytes ];
 i64 edit_count = 0;
-edit history[ max_edit_count ] = { 0 };
+edit history[ max_edit_count ];
 i64 undo_count = 0;
 i64 redo_count = 0;
 
@@ -351,26 +351,26 @@ void bar_mode(){
 }
 
 void bar_selection(){
-	char buffer[ 128 ] = { 0 };
+	char buffer[ 128 ];
 	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld  ", primary_selection_index + 1, selection_count );
 	frame_append( buffer, buffer_count );
 }
 
 void bar_line_number(){
-	char buffer[ 128 ] = { 0 };
+	char buffer[ 128 ];
 	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld  ", line_number( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_number( file_buffer, file_count, file_count - 1 ));
 	frame_append( buffer, buffer_count );
 }
 
 void bar_line_depth(){
-	char buffer[ 128 ] = { 0 };
+	char buffer[ 128 ];
 	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld  ", line_depth( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_length( file_buffer, file_count, selection[ primary_selection_index ].cursor ));
 	frame_append( buffer, buffer_count );
 }
 
 void bar_command_count(){
 	if( command_count > 0 ){
-		char buffer[ 128 ] = { 0 };
+		char buffer[ 128 ] = { '\0' };
 		i64 buffer_count = snprintf( buffer, 128, "%ld  ", command_count );
 		frame_append( buffer, buffer_count );
 	}
@@ -378,7 +378,7 @@ void bar_command_count(){
 
 void bar_search_string(){
 	if( search_count > 0 ){
-		char buffer[ 128 ] = { 0 };
+		char buffer[ 128 ] = { '\0' };
 		i64 buffer_count = snprintf( buffer, 128, "\"%.*s\"  ", (i32) search_count, search_buffer );
 		frame_append( buffer, buffer_count );
 	}
@@ -1143,7 +1143,7 @@ void command_move_para_next(){
 				}
 				selection[ i ].cursor += 1;
 			}
-			i = 0;
+			i += 1;
 		}
 		command_count -= 1;
 	} while( command_count > 0 );
@@ -1908,8 +1908,29 @@ i32 main( i32 argc, char* argv[] ){
 					} else if( highlight == 2 ){
 						frame_append( primary_selection_highlight_end, strlen( primary_selection_highlight_end ));
 					}
+					i64 line_end_index = draw_index;
 					while( draw_index < file_count - 1 && file_buffer[ draw_index ] != '\n' ){
 						draw_index += 1;
+					}
+					if( line_end_index != draw_index ){
+						i32 i = 0;
+						while( i < selection_count ){
+							if(( selection[ i ].cursor <= draw_index ) && ( selection[ i ].cursor >= line_end_index )){
+								if( i == primary_selection_index ){
+									highlight = ( highlight ) ? 0 : 2;
+								} else {
+									highlight = !highlight;
+								}
+							}
+							if(( selection[ i ].anchor <= draw_index ) && ( selection[ i ].anchor >= line_end_index )){
+								if( i == primary_selection_index ){
+									highlight = ( highlight ) ? 0 : 2;
+								} else {
+									highlight = !highlight;
+								}
+							}
+							i += 1;
+						}
 					}
 					draw_index += 1;
 				}
