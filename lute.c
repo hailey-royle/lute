@@ -1,3 +1,37 @@
+/*
+
+## File Overview
+
+1.   Includes
+2.   Data types, typedefs, #defines
+3.   Bar function declarations
+4.   Command function declarations
+5.   config.h
+6.   global variables
+7.   ganeral utility functions
+8.   abstract file/clipboard/selection/history data manipulation functions
+9.   command function implmentations
+10.  bar function implmentations
+11.  input validation functions
+12.  main
+
+### Commands
+
+- Commands should not call other commands.
+- Any command that can do work multiple times in a row should use 'command_count'.
+	- A 'command_count' of zero should be ignored, and the work done once.
+	- Some commands ( like 'command_delete' ) can't do work multiple times in a row.
+	- Some commands ( like 'command_count_goto' ) use 'command_count' in other ways.
+- A command end with 'command_count' being zero regardless of if it used it or not.
+	- Unless it adds to the 'command_count'
+- The clipboard data for the primary selection should move with the primary selection
+	- Unless the primary selection is being changed
+- If the number of selections remains the same, the clipboard data should too.
+- If the number of selections changes, the clipboard data of all selections should be set to the clipboard data of the primary selection.
+	- Unless a selection gets culled by 'clip_selection_overlap', then that selections data gets removed.
+
+*/
+
 #define _XOPEN_SOURCE 500 /* snprintf */
 
 #include <fcntl.h>
@@ -87,8 +121,8 @@ void command_line_replace();
 void command_split();
 void command_split_newline();
 void command_split_collapse();
-void command_split_next();
-void command_split_prev();
+void command_next_selection();
+void command_prev_selection();
 void command_move_char_next();
 void command_move_char_prev();
 void command_move_word_next();
@@ -97,22 +131,26 @@ void command_move_line_next();
 void command_move_line_prev();
 void command_move_para_next();
 void command_move_para_prev();
+void command_move_pinned_char_next();
+void command_move_pinned_char_prev();
+void command_move_pinned_word_next();
+void command_move_pinned_word_prev();
+void command_move_pinned_line_next();
+void command_move_pinned_line_prev();
+void command_move_pinned_para_next();
+void command_move_pinned_para_prev();
 void command_move_find_next();
 void command_move_find_prev();
-void command_move_append_char_next();
-void command_move_append_char_prev();
-void command_move_append_word_next();
-void command_move_append_word_prev();
-void command_move_append_line_next();
-void command_move_append_line_prev();
-void command_move_append_para_next();
-void command_move_append_para_prev();
-void command_move_append_find_next();
-void command_move_append_find_prev();
+void command_move_pinned_find_next();
+void command_move_pinned_find_prev();
 void command_move_line_end();
 void command_move_line_start();
 void command_move_file_end();
 void command_move_file_start();
+void command_move_pinned_line_end();
+void command_move_pinned_line_start();
+void command_move_pinned_file_start();
+void command_move_pinned_file_end();
 void command_select_inside_paren();
 void command_select_inside_bracket();
 void command_select_inside_curly();
@@ -306,82 +344,6 @@ void buffer_delete( char* dst, i64* dst_count, i64 index, i64 count ){
 	assert( index + count <= *dst_count );
 	memmove( &dst[ index ], &dst[ index + count ], *dst_count - index - count );
 	*dst_count -= count;
-}
-
-void frame_append( char* src, i64 src_count ){
-	if( max_frame_bytes <= frame_count + src_count ){
-		error( "Frame buffer overflow, increase max_frame_bytes" );
-	}
-	buffer_append( frame_buffer, &frame_count, src, src_count );
-}
-
-void bar_file_name(){
-	frame_append( file_name, strlen( file_name ));
-	if( file_modified ){
-		frame_append( "*", 1 );
-	}
-	frame_append( "  ", 2 );
-}
-
-void bar_warning(){
-	if( warning != NULL ){
-		frame_append( ansi_background_red, strlen( ansi_background_red ));
-		frame_append( warning, strlen( warning ));
-		frame_append( ansi_background_default, strlen( ansi_background_default ));
-		frame_append( "  ", 2 );
-	}
-}
-
-void bar_mode(){
-	if( mode == command_mode ){
-		frame_append( "Command  ", 9 );
-	} else if( mode == edit_mode ){
-		frame_append( "Edit  ", 6 );
-	} else if( mode == search_mode ){
-		frame_append( "Search  ", 8 );
-	} else if( mode == find_next_mode ){
-		frame_append( "Find Next  ", 11 );
-	} else if( mode == find_prev_mode ){
-		frame_append( "Find Prev  ", 11 );
-	} else if( mode == append_find_next_mode ){
-		frame_append( "Append Find Next  ", 18 );
-	} else if( mode == append_find_prev_mode ){
-		frame_append( "Append Find Prev  ", 18 );
-	}
-}
-
-void bar_selection(){
-	char buffer[ 128 ];
-	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld  ", primary_selection_index + 1, selection_count );
-	frame_append( buffer, buffer_count );
-}
-
-void bar_line_number(){
-	char buffer[ 128 ];
-	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld  ", line_number( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_number( file_buffer, file_count, file_count - 1 ));
-	frame_append( buffer, buffer_count );
-}
-
-void bar_line_depth(){
-	char buffer[ 128 ];
-	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld  ", line_depth( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_length( file_buffer, file_count, selection[ primary_selection_index ].cursor ));
-	frame_append( buffer, buffer_count );
-}
-
-void bar_command_count(){
-	if( command_count > 0 ){
-		char buffer[ 128 ] = { '\0' };
-		i64 buffer_count = snprintf( buffer, 128, "%ld  ", command_count );
-		frame_append( buffer, buffer_count );
-	}
-}
-
-void bar_search_string(){
-	if( search_count > 0 ){
-		char buffer[ 128 ] = { '\0' };
-		i64 buffer_count = snprintf( buffer, 128, "\"%.*s\"  ", (i32) search_count, search_buffer );
-		frame_append( buffer, buffer_count );
-	}
 }
 
 i64 selection_min( i64 index ){
@@ -688,6 +650,28 @@ void select_prev( char* select, i64 select_bytes ){
 	assert( 0 );
 }
 
+void move_primary_selection_to_index_zero(){
+	assert( selection_count > 0 );
+	assert( primary_selection_index >= 0 );
+	if( selection_count == 1 ){
+		assert( primary_selection_index == 0 );
+		return;
+	}
+	if( primary_selection_index != 0 ){
+		i32 i = 0;
+		i64 clipboard_index = 0;
+		while( i < primary_selection_index ){
+			clipboard_index += selection[ i ].clipboard_count;
+			i += 1;
+		}
+		memmove( clipboard_buffer, &clipboard_buffer[ clipboard_index ], selection[ primary_selection_index ].clipboard_count );
+		selection[ 0 ] = selection[ primary_selection_index ];
+	}
+	selection_count = 1;
+	clipboard_count = selection[ 0 ].clipboard_count;
+	primary_selection_index = 0;
+}
+
 void clip_selection_overlap(){
 	i32 i = 0;
 	while( i < selection_count ){
@@ -946,23 +930,41 @@ void command_replace(){
 }
 
 void command_line_copy(){
+	command_count = 0;
 	select_cursor_line();
-	command_copy();
+	selection_copy();
 }
 
 void command_line_delete(){
+	command_count = 0;
 	select_cursor_line();
-	command_delete();
+	selection_copy();
+	new_undo();
+	selection_delete();
 }
 
 void command_line_change(){
+	command_count = 0;
 	select_cursor_line();
-	command_change();
+	selection_copy();
+	new_undo();
+	selection_delete();
+	mode = edit_mode;
+	clipboard_count = 0;
+	i32 i = 0;
+	while( i < selection_count ){
+		selection[ i ].clipboard_count = 0;
+		selection[ i ].anchor = selection[ i ].cursor;
+		i += 1;
+	}
 }
 
 void command_line_replace(){
+	command_count = 0;
 	select_cursor_line();
-	command_replace();
+	new_undo();
+	selection_delete();
+	selection_paste();
 }
 
 void command_split(){
@@ -977,14 +979,10 @@ void command_split_newline(){
 
 void command_split_collapse(){
 	command_count = 0;
-	selection[ 0 ] = selection[ primary_selection_index ];
-	selection[ 0 ].clipboard_count = 0;
-	primary_selection_index = 0;
-	selection_count = 1;
-	clipboard_count = 0;
+	move_primary_selection_to_index_zero();
 }
 
-void command_split_next(){
+void command_next_selection(){
 	do {
 		if( primary_selection_index >= selection_count - 1 ){
 			primary_selection_index = 0;
@@ -996,7 +994,7 @@ void command_split_next(){
 	command_count = 0;
 }
 
-void command_split_prev(){
+void command_prev_selection(){
 	do {
 		if( primary_selection_index <= 0 ){
 			primary_selection_index = selection_count - 1;
@@ -1171,15 +1169,7 @@ void command_move_para_prev(){
 	command_count = 0;
 }
 
-void command_move_find_next(){
-	mode = find_next_mode;
-}
-
-void command_move_find_prev(){
-	mode = find_prev_mode;
-}
-
-void command_move_append_char_next(){
+void command_move_pinned_char_next(){
 	do {
 		i32 i = 0;
 		while( i < selection_count ){
@@ -1193,7 +1183,7 @@ void command_move_append_char_next(){
 	command_count = 0;
 }
 
-void command_move_append_char_prev(){
+void command_move_pinned_char_prev(){
 	do {
 		i32 i = 0;
 		while( i < selection_count ){
@@ -1211,7 +1201,7 @@ void command_move_append_char_prev(){
 	command_count = 0;
 }
 
-void command_move_append_word_next(){
+void command_move_pinned_word_next(){
 	do {
 		i32 i = 0;
 		while( i < selection_count ){
@@ -1232,7 +1222,7 @@ void command_move_append_word_next(){
 	command_count = 0;
 }
 
-void command_move_append_word_prev(){
+void command_move_pinned_word_prev(){
 	do {
 		i32 i = 0;
 		while( i < selection_count ){
@@ -1253,7 +1243,7 @@ void command_move_append_word_prev(){
 	command_count = 0;
 }
 
-void command_move_append_line_next(){
+void command_move_pinned_line_next(){
 	do {
 		i32 i = 0;
 		while( i < selection_count ){
@@ -1270,7 +1260,7 @@ void command_move_append_line_next(){
 	command_count = 0;
 }
 
-void command_move_append_line_prev(){
+void command_move_pinned_line_prev(){
 	do {
 		i32 i = 0;
 		while( i < selection_count ){
@@ -1290,7 +1280,7 @@ void command_move_append_line_prev(){
 	command_count = 0;
 }
 
-void command_move_append_para_next(){
+void command_move_pinned_para_next(){
 	do {
 		i32 i = 0;
 		while( i < selection_count ){
@@ -1310,7 +1300,7 @@ void command_move_append_para_next(){
 	command_count = 0;
 }
 
-void command_move_append_para_prev(){
+void command_move_pinned_para_prev(){
 	do {
 		i32 i = 0;
 		while( i < selection_count ){
@@ -1330,11 +1320,19 @@ void command_move_append_para_prev(){
 	command_count = 0;
 }
 
-void command_move_append_find_next(){
+void command_move_find_next(){
+	mode = find_next_mode;
+}
+
+void command_move_find_prev(){
+	mode = find_prev_mode;
+}
+
+void command_move_pinned_find_next(){
 	mode = append_find_next_mode;
 }
 
-void command_move_append_find_prev(){
+void command_move_pinned_find_prev(){
 	mode = append_find_prev_mode;
 }
 
@@ -1362,27 +1360,56 @@ void command_move_line_start(){
 	}
 }
 
+void command_move_file_start(){
+	command_count = 0;
+	move_primary_selection_to_index_zero();
+	selection[ 0 ].anchor = selection[ 0 ].cursor;
+	selection[ 0 ].cursor = 0;
+}
+
 void command_move_file_end(){
+	command_count = 0;
+	move_primary_selection_to_index_zero();
+	selection[ 0 ].anchor = selection[ 0 ].cursor;
+	selection[ 0 ].cursor = file_count - 1;
+}
+
+void command_move_pinned_line_end(){
 	command_count = 0;
 	i32 i = 0;
 	while( i < selection_count ){
-		selection[ i ].anchor = selection[ i ].cursor;
-		selection[ i ].cursor = file_count - 1;
+		while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] != '\n' )){
+			selection[ i ].cursor += 1;
+		}
 		i += 1;
 	}
 }
 
-void command_move_file_start(){
+void command_move_pinned_line_start(){
 	command_count = 0;
 	i32 i = 0;
 	while( i < selection_count ){
-		selection[ i ].anchor = selection[ i ].cursor;
-		selection[ i ].cursor = 0;
+		while(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] != '\n' )){
+			selection[ i ].cursor -= 1;
+		}
 		i += 1;
 	}
+}
+
+void command_move_pinned_file_start(){
+	command_count = 0;
+	move_primary_selection_to_index_zero();
+	selection[ 0 ].cursor = 0;
+}
+
+void command_move_pinned_file_end(){
+	command_count = 0;
+	move_primary_selection_to_index_zero();
+	selection[ 0 ].cursor = file_count - 1;
 }
 
 void command_select_inside_paren(){
+/* Starting at the cursor, move the cursor back until it hits a '(' and move the anchor foward until it hits a ')'. */
 	do {
 		select_inside( "(", 1, ")", 1 );
 		command_count -= 1;
@@ -1391,6 +1418,7 @@ void command_select_inside_paren(){
 }
 
 void command_select_inside_bracket(){
+/* Starting at the cursor, move the cursor back until it hits a '[' and move the anchor foward until it hits a ']'. */
 	do {
 		select_inside( "[", 1, "]", 1 );
 		command_count -= 1;
@@ -1399,6 +1427,7 @@ void command_select_inside_bracket(){
 }
 
 void command_select_inside_curly(){
+/* Starting at the cursor, move the cursor back until it hits a '{' and move the anchor foward until it hits a '}'. */
 	do {
 		select_inside( "{", 1, "}", 1 );
 		command_count -= 1;
@@ -1407,6 +1436,7 @@ void command_select_inside_curly(){
 }
 
 void command_select_inside_double_quote(){
+/* Starting at the cursor, move the cursor back until it hits a '"' and move the anchor foward until it hits a '"'. */
 	do {
 		select_inside( "\"", 1, "\"", 1 );
 		command_count -= 1;
@@ -1427,15 +1457,19 @@ void command_swap_anchor_cursor(){
 
 void command_select_entire_file(){
 	command_count = 0;
+	move_primary_selection_to_index_zero();
 	selection[ 0 ].cursor = 0;
 	selection[ 0 ].anchor = file_count - 1;
-	selection[ 0 ].clipboard_count = 0;
-	selection_count = 1;
-	primary_selection_index = 0;
-	clipboard_count = 0;
 }
 
 void command_count_goto(){
+/*
+  Move the primary selection to the start of line 'command_count'.
+  Removes all other selections.
+  Lines start at one.
+  If command_count is 0, goto the first line.
+  If command_count is greater then the number of lines in the file, goto the last character.
+*/
 	i64 index = 0;
 	while(( index < file_count - 1 ) && ( command_count > 1 )){
 		if( file_buffer[ index ] == '\n' ){
@@ -1444,59 +1478,145 @@ void command_count_goto(){
 		index += 1;
 	}
 	command_count = 0;
-	selection_count = 1;
+	move_primary_selection_to_index_zero();
 	selection[ 0 ].cursor = index;
 	selection[ 0 ].anchor = index;
 }
 
 void command_count_1(){
+/* Add digit '1' to command_count. */
 	command_count *= 10;
 	command_count += 1;
 }
 
 void command_count_2(){
+/* Add digit '2' to command_count. */
 	command_count *= 10;
 	command_count += 2;
 }
 
 void command_count_3(){
+/* Add digit '3' to command_count. */
 	command_count *= 10;
 	command_count += 3;
 }
 
 void command_count_4(){
+/* Add digit '4' to command_count. */
 	command_count *= 10;
 	command_count += 4;
 }
 
 void command_count_5(){
+/* Add digit '5' to command_count. */
 	command_count *= 10;
 	command_count += 5;
 }
 
 void command_count_6(){
+/* Add digit '6' to command_count. */
 	command_count *= 10;
 	command_count += 6;
 }
 
 void command_count_7(){
+/* Add digit '7' to command_count. */
 	command_count *= 10;
 	command_count += 7;
 }
 
 void command_count_8(){
+/* Add digit '8' to command_count. */
 	command_count *= 10;
 	command_count += 8;
 }
 
 void command_count_9(){
+/* Add digit '9' to command_count. */
 	command_count *= 10;
 	command_count += 9;
 }
 
 void command_count_0(){
+/* Add digit '0' to command_count. */
 	command_count *= 10;
 	command_count += 0;
+}
+
+void frame_append( char* src, i64 src_count ){
+	if( max_frame_bytes <= frame_count + src_count ){
+		error( "Frame buffer overflow, increase max_frame_bytes" );
+	}
+	buffer_append( frame_buffer, &frame_count, src, src_count );
+}
+
+void bar_file_name(){
+	frame_append( file_name, strlen( file_name ));
+	if( file_modified ){
+		frame_append( "*", 1 );
+	}
+	frame_append( "  ", 2 );
+}
+
+void bar_warning(){
+	if( warning != NULL ){
+		frame_append( ansi_background_red, strlen( ansi_background_red ));
+		frame_append( warning, strlen( warning ));
+		frame_append( ansi_background_default, strlen( ansi_background_default ));
+		frame_append( "  ", 2 );
+	}
+}
+
+void bar_mode(){
+	if( mode == command_mode ){
+		frame_append( "Command  ", 9 );
+	} else if( mode == edit_mode ){
+		frame_append( "Edit  ", 6 );
+	} else if( mode == search_mode ){
+		frame_append( "Search  ", 8 );
+	} else if( mode == find_next_mode ){
+		frame_append( "Find Next  ", 11 );
+	} else if( mode == find_prev_mode ){
+		frame_append( "Find Prev  ", 11 );
+	} else if( mode == append_find_next_mode ){
+		frame_append( "Append Find Next  ", 18 );
+	} else if( mode == append_find_prev_mode ){
+		frame_append( "Append Find Prev  ", 18 );
+	}
+}
+
+void bar_selection(){
+	char buffer[ 128 ];
+	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld  ", primary_selection_index + 1, selection_count );
+	frame_append( buffer, buffer_count );
+}
+
+void bar_line_number(){
+	char buffer[ 128 ];
+	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld  ", line_number( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_number( file_buffer, file_count, file_count - 1 ));
+	frame_append( buffer, buffer_count );
+}
+
+void bar_line_depth(){
+	char buffer[ 128 ];
+	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld  ", line_depth( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_length( file_buffer, file_count, selection[ primary_selection_index ].cursor ));
+	frame_append( buffer, buffer_count );
+}
+
+void bar_command_count(){
+	if( command_count > 0 ){
+		char buffer[ 128 ] = { '\0' };
+		i64 buffer_count = snprintf( buffer, 128, "%ld  ", command_count );
+		frame_append( buffer, buffer_count );
+	}
+}
+
+void bar_search_string(){
+	if( search_count > 0 ){
+		char buffer[ 128 ] = { '\0' };
+		i64 buffer_count = snprintf( buffer, 128, "\"%.*s\"  ", (i32) search_count, search_buffer );
+		frame_append( buffer, buffer_count );
+	}
 }
 
 i64 input_validate_next( char* buffer, i64 count, i64* index ){

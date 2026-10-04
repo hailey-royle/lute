@@ -3,9 +3,12 @@
 
 **Lu**ddite **T**ext **E**ditor
 
+### writing commands
+
 ### todo
 
-- command move char next remove utf8_next call
+- horizontal scroll
+- syntax highlighting
 - various places where the clipboard can be saved or extrapolated when changing the number of cursors
 - better/vimish default keymaps
 - all documentation
