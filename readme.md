@@ -3,13 +3,10 @@
 
 **Lu**ddite **T**ext **E**ditor
 
-### writing commands
-
 ### todo
 
 - horizontal scroll
 - syntax highlighting
-- various places where the clipboard can be saved or extrapolated when changing the number of cursors
 - better/vimish default keymaps
 - all documentation
 - os clipboard integreation

@@ -368,7 +368,7 @@ i64 selection_length( i64 index ){
 	return length;
 }
 
-void move_primary_selection_to_index_zero(){
+void delete_all_non_primary_selections(){
 	assert( selection_count > 0 );
 	assert( primary_selection_index >= 0 );
 	if( selection_count == 1 ){
@@ -406,6 +406,9 @@ void set_all_selection_clipboards_to_primary(){
 	i32 i = 1;
 	while( i < selection_count ){
 		selection[ i ].clipboard_count = selection[ primary_selection_index ].clipboard_count;
+		if( max_clipboard_bytes >= clipboard_count + selection[ i ].clipboard_count ){
+			error( "Clipboard count overflow, increase max_clipboard_count" );
+		}
 		memmove( &clipboard_buffer[ clipboard_count ], clipboard_buffer, selection[ primary_selection_index ].clipboard_count );
 		clipboard_count += selection[ i ].clipboard_count;
 		i += 1;
@@ -669,7 +672,7 @@ void selection_split( char* select, i64 select_bytes ){
 	if( select_bytes == 0 ){
 		return;
 	}
-	move_primary_selection_to_index_zero();
+	delete_all_non_primary_selections();
 	i64 min = selection_min( primary_selection_index );
 	i64 max = selection_max( primary_selection_index );
 	i64 new_selection_count = 0;
@@ -996,7 +999,7 @@ void command_split_newline(){
 
 void command_split_collapse(){
 	command_count = 0;
-	move_primary_selection_to_index_zero();
+	delete_all_non_primary_selections();
 }
 
 void command_next_selection(){
@@ -1379,14 +1382,14 @@ void command_move_line_start(){
 
 void command_move_file_start(){
 	command_count = 0;
-	move_primary_selection_to_index_zero();
+	delete_all_non_primary_selections();
 	selection[ 0 ].anchor = selection[ 0 ].cursor;
 	selection[ 0 ].cursor = 0;
 }
 
 void command_move_file_end(){
 	command_count = 0;
-	move_primary_selection_to_index_zero();
+	delete_all_non_primary_selections();
 	selection[ 0 ].anchor = selection[ 0 ].cursor;
 	selection[ 0 ].cursor = file_count - 1;
 }
@@ -1415,13 +1418,13 @@ void command_move_pinned_line_start(){
 
 void command_move_pinned_file_start(){
 	command_count = 0;
-	move_primary_selection_to_index_zero();
+	delete_all_non_primary_selections();
 	selection[ 0 ].cursor = 0;
 }
 
 void command_move_pinned_file_end(){
 	command_count = 0;
-	move_primary_selection_to_index_zero();
+	delete_all_non_primary_selections();
 	selection[ 0 ].cursor = file_count - 1;
 }
 
@@ -1474,7 +1477,7 @@ void command_swap_anchor_cursor(){
 
 void command_select_entire_file(){
 	command_count = 0;
-	move_primary_selection_to_index_zero();
+	delete_all_non_primary_selections();
 	selection[ 0 ].cursor = 0;
 	selection[ 0 ].anchor = file_count - 1;
 }
@@ -1495,7 +1498,7 @@ void command_count_goto(){
 		index += 1;
 	}
 	command_count = 0;
-	move_primary_selection_to_index_zero();
+	delete_all_non_primary_selections();
 	selection[ 0 ].cursor = index;
 	selection[ 0 ].anchor = index;
 }
