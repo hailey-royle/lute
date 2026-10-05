@@ -368,6 +368,50 @@ i64 selection_length( i64 index ){
 	return length;
 }
 
+void move_primary_selection_to_index_zero(){
+	assert( selection_count > 0 );
+	assert( primary_selection_index >= 0 );
+	if( selection_count == 1 ){
+		assert( primary_selection_index == 0 );
+		return;
+	}
+	if( primary_selection_index != 0 ){
+		i32 i = 0;
+		i64 clipboard_index = 0;
+		while( i < primary_selection_index ){
+			clipboard_index += selection[ i ].clipboard_count;
+			i += 1;
+		}
+		memmove( clipboard_buffer, &clipboard_buffer[ clipboard_index ], selection[ primary_selection_index ].clipboard_count );
+		selection[ 0 ] = selection[ primary_selection_index ];
+	}
+	selection_count = 1;
+	clipboard_count = selection[ 0 ].clipboard_count;
+	primary_selection_index = 0;
+}
+
+void set_all_selection_clipboards_to_primary(){
+	if( primary_selection_index != 0 ){
+		i32 i = 0;
+		i64 clipboard_index = 0;
+		while( i < primary_selection_index ){
+			clipboard_index += selection[ i ].clipboard_count;
+			i += 1;
+		}
+		memmove( clipboard_buffer, &clipboard_buffer[ clipboard_index ], selection[ primary_selection_index ].clipboard_count );
+		selection[ 0 ].clipboard_count = selection[ primary_selection_index ].clipboard_count;
+	}
+	primary_selection_index = 0;
+	clipboard_count = selection[ primary_selection_index ].clipboard_count;
+	i32 i = 1;
+	while( i < selection_count ){
+		selection[ i ].clipboard_count = selection[ primary_selection_index ].clipboard_count;
+		memmove( &clipboard_buffer[ clipboard_count ], clipboard_buffer, selection[ primary_selection_index ].clipboard_count );
+		clipboard_count += selection[ i ].clipboard_count;
+		i += 1;
+	}
+}
+
 void new_undo(){
 	redo_count = 0;
 	i32 i = 0;
@@ -620,6 +664,12 @@ void select_inside( char* left, i64 left_count, char* right, i64 right_count ){
 }
 
 void selection_split( char* select, i64 select_bytes ){
+	assert( select != NULL );
+	assert( select_bytes >= 0 );
+	if( select_bytes == 0 ){
+		return;
+	}
+	move_primary_selection_to_index_zero();
 	i64 min = selection_min( primary_selection_index );
 	i64 max = selection_max( primary_selection_index );
 	i64 new_selection_count = 0;
@@ -630,15 +680,13 @@ void selection_split( char* select, i64 select_bytes ){
 			}
 			selection[ new_selection_count ].cursor = min;
 			selection[ new_selection_count ].anchor = selection[ new_selection_count ].cursor + select_bytes;
-			selection[ new_selection_count ].clipboard_count = 0;
 			new_selection_count += 1;
 		}
 		min += 1;
 	}
-	if( new_selection_count > 0 ){
+	if( new_selection_count != selection_count ){
 		selection_count = new_selection_count;
-		primary_selection_index = 0;
-		clipboard_count = 0;
+		set_all_selection_clipboards_to_primary();
 	}
 }
 
@@ -648,28 +696,6 @@ void select_next( char* select, i64 select_bytes ){
 
 void select_prev( char* select, i64 select_bytes ){
 	assert( 0 );
-}
-
-void move_primary_selection_to_index_zero(){
-	assert( selection_count > 0 );
-	assert( primary_selection_index >= 0 );
-	if( selection_count == 1 ){
-		assert( primary_selection_index == 0 );
-		return;
-	}
-	if( primary_selection_index != 0 ){
-		i32 i = 0;
-		i64 clipboard_index = 0;
-		while( i < primary_selection_index ){
-			clipboard_index += selection[ i ].clipboard_count;
-			i += 1;
-		}
-		memmove( clipboard_buffer, &clipboard_buffer[ clipboard_index ], selection[ primary_selection_index ].clipboard_count );
-		selection[ 0 ] = selection[ primary_selection_index ];
-	}
-	selection_count = 1;
-	clipboard_count = selection[ 0 ].clipboard_count;
-	primary_selection_index = 0;
 }
 
 void clip_selection_overlap(){
@@ -801,6 +827,7 @@ void command_undo(){
 	}
 	file_modified = 1;
 	i64 new_selection_count = history[ undo_count - 1 ].selection_index + 1;
+	assert( new_selection_count > 0 );
 	undo_count -= new_selection_count;
 	redo_count += new_selection_count;
 	assert( undo_count >= 0 );
@@ -826,13 +853,8 @@ void command_undo(){
 		i += 1;
 	}
 	if( new_selection_count != selection_count ){
-		i = 0;
-		while( i < selection_count ){
-			selection[ i ].clipboard_count = 0;
-			i += 1;
-		}
 		selection_count = new_selection_count;
-		clipboard_count = 0;
+		set_all_selection_clipboards_to_primary();
 	}
 }
 
@@ -874,13 +896,8 @@ void command_redo(){
 	redo_count -= new_selection_count;
 	assert( redo_count >= 0 );
 	if( new_selection_count != selection_count ){
-		i = 0;
-		while( i < selection_count ){
-			selection[ i ].clipboard_count = 0;
-			i += 1;
-		}
 		selection_count = new_selection_count;
-		clipboard_count = 0;
+		set_all_selection_clipboards_to_primary();
 	}
 }
 
