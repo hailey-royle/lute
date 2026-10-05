@@ -118,7 +118,9 @@ void command_line_copy();
 void command_line_delete();
 void command_line_change();
 void command_line_replace();
-void command_split();
+void command_search_input();
+void command_search_next_primary();
+void command_search_prev_primary();
 void command_split_newline();
 void command_split_collapse();
 void command_next_selection();
@@ -406,7 +408,7 @@ void set_all_selection_clipboards_to_primary(){
 	i32 i = 1;
 	while( i < selection_count ){
 		selection[ i ].clipboard_count = selection[ primary_selection_index ].clipboard_count;
-		if( max_clipboard_bytes >= clipboard_count + selection[ i ].clipboard_count ){
+		if( max_clipboard_bytes <= clipboard_count + selection[ i ].clipboard_count ){
 			error( "Clipboard count overflow, increase max_clipboard_count" );
 		}
 		memmove( &clipboard_buffer[ clipboard_count ], clipboard_buffer, selection[ primary_selection_index ].clipboard_count );
@@ -691,14 +693,6 @@ void selection_split( char* select, i64 select_bytes ){
 		selection_count = new_selection_count;
 		set_all_selection_clipboards_to_primary();
 	}
-}
-
-void select_next( char* select, i64 select_bytes ){
-	assert( 0 );
-}
-
-void select_prev( char* select, i64 select_bytes ){
-	assert( 0 );
 }
 
 void clip_selection_overlap(){
@@ -987,9 +981,89 @@ void command_line_replace(){
 	selection_paste();
 }
 
-void command_split(){
+void command_search_input(){
 	command_count = 0;
 	mode = search_mode;
+}
+
+void command_search_next_primary(){
+	i64 search_bytes = selection_bytes( primary_selection_index );
+	i64 index = selection_max( selection_count - 1 );
+	assert( search_bytes >= 0 );
+	if( search_bytes == 0 ){
+		return;
+	}
+	i64 clipboard_index = 0;
+	i32 i = 0;
+	while( i < primary_selection_index ){
+		clipboard_index += selection[ i ].clipboard_count;
+		i += 1;
+	}
+	while( index < file_count - 1 - search_bytes ){
+		if( strncmp( &file_buffer[ index ], &file_buffer[ selection_min( primary_selection_index )], search_bytes ) == 0 ){
+			if( max_selection_count <= selection_count + 1 ){
+				error( "Selection count overflow, increase max_selection_count" );
+			}
+			if( selection[ primary_selection_index ].cursor < selection[ primary_selection_index ].anchor ){
+				selection[ selection_count ].cursor = index;
+				selection[ selection_count ].anchor = selection[ selection_count ].cursor + search_bytes;
+			} else {
+				selection[ selection_count ].anchor = index;
+				selection[ selection_count ].cursor = selection[ selection_count ].anchor + search_bytes;
+			}
+			selection[ selection_count ].clipboard_count = selection[ primary_selection_index ].clipboard_count;
+			if( max_clipboard_bytes <= clipboard_count + selection[ selection_count ].clipboard_count ){
+				error( "Clipboard count overflow, increase max_clipboard_count" );
+			}
+			buffer_append( clipboard_buffer, &clipboard_count, &clipboard_buffer[ clipboard_index ], selection[ primary_selection_index ].clipboard_count );
+			selection_count += 1;
+			break;
+		}
+		index += 1;
+	}
+}
+
+void command_search_prev_primary(){
+	i64 search_bytes = selection_bytes( primary_selection_index );
+	i64 index = selection_min( 0 ) - search_bytes;
+	assert( search_bytes >= 0 );
+	if( search_bytes == 0 ){
+		return;
+	}
+	i64 clipboard_index = 0;
+	i32 i = 0;
+	while( i < primary_selection_index ){
+		clipboard_index += selection[ i ].clipboard_count;
+		i += 1;
+	}
+	while( index >= 0 ){
+		if( strncmp( &file_buffer[ index ], &file_buffer[ selection_min( primary_selection_index )], search_bytes ) == 0 ){
+			if( max_selection_count <= selection_count + 1 ){
+				error( "Selection count overflow, increase max_selection_count" );
+			}
+			i = selection_count;
+			while( i >= 0 ){
+				selection[ i + 1 ] = selection[ i ];
+				i -= 1;
+			}
+			primary_selection_index += 1;
+			if( selection[ primary_selection_index ].cursor < selection[ primary_selection_index ].anchor ){
+				selection[ 0 ].cursor = index;
+				selection[ 0 ].anchor = selection[ 0 ].cursor + search_bytes;
+			} else {
+				selection[ 0 ].anchor = index;
+				selection[ 0 ].cursor = selection[ 0 ].anchor + search_bytes;
+			}
+			selection[ 0 ].clipboard_count = selection[ primary_selection_index ].clipboard_count;
+			if( max_clipboard_bytes <= clipboard_count + selection[ 0 ].clipboard_count ){
+				error( "Clipboard count overflow, increase max_clipboard_count" );
+			}
+			buffer_insert( clipboard_buffer, &clipboard_count, 0, &clipboard_buffer[ clipboard_index ], selection[ primary_selection_index ].clipboard_count );
+			selection_count += 1;
+			break;
+		}
+		index -= 1;
+	}
 }
 
 void command_split_newline(){
