@@ -70,6 +70,7 @@ keybind command[] = {
 	{ "s", command_search_input },
 	{ "/", command_search_next_primary },
 	{ "?", command_search_prev_primary },
+	{ ":", command_search_file_primary },
 	{ "S", command_split_newline },
 	{ ";", command_split_collapse },
 	{ ".", command_next_selection },

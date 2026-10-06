@@ -46,6 +46,7 @@
 #include <unistd.h>
 
 #include "ansi.h"
+#include "key.h"
 
 typedef int8_t i8;
 typedef int16_t i16;
@@ -121,6 +122,7 @@ void command_line_replace();
 void command_search_input();
 void command_search_next_primary();
 void command_search_prev_primary();
+void command_search_file_primary();
 void command_split_newline();
 void command_split_collapse();
 void command_next_selection();
@@ -411,8 +413,7 @@ void set_all_selection_clipboards_to_primary(){
 		if( max_clipboard_bytes <= clipboard_count + selection[ i ].clipboard_count ){
 			error( "Clipboard count overflow, increase max_clipboard_count" );
 		}
-		memmove( &clipboard_buffer[ clipboard_count ], clipboard_buffer, selection[ primary_selection_index ].clipboard_count );
-		clipboard_count += selection[ i ].clipboard_count;
+		buffer_append( clipboard_buffer, &clipboard_count, clipboard_buffer, selection[ primary_selection_index ].clipboard_count );
 		i += 1;
 	}
 }
@@ -1066,6 +1067,38 @@ void command_search_prev_primary(){
 	}
 }
 
+void command_search_file_primary(){
+	delete_all_non_primary_selections();
+	i64 search_bytes = selection_bytes( primary_selection_index );
+	i64 primary_index = selection_min( primary_selection_index );
+	char* search = &file_buffer[ primary_index ];
+	assert( search_bytes >= 0 );
+	if( search_bytes == 0 ){
+		return;
+	}
+	selection_count = 0;
+	i64 index = 0;
+	while( index < file_count - 1 - search_bytes ){
+		if( strncmp( &file_buffer[ index ], search, search_bytes ) == 0 ){
+			if( index == primary_index ){
+				primary_selection_index = selection_count;
+			}
+			selection[ selection_count ].cursor = index;
+			selection[ selection_count ].anchor = index + search_bytes;
+			if( selection_count > 0 ){
+				selection[ selection_count ].clipboard_count = selection[ 0 ].clipboard_count;
+				if( max_clipboard_bytes <= clipboard_count + search_bytes ){
+					error( "Clipboard count overflow, increase max_clipboard_count" );
+				}
+				buffer_append( clipboard_buffer, &clipboard_count, clipboard_buffer, selection[ 0 ].clipboard_count );
+			}
+			selection_count += 1;
+		}
+		index += 1;
+	}
+	assert( selection_count > 0 );
+}
+
 void command_split_newline(){
 	command_count = 0;
 	selection_split( "\n", 1 );
@@ -1123,8 +1156,6 @@ void command_move_char_prev(){
 			do {
 				if( selection[ i ].cursor > 0 ){
 					selection[ i ].cursor -= 1;
-				} else {
-					continue;
 				}
 			} while(( file_buffer[ selection[ i ].cursor ] & 0xc0 ) == 0x80 ); /* while is utf8_continuation_byte */
 			i += 1;
@@ -1145,13 +1176,13 @@ void command_move_word_next(){
 			selection[ i ].anchor = selection[ i ].cursor;
 			if(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] == '\n' )){
 				selection[ i ].cursor += 1;
-				continue;
-			}
-			while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] != '\n' ) && !is_word_whitespace( file_buffer[ selection[ i ].cursor ])){
-				selection[ i ].cursor += 1;
-			}
-			while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] != '\n' ) && is_word_whitespace( file_buffer[ selection[ i ].cursor ])){
-				selection[ i ].cursor += 1;
+			} else {
+				while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] != '\n' ) && !is_word_whitespace( file_buffer[ selection[ i ].cursor ])){
+					selection[ i ].cursor += 1;
+				}
+				while(( selection[ i ].cursor < file_count - 1 ) && ( file_buffer[ selection[ i ].cursor ] != '\n' ) && is_word_whitespace( file_buffer[ selection[ i ].cursor ])){
+					selection[ i ].cursor += 1;
+				}
 			}
 			i += 1;
 		}
@@ -1284,8 +1315,6 @@ void command_move_pinned_char_prev(){
 			do {
 				if( selection[ i ].cursor > 0 ){
 					selection[ i ].cursor -= 1;
-				} else {
-					continue;
 				}
 			} while(( file_buffer[ selection[ i ].cursor ] & 0xc0 ) == 0x80 ); /* while is utf8_continuation_byte */
 			i += 1;
@@ -2185,7 +2214,7 @@ i32 main( i32 argc, char* argv[] ){
 					while( i < (i32)( sizeof( command ) / sizeof( keybind )) ){
 						if(( key_bytes == (i64) strlen( command[ i ].key )) && ( memcmp( &input_buffer[ start_index ], command[ i ].key, key_bytes ) == 0 )){
 							command[ i ].function();
-							break;
+							clip_selection_overlap();
 						}
 						i += 1;
 					}

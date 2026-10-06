@@ -1,13 +1,15 @@
 
-## lute editor
+## Lute
 
 **Lu**ddite **T**ext **E**ditor
 
+This file is about using Lute
+For information about configuring Lute, goto config.h
+For information about the source code, see lute.c
+
 ### todo
 
-- horizontal scroll
-- syntax highlighting
-- better/vimish default keymaps
-- all documentation
-- os clipboard integreation
+- the rest of ansi stuff
+- rewrite clip_selection_overlap
+- documentation
 
