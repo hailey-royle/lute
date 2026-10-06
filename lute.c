@@ -2,18 +2,21 @@
 
 ## File Overview
 
+0.   File information
 1.   Includes
-2.   Data types, typedefs, #defines
+2.   #defines, types
 3.   Bar function declarations
 4.   Command function declarations
-5.   config.h
+5.   #include config.h
 6.   global variables
-7.   ganeral utility functions
+7.   general utility functions
 8.   abstract file/clipboard/selection/history data manipulation functions
 9.   command function implmentations
 10.  bar function implmentations
 11.  input validation functions
 12.  main
+
+### Overview
 
 ### Commands
 
@@ -45,8 +48,294 @@
 #include <termios.h>
 #include <unistd.h>
 
-#include "ansi.h"
-#include "key.h"
+#define ansi_background_black "\x1b[40m"
+#define ansi_background_blue "\x1b[44m"
+#define ansi_background_cyan "\x1b[46m"
+#define ansi_background_default "\x1b[49m"
+#define ansi_background_green "\x1b[42m"
+#define ansi_background_magenta "\x1b[45m"
+#define ansi_background_red "\x1b[41m"
+#define ansi_background_rgb( r, g, b ) "\x1b[48;2;" r ";" g ";" b "m"
+#define ansi_background_white "\x1b[47m"
+#define ansi_background_yellow "\x1b[43m"
+#define ansi_blinking_end "\x1b[25m"
+#define ansi_blinking_start "\x1b[5m"
+#define ansi_bold_end "\x1b[22m"
+#define ansi_bold_start "\x1b[1m"
+#define ansi_cursor_hidden "\x1b[?25l"
+#define ansi_cursor_home "\x1b[H"
+#define ansi_cursor_show "\x1b[?25h"
+#define ansi_dim_end "\x1b[22m"
+#define ansi_dim_start "\x1b[2m"
+#define ansi_end_alt_screen "\x1b[?1049l"
+#define ansi_erase_cursor_to_end "\x1b[0J"
+#define ansi_erase_cursor_to_end_line "\x1b[0K"
+#define ansi_erase_cursor_to_start "\x1b[1J"
+#define ansi_erase_cursor_to_start_line "\x1b[1K"
+#define ansi_erase_line "\x1b[2K"
+#define ansi_erase_saved_lines "\x1b[3J"
+#define ansi_erase_screen "\x1b[2J"
+#define ansi_foreground_black "\x1b[30m"
+#define ansi_foreground_blue "\x1b[34m"
+#define ansi_foreground_cyan "\x1b[36m"
+#define ansi_foreground_default "\x1b[39m"
+#define ansi_foreground_green "\x1b[32m"
+#define ansi_foreground_magenta "\x1b[35m"
+#define ansi_foreground_red "\x1b[31m"
+#define ansi_foreground_rgb( r, g, b ) "\x1b[38;2;" r ";" g ";" b "m"
+#define ansi_foreground_white "\x1b[37m"
+#define ansi_foreground_yellow "\x1b[33m"
+#define ansi_inverse_end "\x1b[27m"
+#define ansi_inverse_start "\x1b[7m"
+#define ansi_invisible_end "\x1b[28m"
+#define ansi_invisible_start "\x1b[8m"
+#define ansi_italic_end "\x1b[23m"
+#define ansi_italic_start "\x1b[3m"
+#define ansi_move_column( count ) "\x1b[" count "G"
+#define ansi_move_down( count ) "\x1b[" count "B"
+#define ansi_move_left( count ) "\x1b[" count "D"
+#define ansi_move_line_start_down( count ) "\x1b[" count "F"
+#define ansi_move_line_start_up( count ) "\x1b[" count "E"
+#define ansi_move_line_up_scroll "\x1b M"
+#define ansi_move_rigth( count ) "\x1b[" count "C"
+#define ansi_move_to_line_column( line, column ) "\x1b[" line ";" column "H"
+#define ansi_move_up( count ) "\x1b[" count "A"
+#define ansi_request_cursor_possition "\x1b[6n"
+#define ansi_reset_graphics "\x1b[0m"
+#define ansi_restore_cursor_position "\x1b 8"
+#define ansi_restore_screen "\x1b[?47l"
+#define ansi_save_cursor_position "\x1b 7"
+#define ansi_save_screen "\x1b[?47h"
+#define ansi_start_alt_screen "\x1b[?1049h"
+#define ansi_strikethrough_end "\x1b[29m"
+#define ansi_strikethrough_start "\x1b[9m"
+#define ansi_underline_end "\x1b[24m"
+#define ansi_underline_start "\x1b[4m"
+
+#define key_alt_0 "\x1b0"
+#define key_alt_1 "\x1b1"
+#define key_alt_2 "\x1b2"
+#define key_alt_3 "\x1b3"
+#define key_alt_4 "\x1b4"
+#define key_alt_5 "\x1b5"
+#define key_alt_6 "\x1b6"
+#define key_alt_7 "\x1b7"
+#define key_alt_8 "\x1b8"
+#define key_alt_9 "\x1b9"
+#define key_alt_A "\x1bA"
+#define key_alt_B "\x1bB"
+#define key_alt_C "\x1bC"
+#define key_alt_D "\x1bD"
+#define key_alt_E "\x1bE"
+#define key_alt_F "\x1bF"
+#define key_alt_G "\x1bG"
+#define key_alt_H "\x1bH"
+#define key_alt_I "\x1bI"
+#define key_alt_J "\x1bJ"
+#define key_alt_K "\x1bK"
+#define key_alt_L "\x1bL"
+#define key_alt_M "\x1bM"
+#define key_alt_N "\x1bN"
+#define key_alt_O "\x1bO"
+#define key_alt_P "\x1bP"
+#define key_alt_Q "\x1bQ"
+#define key_alt_R "\x1bR"
+#define key_alt_S "\x1bS"
+#define key_alt_T "\x1bT"
+#define key_alt_U "\x1bU"
+#define key_alt_V "\x1bV"
+#define key_alt_W "\x1bW"
+#define key_alt_X "\x1bX"
+#define key_alt_Y "\x1bY"
+#define key_alt_Z "\x1bZ"
+#define key_alt_a "\x1ba"
+#define key_alt_ampersand "\x1b&"
+#define key_alt_at "\x1b@"
+#define key_alt_b "\x1bb"
+#define key_alt_back_space "\x1b\x7f"
+#define key_alt_backslash "\x1b\\"
+#define key_alt_c "\x1bc"
+#define key_alt_caret "\x1b^"
+#define key_alt_close_bracked "\x1b]"
+#define key_alt_close_parenthesis "\x1b)"
+#define key_alt_closed_curly_bracket "\x1b}"
+#define key_alt_colon "\x1b:"
+#define key_alt_comma "\x1b,"
+#define key_alt_d "\x1bd"
+#define key_alt_dash "\x1b-"
+#define key_alt_delete "\x1b[3;3~"
+#define key_alt_dollar "\x1b$"
+#define key_alt_double_quote "\x1b\""
+#define key_alt_down_arrow "\x1b[1;3B"
+#define key_alt_e "\x1be"
+#define key_alt_end "\x1b[1;3F"
+#define key_alt_enter "\x1b\xa"
+#define key_alt_equals "\x1b="
+#define key_alt_escape "\x1b\x1b"
+#define key_alt_exclamation_point "\x1b!"
+#define key_alt_f "\x1bf"
+#define key_alt_g "\x1bg"
+#define key_alt_greater_then "\x1b>"
+#define key_alt_h "\x1bh"
+#define key_alt_hashtag "\x1b#"
+#define key_alt_home "\x1b[1;3H"
+#define key_alt_i "\x1bi"
+#define key_alt_j "\x1bj"
+#define key_alt_k "\x1bk"
+#define key_alt_l "\x1bl"
+#define key_alt_left_arrow "\x1b[1;3D"
+#define key_alt_less_then "\x1b<"
+#define key_alt_m "\x1bm"
+#define key_alt_n "\x1bn"
+#define key_alt_o "\x1bo"
+#define key_alt_open_bracket "\x1b["
+#define key_alt_open_curly_bracket "\x1b{"
+#define key_alt_open_parenthesis "\x1b("
+#define key_alt_p "\x1bp"
+#define key_alt_page_down "\x1b[6;3~"
+#define key_alt_page_up "\x1b[5;3~"
+#define key_alt_percent "\x1b%"
+#define key_alt_period "\x1b."
+#define key_alt_pipe "\x1b|"
+#define key_alt_plus "\x1b+"
+#define key_alt_q "\x1bq"
+#define key_alt_question_mark "\x1b?"
+#define key_alt_r "\x1br"
+#define key_alt_right_arrow "\x1b[1;3C"
+#define key_alt_s "\x1bs"
+#define key_alt_semi_colon "\x1b;"
+#define key_alt_single_quote "\x1b'"
+#define key_alt_slash "\x1b/"
+#define key_alt_space "\x1b "
+#define key_alt_star "\x1b*"
+#define key_alt_t "\x1bt"
+#define key_alt_tab "\x1b\x9"
+#define key_alt_u "\x1bu"
+#define key_alt_underscore "\x1b_"
+#define key_alt_up_arrow "\x1b[1;3A"
+#define key_alt_v "\x1bv"
+#define key_alt_w "\x1bw"
+#define key_alt_x "\x1bx"
+#define key_alt_y "\x1by"
+#define key_alt_z "\x1bz"
+#define key_backspace "\x7f"
+#define key_control_2 "\x0"
+#define key_control_3 "\x1b"
+#define key_control_4 "\x1c"
+#define key_control_5 "\x1d"
+#define key_control_6 "\x1e"
+#define key_control_7 "\x1f"
+#define key_control_a "\x1"
+#define key_control_alt_3 "\x1b\x1b"
+#define key_control_alt_4 "\x1b\x1c"
+#define key_control_alt_5 "\x1b\x1d"
+#define key_control_alt_6 "\x1b\x1e"
+#define key_control_alt_7 "\x1b\x1f"
+#define key_control_alt_8 "\x1b\x7f"
+#define key_control_alt_backslash "\x1b\x1c"
+#define key_control_alt_backspace "\x1b\x8"
+#define key_control_alt_close_bracket "\x1b\x1d"
+#define key_control_alt_delete "\x1b[3;7~"
+#define key_control_alt_down_arrow "\x1b[1;7B"
+#define key_control_alt_end "\x1b[1;7F"
+#define key_control_alt_home "\x1b[1;7H"
+#define key_control_alt_left_arrow "\x1b[1;7D"
+#define key_control_alt_open_bracket "\x1b\x1b"
+#define key_control_alt_page_down "\x1b[6;7~"
+#define key_control_alt_page_up "\x1b[5;7~"
+#define key_control_alt_right_arrow "\x1b[1;7C"
+#define key_control_alt_space "\x1b\x0"
+#define key_control_alt_underscore "\x1b\x1f"
+#define key_control_alt_up_arrow "\x1b[1;7A"
+#define key_control_b "\x2"
+#define key_control_backslash "\x1c"
+#define key_control_backspace "\x8"
+#define key_control_c "\x3"
+#define key_control_caret "\x1e"
+#define key_control_close_bracket "\x1d"
+#define key_control_d "\x4"
+#define key_control_delete "\x1b[3;5~"
+#define key_control_down_arrow "\x1b[1;5B"
+#define key_control_e "\x5"
+#define key_control_end "\x1b[1;5F"
+#define key_control_f "\x6"
+#define key_control_g "\x7"
+#define key_control_h "\x8"
+#define key_control_home "\x1b[1;5H"
+#define key_control_i "\x9"
+#define key_control_j "\xa"
+#define key_control_k "\xb"
+#define key_control_l "\xc"
+#define key_control_left_arrow "\x1b[1;5D"
+#define key_control_m "\xa"
+#define key_control_n "\xe"
+#define key_control_o "\xf"
+#define key_control_open_bracket "\x1b"
+#define key_control_p "\x10"
+#define key_control_page_down "\x1b[6;5~"
+#define key_control_page_up "\x1b[5;5~"
+#define key_control_q "\x11"
+#define key_control_r "\x12"
+#define key_control_right_arrow "\x1b[1;5C"
+#define key_control_s "\x13"
+#define key_control_shift_alt_delete "\x1b[3;8~"
+#define key_control_shift_alt_down_arrow "\x1b[1;8B"
+#define key_control_shift_alt_end "\x1b[1;8F"
+#define key_control_shift_alt_home "\x1b[1;8H"
+#define key_control_shift_alt_left_arrow "\x1b[1;8D"
+#define key_control_shift_alt_page_down "\x1b[6;8~"
+#define key_control_shift_alt_page_up "\x1b[5;8~"
+#define key_control_shift_alt_right_arrow "\x1b[1;8C"
+#define key_control_shift_alt_up_arrow "\x1b[1;8A"
+#define key_control_shift_delete "\x1b[3;6~"
+#define key_control_shift_down_arrow "\x1b[1;6B"
+#define key_control_shift_end "\x1b[1;6F"
+#define key_control_shift_home "\x1b[1;6H"
+#define key_control_shift_left_arrow "\x1b[1;6D"
+#define key_control_shift_page_down "\x1b[6;6~"
+#define key_control_shift_page_up "\x1b[5;6~"
+#define key_control_shift_right_arrow "\x1b[1;6C"
+#define key_control_shift_up_arrow "\x1b[1;6A"
+#define key_control_space "\x0"
+#define key_control_t "\x14"
+#define key_control_u "\x15"
+#define key_control_underscore "\x1f"
+#define key_control_up_arrow "\x1b[1;5A"
+#define key_control_v "\x16"
+#define key_control_w "\x17"
+#define key_control_x "\x18"
+#define key_control_y "\x19"
+#define key_control_z "\x1a"
+#define key_delete "\x1b[3~"
+#define key_down_arrow "\x1b[B"
+#define key_end "\x1b[F"
+#define key_enter "\xa"
+#define key_escape "\x1b"
+#define key_home "\x1b[H"
+#define key_left_arrow "\x1b[D"
+#define key_page_down "\x1b[6~"
+#define key_page_up "\x1b[5~"
+#define key_right_arrow "\x1b[C"
+#define key_shift_alt_delete "\x1b[3;4~"
+#define key_shift_alt_down_arrow "\x1b[1;4B"
+#define key_shift_alt_end "\x1b[1;4F"
+#define key_shift_alt_home "\x1b[1;4H"
+#define key_shift_alt_left_arrow "\x1b[1;4D"
+#define key_shift_alt_page_down "\x1b[6;4~"
+#define key_shift_alt_page_up "\x1b[5;4~"
+#define key_shift_alt_right_arrow "\x1b[1;4C"
+#define key_shift_alt_up_arrow "\x1b[1;4A"
+#define key_shift_delete "\x1b[3;2~"
+#define key_shift_down_arrow "\x1b[1;2B"
+#define key_shift_end "\x1b[1;2F"
+#define key_shift_home "\x1b[1;2H"
+#define key_shift_left_arrow "\x1b[1;2D"
+#define key_shift_page_down "\x1b[6;2~"
+#define key_shift_page_up "\x1b[5;2~"
+#define key_shift_right_arrow "\x1b[1;2C"
+#define key_shift_up_arrow "\x1b[1;2A"
+#define key_tab "\x9"
+#define key_up_arrow "\x1b[A"
 
 typedef int8_t i8;
 typedef int16_t i16;
@@ -175,12 +464,12 @@ void command_count_0();
 
 #include "config.h"
 
-struct termios cache_termios;
-i8 raw_mode_enabled = 0;
-
+char* file_name = NULL;
 char file_buffer[ max_file_bytes ];
 i64 file_count = 0;
 
+i32 screen_cols = 0;
+i32 screen_rows = 0;
 char frame_buffer[ max_frame_bytes ];
 i64 frame_count = 0;
 
@@ -202,26 +491,24 @@ edit history[ max_edit_count ];
 i64 undo_count = 0;
 i64 redo_count = 0;
 
-char* file_name = NULL;
-
-i32 screen_cols = 0;
-i32 screen_rows = 0;
-
 i8 mode = command_mode;
 i64 command_count = 0;
-
 i8 file_modified = 0;
 char* warning = NULL;
 
-void disable_raw_mode(){
-	if( raw_mode_enabled ){
+struct termios cache_termios;
+i8 terminal_state_modified = 0;
+
+void terminal_reset(){
+/* resets the terminal to its state before calling terminal_state_modified */
+	if( terminal_state_modified ){
 		tcsetattr( STDIN_FILENO, TCSAFLUSH, &cache_termios );
 		write( STDOUT_FILENO, ansi_end_alt_screen ansi_cursor_show, strlen( ansi_end_alt_screen ansi_cursor_show ));
 	}
 }
 
 void assert_failed( char* file, i32 line, const char* func, char* expression ){
-	disable_raw_mode();
+	terminal_reset();
 	fprintf( stderr, "%s%s:%d:%s%s \"%s\"\n", ansi_foreground_red, file, line, func, ansi_foreground_default, expression );
 	fflush( stderr );
 	exit( 1 );
@@ -234,7 +521,7 @@ void assert_failed( char* file, i32 line, const char* func, char* expression ){
 }
 
 void error( char* format, ... ){
-	disable_raw_mode();
+	terminal_reset();
 	fprintf( stderr, "%sError%s ", ansi_foreground_red, ansi_foreground_default );
 	{
 		va_list args;
@@ -245,6 +532,95 @@ void error( char* format, ... ){
 	fprintf( stderr, "\n" );
 	fflush( stderr );
 	exit( 1 );
+}
+
+void terminal_setup(){
+/*
+  Set up the terminal state for the rest of the program.
+  Sets terminal_state_modified to 1 so 'terminal_reset' does not erroneously modify the terminal.
+  Enables most of 'raw mode' as defined by cfmakeraw in man 3 termios.
+  Then start the alt screen and hide the cursor.
+*/
+        i32 failed = tcgetattr( STDIN_FILENO, &cache_termios );
+        if( failed == -1 ){
+		error( "This terminal is not supported. (Unable to enter raw mode)" );
+        }
+        struct termios raw_termios = cache_termios;
+        raw_termios.c_iflag &= ~( IGNBRK | BRKINT | PARMRK | ISTRIP | IXON );
+        raw_termios.c_lflag &= ~( ECHO | ECHONL | ICANON | ISIG | IEXTEN );
+        raw_termios.c_cflag &= ~( CSIZE | PARENB );
+        raw_termios.c_cflag |= CS8;
+        failed = tcsetattr( STDIN_FILENO, TCSAFLUSH, &raw_termios );
+        if( failed == -1 ){
+		error( "This terminal is not supported. (Unable to enter raw mode)" );
+        }
+        write( STDOUT_FILENO, ansi_start_alt_screen ansi_cursor_hidden, strlen( ansi_start_alt_screen ansi_cursor_hidden ));
+	terminal_state_modified = 1;
+}
+
+void terminal_get_dimensions(){
+/*
+  Get the dimensions of the terminal window.
+  TODO: potentialy use the ansi escape sequences for position movement and reporting to remove the need for <sys/ioctl.h>.
+*/
+        struct winsize ws;
+        i32 failed = ioctl( STDOUT_FILENO, TIOCGWINSZ, &ws );
+        if( failed == -1 ){
+		error( "This terminal is not supported. (Unable to get terminal window size)" );
+        }
+        screen_cols = ws.ws_col;
+        screen_rows = ws.ws_row;
+}
+
+void terminal_read_file(){
+/*
+  If the file can be opened and edited, then read the file into file_buffer.
+  If the file does not exist, then create a new file, adding one '\n'.
+  If the last byte is not '\n', then add it.
+  Note: all lines must end in a '\n', and there must be at least one line.
+*/
+	if( access( file_name, F_OK ) == 0 ){
+		i32 fd = open( file_name, O_RDWR | O_CREAT );
+		if( fd < 0 ){
+			error( "The file '%s' could not be opened." );
+		}
+		struct stat sb;
+		if( fstat( fd, &sb ) < 0 ){
+			error( "Could not get file '%s' type." );
+		}
+		if(( sb.st_mode & 0170000 /* S_IFMT */ ) == 0100000 /* S_IFREG */ ){
+			file_count = read( fd, file_buffer, max_file_bytes );
+			if( file_count < 0 ){
+				error( "The file '%s' could not be read.", file_name );
+			}
+			if( file_count == max_file_bytes ){
+				error( "The file '%s' is larger then 'max_file_bytes'.", file_name );
+			}
+		} else {
+			error( "'%s' is not a regular file.", file_name );
+		}
+		close( fd );
+	}
+	if(( file_count == 0 ) || ( file_buffer[ file_count - 1 ] != '\n' )){
+		file_buffer[ file_count ] = '\n';
+		file_count += 1;
+	}
+}
+
+void terminal_write_file(){
+	i32 fd = open( file_name, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH );
+	if( fd < 0 ){
+		error( "The file '%s' could not be opened." );
+	}
+	i64 write_bytes = write( fd, file_buffer, file_count );
+	if( write_bytes < 0 ){
+		error( "The file '%s' could not be written.", file_name );
+	}
+	close( fd );
+}
+
+void terminal_draw_frame(){
+	write( STDOUT_FILENO, frame_buffer, frame_count );
 }
 
 i32 utf8_next_length( char* src ){
@@ -737,26 +1113,20 @@ void clip_selection_overlap(){
 }
 
 void command_quit(){
-	disable_raw_mode();
+	terminal_reset();
 	exit( 1 );
 }
 
 void command_write(){
-	i32 fd = open( file_name, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH );
-	if( fd < 0 ){
-		error( "The file '%s' could not be opened." );
-	}
-	i64 write_bytes = write( fd, file_buffer, file_count );
-	if( write_bytes < 0 ){
-		error( "The file '%s' could not be written.", file_name );
-	}
+	terminal_write_file();
 	file_modified = 0;
-	close( fd );
 }
 
 void command_write_quit(){
-	command_write();
-	command_quit();
+	terminal_write_file();
+	file_modified = 0;
+	terminal_reset();
+	exit( 1 );
 }
 
 void command_edit_mode(){
@@ -1743,14 +2113,12 @@ void bar_search_string(){
 	}
 }
 
-i64 input_validate_next( char* buffer, i64 count, i64* index ){
+i64 input_validate_next( u8* buffer, i64 count, i64* index ){
 /*
   Move foward one utf8 codepoint, or ansi escape sequence.
   If the codepoint is cut in half, return how many bytes of this codepoint are at the end of the buffer.
-  This must handle any input that is valid in any part of the program.
-  TODO: check for all possible ansi escapes.
-  TODO: check for all possible invalid utf8.
-  Currently does not throw out utf16 surrogates, overlong encodings, or codepoints above U+10ffff.
+  This function must handle any input that is valid in any part of the program, further culling should be done outside this function.
+  This does not cull all invalid utf8, it culls all input Lute can not handle.
 */
 	assert( buffer != NULL );
 	assert( index != NULL );
@@ -1758,21 +2126,22 @@ i64 input_validate_next( char* buffer, i64 count, i64* index ){
 	assert( count > 0 );
 	assert( *index >= 0 );
 	i64 clip = 0;
-	if( buffer[ *index ] == 0x1b /* escape */ ){
+	u8 c = buffer[ *index ];
+	if( c == 0x1b /* escape */ ){
 		if( *index + 1 < count ){
-			char c = buffer[ *index + 1 ];
+			u8 c = buffer[ *index + 1 ];
 			if(( *index + 2 < count ) && ( c == '[' )){
-				char c = buffer[ *index + 2 ];
+				u8 c = buffer[ *index + 2 ];
 				if(( c >= 'A' ) && ( c <= 'H' )){
 /* arrows / home / end */
 					*index += 3;
 				} else if(( *index + 3 < count ) && (( c == '3' ) || ( c == '5' ) || ( c == '6' ))){
 /* page up / page down / delete */
-					char c = buffer[ *index + 3 ];
+					u8 c = buffer[ *index + 3 ];
 					if(( *index + 3 < count ) && ( c == ';' )){
-						char c = buffer[ *index + 4 ];
+						u8 c = buffer[ *index + 4 ];
 						if(( *index + 4 < count ) && ( c >= '2') && ( c <= '8' )){
-							char c = buffer[ *index + 5 ];
+							u8 c = buffer[ *index + 5 ];
 							if(( *index + 5 < count ) && ( c == '~' )){
 								*index += 6;
 							} else {
@@ -1788,11 +2157,11 @@ i64 input_validate_next( char* buffer, i64 count, i64* index ){
 					}
 				} else if(( *index + 3 < count ) && ( c == '1' )){
 /* mod arrows / home / end */
-					char c = buffer[ *index + 3 ];
+					u8 c = buffer[ *index + 3 ];
 					if(( *index + 3 < count ) && ( c == ';' )){
-						char c = buffer[ *index + 4 ];
+						u8 c = buffer[ *index + 4 ];
 						if(( *index + 4 < count ) && ( c >= '2') && ( c <= '8' )){
-							char c = buffer[ *index + 5 ];
+							u8 c = buffer[ *index + 5 ];
 							if(( *index + 5 < count ) && ( c >= 'A' ) && ( c <= 'H' )){
 								*index += 6;
 							} else {
@@ -1813,66 +2182,75 @@ i64 input_validate_next( char* buffer, i64 count, i64* index ){
 		} else {
 			*index += 1;
 		}
-	} else if(( buffer[ *index ] & 0x80 ) == 0 ){  /* ascii */
+	} else if( c < 0x80 ){
+/* ascii */
 		*index += 1;
-	} else if(( buffer[ *index ] & 0xe0 ) == 0xc0 ){  /* two byte unicode */
-		*index += 1;
-		if( *index >= count ){
+	} else if(( c >= 0xc0 ) && ( c < 0xe0 )){
+/* two byte unicode */
+		if( *index + 1 < count ){
+			u8 c = buffer[ *index + 1 ];
+			if( c >= 0x80 ){
+				*index += 2;
+			} else {
+				error( "Input invalid utf8" );
+			}
+		} else {
 			clip = 1;
-			goto end;
 		}
-		if(( buffer[ *index ] & 0xc0 ) != 0x80 ){
-			error( "Input invalid utf8" );
-		}
-		*index += 1;
-	} else if(( buffer[ *index ] & 0xf0 ) == 0xe0 ){  /* three byte unicode */
-		*index += 1;
-		if( *index >= count ){
+	} else if(( c >= 0xe0 ) && ( c < 0xf0 )){
+/* three byte unicode */
+		if( *index + 1 < count ){
+			u8 c = buffer[ *index + 1 ];
+			if( c >= 0x80 ){
+				if( *index + 2 < count ){
+					u8 c = buffer[ *index + 2 ];
+					if( c >= 0x80 ){
+						*index += 3;
+					} else {
+						error( "Input invalid utf8" );
+					}
+				} else {
+					clip = 2;
+				}
+			} else {
+				error( "Input invalid utf8" );
+			}
+		} else {
 			clip = 1;
-			goto end;
 		}
-		if(( buffer[ *index ] & 0xc0 ) != 0x80 ){
-			error( "Input invalid utf8" );
-		}
-		*index += 1;
-		if( *index >= count ){
-			clip = 2;
-			goto end;
-		}
-		if(( buffer[ *index ] & 0xc0 ) != 0x80 ){
-			error( "Input invalid utf8" );
-		}
-		*index += 1;
-	} else if(( buffer[ *index ] & 0xf8 ) == 0xf0 ){  /* four byte unicode */
-		*index += 1;
-		if( *index >= count ){
+	} else if(( c >= 0xf0 ) && ( c < 0xf8 )){
+/* four byte unicode */
+		if( *index + 1 < count ){
+			u8 c = buffer[ *index + 1 ];
+			if( c >= 0x80 ){
+				if( *index + 2 < count ){
+					u8 c = buffer[ *index + 2 ];
+					if( c >= 0x80 ){
+						if( *index + 3 < count ){
+							u8 c = buffer[ *index + 3 ];
+							if( c >= 0x80 ){
+								*index += 4;
+							} else {
+								error( "Input invalid utf8" );
+							}
+						} else {
+							clip = 3;
+						}
+					} else {
+						error( "Input invalid utf8" );
+					}
+				} else {
+					clip = 2;
+				}
+			} else {
+				error( "Input invalid utf8" );
+			}
+		} else {
 			clip = 1;
-			goto end;
 		}
-		if(( buffer[ *index ] & 0xc0 ) != 0x80 ){
-			error( "Input invalid utf8" );
-		}
-		*index += 1;
-		if( *index >= count ){
-			clip = 2;
-			goto end;
-		}
-		if(( buffer[ *index ] & 0xc0 ) != 0x80 ){
-			error( "Input invalid utf8" );
-		}
-		*index += 1;
-		if( *index >= count ){
-			clip = 3;
-			goto end;
-		}
-		if(( buffer[ *index ] & 0xc0 ) != 0x80 ){
-			error( "Input invalid utf8" );
-		}
-		*index += 1;
 	} else {
 		error( "Input invalid utf8" );
 	}
-end:
 	return clip;
 }
 
@@ -1897,81 +2275,27 @@ i8 is_ansi_escape( char* buffer, i64 index, i64 bytes ){
 }
 
 i32 main( i32 argc, char* argv[] ){
-	{
-/*
-  Set up the terminal state for the rest of the program.
-  Enables most of 'raw mode' as defined by cfmakeraw in man 3 termios.
-  Then start the alt screen and hide the cursor.
-*/
-	        i32 failed = tcgetattr( STDIN_FILENO, &cache_termios );
-	        if( failed == -1 ){
-			error( "This terminal is not supported. (Unable to enter raw mode)" );
-	        }
-	        struct termios raw_termios = cache_termios;
-	        raw_termios.c_iflag &= ~( IGNBRK | BRKINT | PARMRK | ISTRIP | IXON );
-	        raw_termios.c_lflag &= ~( ECHO | ECHONL | ICANON | ISIG | IEXTEN );
-	        raw_termios.c_cflag &= ~( CSIZE | PARENB );
-	        raw_termios.c_cflag |= CS8;
-	        failed = tcsetattr( STDIN_FILENO, TCSAFLUSH, &raw_termios );
-	        if( failed == -1 ){
-			error( "This terminal is not supported. (Unable to enter raw mode)" );
-	        }
-	        write( STDOUT_FILENO, ansi_start_alt_screen ansi_cursor_hidden, strlen( ansi_start_alt_screen ansi_cursor_hidden ));
-		raw_mode_enabled = 1;
-	}
 	if( argc != 2 ){
 		error( "Usage: lute <filename>" );
 	}
 	file_name = argv[ 1 ];
-	{
-/*
-  If the file can be opened and edited, then read the file into file_buffer.
-  If the file does not exist, then create a new file, adding one '\n'.
-  If the last byte is not '\n', then add it.
-  Note: all lines must end in a '\n', and there must be at least one line.
-  Check to make sure the file is valid utf8.
-*/
-		i64 file_index = 0;
-		if( access( file_name, F_OK ) == 0 ){
-			i32 fd = open( file_name, O_RDWR | O_CREAT );
-			if( fd < 0 ){
-				error( "The file '%s' could not be opened." );
-			}
-			struct stat sb;
-			if( fstat( fd, &sb ) < 0 ){
-				error( "Could not get file '%s' type." );
-			}
-			if(( sb.st_mode & 0170000 /* S_IFMT */ ) == 0100000 /* S_IFREG */ ){
-				file_count = read( fd, file_buffer, max_file_bytes );
-				if( file_count < 0 ){
-					error( "The file '%s' could not be read.", file_name );
-				}
-				if( file_count == max_file_bytes ){
-					error( "The file '%s' is larger then 'max_file_bytes'.", file_name );
-				}
-			} else {
-				error( "'%s' is not a regular file.", file_name );
-			}
-			close( fd );
+	terminal_read_file();
+	i64 file_index = 0;
+	while( file_index < file_count ){
+		i64 start_index = file_index;
+		i64 clip = input_validate_next( (u8*) file_buffer, file_count, &file_index );
+		if( clip != 0 ){
+			error( "File '%s' has an invalid or unsuported utf-8 encoding", file_name );
 		}
-		if(( file_count == 0 ) || ( file_buffer[ file_count - 1 ] != '\n' )){
-			buffer_append( file_buffer, &file_count, "\n", 1 );
+		assert( start_index < file_index );
+		if( is_ascii_unprintable( file_buffer, start_index, file_index - start_index )){
+			error( "File '%s' has an invalid or unsuported utf-8 encoding", file_name );
 		}
-		while( file_index < file_count ){
-			i64 start_index = file_index;
-			i64 clip = input_validate_next( file_buffer, file_count, &file_index );
-			if( clip != 0 ){
-				error( "File '%s' has an invalid or unsuported utf-8 encoding", file_name );
-			}
-			assert( start_index < file_index );
-			if( is_ascii_unprintable( file_buffer, start_index, file_index - start_index )){
-				error( "File '%s' has an invalid or unsuported utf-8 encoding", file_name );
-			}
-			if( is_ansi_escape( file_buffer, start_index, file_index - start_index )){
-				error( "File '%s' has an invalid or unsuported utf-8 encoding", file_name );
-			}
+		if( is_ansi_escape( file_buffer, start_index, file_index - start_index )){
+			error( "File '%s' has an invalid or unsuported utf-8 encoding", file_name );
 		}
 	}
+	terminal_setup();
 	while( 1 ){
 /*
   Main program loop
@@ -1983,19 +2307,7 @@ i32 main( i32 argc, char* argv[] ){
    |    v
    +-< clip overlaped selections
 */
-		{
-/*
-  Get the dimensions of the terminal window.
-  TODO: potentialy use the ansi escape sequences for position movement and reporting to remove the need for <sys/ioctl.h>.
-*/
-		        struct winsize ws;
-		        i32 failed = ioctl( STDOUT_FILENO, TIOCGWINSZ, &ws );
-		        if( failed == -1 ){
-				error( "This terminal is not supported. (Unable to get terminal window size)" );
-		        }
-		        screen_cols = ws.ws_col;
-		        screen_rows = ws.ws_row;
-		}
+		terminal_get_dimensions();
 		{
 /*
   Draw the frame
@@ -2225,7 +2537,7 @@ i32 main( i32 argc, char* argv[] ){
 					i += 1;
 				}
 			}
-			write( STDOUT_FILENO, frame_buffer, frame_count );
+			terminal_draw_frame();
 			frame_count = 0;
 		}
 		{
@@ -2241,7 +2553,7 @@ i32 main( i32 argc, char* argv[] ){
 			while( input_index < input_count ){
 				if( mode == command_mode ){
 					i64 start_index = input_index;
-					input_clip = input_validate_next( input_buffer, input_count, &input_index );
+					input_clip = input_validate_next( (u8*) input_buffer, input_count, &input_index );
 					if( input_clip != 0 ){
 						break;
 					}
@@ -2266,7 +2578,7 @@ i32 main( i32 argc, char* argv[] ){
 					do {
 						assert( start_index + insert_bytes == input_index );
 						i64 loop_index = input_index;
-						input_clip = input_validate_next( input_buffer, input_count, &input_index );
+						input_clip = input_validate_next( (u8*) input_buffer, input_count, &input_index );
 						if( input_clip != 0 ){
 							break;
 						}
@@ -2297,7 +2609,7 @@ i32 main( i32 argc, char* argv[] ){
 					}
 				} else if( mode == search_mode ){
 					i64 start_index = input_index;
-					input_clip = input_validate_next( input_buffer, input_count, &input_index );
+					input_clip = input_validate_next( (u8*) input_buffer, input_count, &input_index );
 					if( input_clip != 0 ){
 						break;
 					}
@@ -2329,7 +2641,7 @@ i32 main( i32 argc, char* argv[] ){
 					}
 				} else if(( mode == find_next_mode ) || ( mode == find_prev_mode ) || ( mode == append_find_next_mode ) || ( mode == append_find_prev_mode )){
 					i64 start_index = input_index;
-					input_clip = input_validate_next( input_buffer, input_count, &input_index );
+					input_clip = input_validate_next( (u8*) input_buffer, input_count, &input_index );
 					if( input_clip != 0 ){
 						break;
 					}
