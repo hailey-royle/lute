@@ -593,7 +593,7 @@ void terminal_read_file(){
 			if( file_count < 0 ){
 				error( "The file '%s' could not be read.", file_name );
 			}
-			if( file_count == max_file_bytes ){
+			if( max_file_bytes <= file_count ){
 				error( "The file '%s' is larger then 'max_file_bytes'.", file_name );
 			}
 		} else {
@@ -602,6 +602,9 @@ void terminal_read_file(){
 		close( fd );
 	}
 	if(( file_count == 0 ) || ( file_buffer[ file_count - 1 ] != '\n' )){
+		if( max_file_bytes <= file_count + 1 ){
+			error( "The file '%s' can not fit in 'max_file_bytes'.", file_name );
+		}
 		file_buffer[ file_count ] = '\n';
 		file_count += 1;
 	}
@@ -2454,7 +2457,7 @@ i32 main( i32 argc, char* argv[] ){
 							}
 							i += 1;
 						}
-						if(( file_buffer[ draw_index ] == '\n' ) || ( file_buffer[ draw_index ] == '\r' )){
+						if( file_buffer[ draw_index ] == '\n' ){
 							frame_append( " ", 1 );
 							if( cursor_end == 2 ){
 								frame_append( primary_cursor_highlight_end, strlen( primary_cursor_highlight_end ));
