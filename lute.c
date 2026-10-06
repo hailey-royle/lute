@@ -1763,28 +1763,47 @@ i64 input_validate_next( char* buffer, i64 count, i64* index ){
 			char c = buffer[ *index + 1 ];
 			if(( *index + 2 < count ) && ( c == '[' )){
 				char c = buffer[ *index + 2 ];
-				if(( c >= 'A' ) && ( c <= 'H' )){ /* arrows / home / end */
+				if(( c >= 'A' ) && ( c <= 'H' )){
+/* arrows / home / end */
 					*index += 3;
-				} else if(( *index + 3 < count ) && (( c == '3' ) || ( c == '5' ) || ( c == '6' ))){ /* page up / page down / delete */
+				} else if(( *index + 3 < count ) && (( c == '3' ) || ( c == '5' ) || ( c == '6' ))){
+/* page up / page down / delete */
 					char c = buffer[ *index + 3 ];
 					if(( *index + 3 < count ) && ( c == ';' )){
 						char c = buffer[ *index + 4 ];
-						if(( *index + 4 < count ) && ( c <= '2') && ( c >= '8' )){
+						if(( *index + 4 < count ) && ( c >= '2') && ( c <= '8' )){
 							char c = buffer[ *index + 5 ];
 							if(( *index + 5 < count ) && ( c == '~' )){
-								index += 6;
+								*index += 6;
 							} else {
-								index += 2;
+								*index += 2;
 							}
 						} else {
-							index += 2;
+							*index += 2;
 						}
 					} else if(( *index + 3 < count ) && ( c == '~' )){
-						index += 4;
+						*index += 4;
 					} else {
-						index += 2;
+						*index += 2;
 					}
-				} else if(( *index + 3 < count ) && ( c == '1' )){ /* TODO */
+				} else if(( *index + 3 < count ) && ( c == '1' )){
+/* mod arrows / home / end */
+					char c = buffer[ *index + 3 ];
+					if(( *index + 3 < count ) && ( c == ';' )){
+						char c = buffer[ *index + 4 ];
+						if(( *index + 4 < count ) && ( c >= '2') && ( c <= '8' )){
+							char c = buffer[ *index + 5 ];
+							if(( *index + 5 < count ) && ( c >= 'A' ) && ( c <= 'H' )){
+								*index += 6;
+							} else {
+								*index += 2;
+							}
+						} else {
+							*index += 2;
+						}
+					} else {
+						*index += 2;
+					}
 				} else {
 					*index += 2;
 				}

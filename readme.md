@@ -9,10 +9,6 @@ For information about the source code, see lute.c
 
 ### todo
 
-- page down bug
-- search last char newline
 - '\r'
-- the rest of ansi stuff
-- rewrite clip_selection_overlap
 - documentation
 
