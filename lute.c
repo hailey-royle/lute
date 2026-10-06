@@ -988,12 +988,15 @@ void selection_paste(){
 void select_cursor_line(){
 	i32 i = 0;
 	while( i < selection_count ){
+		while(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] != '\n' )){
+			selection[ i ].cursor -= 1;
+		}
 		selection[ i ].anchor = selection[ i ].cursor + 1;
 		while(( selection[ i ].anchor < file_count - 1 ) && ( file_buffer[ selection[ i ].anchor - 1 ] != '\n' )){
 			selection[ i ].anchor += 1;
 		}
-		while(( selection[ i ].cursor > 0 ) && ( file_buffer[ selection[ i ].cursor - 1 ] != '\n' )){
-			selection[ i ].cursor -= 1;
+		if( selection[ i ].anchor >= file_count - 1 ){
+			selection[ i ].anchor = file_count - 1;
 		}
 		i += 1;
 	}
@@ -1027,7 +1030,7 @@ void select_inside( char* left, i64 left_count, char* right, i64 right_count ){
 				min_nest += 1;
 			}
 		}
-		while( max < file_count - 1 ){
+		while( max < file_count - 1 - right_count ){
 			max += 1;
 			if( strncmp( &file_buffer[ max ], right, right_count ) == 0 ){
 				if( max_nest <= 0 ){
