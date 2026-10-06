@@ -679,8 +679,8 @@ void selection_split( char* select, i64 select_bytes ){
 	i64 min = selection_min( primary_selection_index );
 	i64 max = selection_max( primary_selection_index );
 	i64 new_selection_count = 0;
-	while( min < max ){
-		if( strncmp( &file_buffer[ min ], select, select_bytes) == 0 ){
+	while( min <= max - select_bytes ){
+		if( strncmp( &file_buffer[ min ], select, select_bytes ) == 0 ){
 			if( max_selection_count <= new_selection_count + 1 ){
 				error( "Selection count overflow, increase max_selection_count" );
 			}
