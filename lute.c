@@ -690,7 +690,8 @@ void selection_split( char* select, i64 select_bytes ){
 		}
 		min += 1;
 	}
-	if( new_selection_count != selection_count ){
+	assert( new_selection_count >= 0 );
+	if(( new_selection_count > 0 ) && ( new_selection_count != selection_count )){
 		selection_count = new_selection_count;
 		set_all_selection_clipboards_to_primary();
 	}
@@ -718,8 +719,8 @@ void clip_selection_overlap(){
 						clipboard_index += selection[ h ].clipboard_count;
 						h += 1;
 					}
-					h = 0;
 					buffer_delete( clipboard_buffer, &clipboard_count, clipboard_index, selection[ j ].clipboard_count );
+					h = j;
 					while( h < selection_count ){
 						selection[ h ] = selection[ h + 1 ];
 						h += 1;
@@ -1759,13 +1760,31 @@ i64 input_validate_next( char* buffer, i64 count, i64* index ){
 	i64 clip = 0;
 	if( buffer[ *index ] == 0x1b /* escape */ ){
 		if( *index + 1 < count ){
-			if( *index + 2 < count ){
-				if(( buffer[ *index + 1 ] == 'O' ) && ( buffer[ *index + 2 ] >= 'P' ) && ( buffer[ *index + 2 ] <= 'S' )){  /* ansi_f1-4 */
+			char c = buffer[ *index + 1 ];
+			if(( *index + 2 < count ) && ( c == '[' )){
+				char c = buffer[ *index + 2 ];
+				if(( c >= 'A' ) && ( c <= 'H' )){ /* arrows / home / end */
 					*index += 3;
-				} else if( buffer[ *index + 1 ] == '[' ){
-					if(( buffer[ *index + 2 ] >= 'A' ) && ( buffer[ *index + 2 ] <= 'H' )){  /* ansi page / arrows / home / end */
-						*index += 3;
-					} /* "\x1b[1"... - "\x1b[6}... */
+				} else if(( *index + 3 < count ) && (( c == '3' ) || ( c == '5' ) || ( c == '6' ))){ /* page up / page down / delete */
+					char c = buffer[ *index + 3 ];
+					if(( *index + 3 < count ) && ( c == ';' )){
+						char c = buffer[ *index + 4 ];
+						if(( *index + 4 < count ) && ( c <= '2') && ( c >= '8' )){
+							char c = buffer[ *index + 5 ];
+							if(( *index + 5 < count ) && ( c == '~' )){
+								index += 6;
+							} else {
+								index += 2;
+							}
+						} else {
+							index += 2;
+						}
+					} else if(( *index + 3 < count ) && ( c == '~' )){
+						index += 4;
+					} else {
+						index += 2;
+					}
+				} else if(( *index + 3 < count ) && ( c == '1' )){ /* TODO */
 				} else {
 					*index += 2;
 				}
