@@ -2328,13 +2328,11 @@ i32 main( i32 argc, char* argv[] ){
 	while( 1 ){
 /*
   Main program loop
-   +-> get window size
+   +-> draw frame
+   |    + draw lines
    |    v
-   |   draw frame
-   |    v
-   |   get and process input
-   |    v
-   +-< clip overlaped selections
+   |   get input
+   +----+ process input
 */
 		terminal_get_dimensions();
 		{
@@ -2408,29 +2406,41 @@ i32 main( i32 argc, char* argv[] ){
 					empty_lines_above -= 1;
 				} else {
 					i64 filled_cols = 0;
-					if( draw_line_numbers == regular_line_numbers || draw_line_numbers == relitive_line_numbers ){
-						filled_cols += 2;
+					i64 line_number_cols = 0;
+					if( draw_line_numbers == regular_line_numbers ){
+						line_number_cols += 2;
 						i64 line_print = 0;
-						i32 i = primary_line_number + screen_rows / 2 - 1;
-						while( i > 0 ){
-							filled_cols += 1;
-							i /= 10;
+						assert( primary_line_number > 0 );
+						i32 j = primary_line_number + screen_rows / 2 - 1;
+						assert( j > 0 );
+						while( j > 0 ){
+							line_number_cols += 1;
+							j /= 10;
 						}
 						char buffer[ 128 ] = { '\0' };
-						if( draw_line_numbers == regular_line_numbers ){
-							line_print = primary_line_number - screen_rows / 2 + i;
-						} else if( draw_line_numbers == relitive_line_numbers ){
-							line_print = ( i == screen_rows / 2 ) ? primary_line_number : abs( (i32)( screen_rows / 2 - i ));
+						line_print = primary_line_number - screen_rows / 2 + i;
+						sprintf( buffer, " %*ld  ", (i32) line_number_cols - 3, line_print );
+						frame_append( buffer, line_number_cols );
+					} else if( draw_line_numbers == relitive_line_numbers ){
+						line_number_cols += 4;
+						i64 line_print = 0;
+						assert( primary_line_number > 0 );
+						i32 j = primary_line_number;
+						while( j >= 100 ){
+							line_number_cols += 1;
+							j /= 10;
 						}
-						sprintf( buffer, " %*ld  ", (i32) filled_cols - 3, line_print );
-						frame_append( buffer, filled_cols );
+						char buffer[ 128 ] = { '\0' };
+						line_print = ( i == screen_rows / 2 ) ? primary_line_number : abs( (i32)( screen_rows / 2 - i ));
+						sprintf( buffer, " %*ld  ", (i32) line_number_cols - 2, line_print );
+						frame_append( buffer, line_number_cols );
 					}
 					if( highlight == 1 ){
 						frame_append( selection_highlight_start, strlen( selection_highlight_start ));
 					} else if( highlight == 2 ){
 						frame_append( primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
 					}
-					while( filled_cols < screen_cols ){
+					while( filled_cols + line_number_cols < screen_cols ){
 						i32 col_bytes = 0;
 						i8 cursor_end = 0;
 						i32 i = 0;
