@@ -1,5 +1,10 @@
-*.swp
-lute
-old
-utf8_test.txt
-sqlite3.c
+*
+
+!lute.c
+!keybind.c
+!config.h
+!readme.md
+!makefile
+!default_screenshot.png
+!test_files
+!test_files/*

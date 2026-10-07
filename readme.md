@@ -18,6 +18,7 @@ Lute's source code configuration design is inspired by suckless.org software.
 - Provides user feedback on every keystroke.
 - Edit with multiple selections.
 - The primary selection is always centered.
+- Full utf8 keybind support.
 
 ![screenshot](./default_screenshot.png)
 
@@ -51,7 +52,7 @@ To compile: `make keybind`
 
 For More Information see config.h and lute.c.
 
-[*] Lowercase moves the selection, Uppercase appends to the selection.
+[*] Lowercase moves the selection, Uppercase appends to the selection.  
 [^] Lowercase acts on the selection, Uppercase acts on the selection's cursor's line.
 
 ```
@@ -64,9 +65,9 @@ For More Information see config.h and lute.c.
 |             |         |         |*WordNext|^Replace |         |^Yank    |         |         |         |         |         |         |         |
 |             |WriteQuit|WriteFile|         |         |SelFileEn|         |Undo     |Insert   |Newline  |Paste    |Inside []|Inside []|         |
 +-------------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+--+------+---------+
-|                |SelFileAl|SplitNewl|         |         |Goto End |         |         |         |         |SelMatchA|Inside ""|                |
+|                |SelFileAl|SplitNewl|         |         |         |         |         |         |         |SelMatchA|Inside ""|                |
 |                |         |         |^Delete  |*FindNext|         |*CharPrev|*LineDown|*Line Up |*CharNext|         |         |                |
-|                |SwapAn/Cu|SplitSear|         |         |Goto     |         |         |         |         |SelCollap|Inside ''|                |
+|                |SwapAn/Cu|SplitSear|         |         |Goto Line|         |         |         |         |SelCollap|Inside ''|                |
 +----------------+---+-----+---+-----+---+-----+---+-----+---+-----+---+-----+---+-----+---+-----+---+-----+---+-----+---+----------------------+
 |                    |         |         |         |         |         |         |         |Indnet   |Deindent |SelMatchP|                      |
 |                    |*LineStar|*Line End|^Change  |*FindPrev|*WordPrev|*ParaDown|*Para Up |         |         |         |                      |

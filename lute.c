@@ -1,5 +1,7 @@
 /*
 
+**Lute.c documentation is incomplete**
+
 ## File Overview
 
 0.   File information
@@ -16,9 +18,20 @@
 11.  input validation functions
 12.  main
 
-### Overview
+### Assumptions
 
-### Commands
+- The file always has at least one character.
+- All lines end in '\n'.
+- The last '\n' can never be selected.
+- Selections are in asending order.
+- Selections can never overlap. (If something might cause selections to overlap, call clip_selection_overlap.)
+- If one selection's cursor is before its anchor, then all others must be too.
+- If one selection's cursor is after its anchor, then all others must be too.
+- If one selection's cursor equals its anchor, then all others must be too.
+- All input uses the utf8 continuation byte encoding. (All utf8 is allowed, Some invalid utf8 is also allowed.)
+- The file can not contain unprintable ascii.
+
+### Command Guidelines
 
 - Commands should not call other commands.
 - Any command that can do work multiple times in a row should use 'command_count'.
@@ -448,6 +461,7 @@ void command_select_inside_paren();
 void command_select_inside_bracket();
 void command_select_inside_curly();
 void command_select_inside_double_quote();
+void command_select_inside_single_quote();
 void command_swap_anchor_cursor();
 void command_select_entire_file();
 void command_count_goto();
@@ -1939,6 +1953,15 @@ void command_select_inside_double_quote(){
 /* Starting at the cursor, move the cursor back until it hits a '"' and move the anchor foward until it hits a '"'. */
 	do {
 		select_inside( "\"", 1, "\"", 1 );
+		command_count -= 1;
+	} while( command_count > 0 );
+	command_count = 0;
+}
+
+void command_select_inside_single_quote(){
+/* Starting at the cursor, move the cursor back until it hits a ''' and move the anchor foward until it hits a '''. */
+	do {
+		select_inside( "'", 1, "'", 1 );
 		command_count -= 1;
 	} while( command_count > 0 );
 	command_count = 0;

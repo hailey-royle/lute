@@ -1,40 +1,79 @@
+/*
+*/
+
+/*
+  Maximum usable memory per catagorie.
+  Can be as large as you have avalible memory.
+  Lute will exit if any max is reached.
+*/
+/* max_file_bytes should be at least as big as the largest possible readable file */
 #define max_file_bytes         0x4000000    /* 64 Mib */
+
+/* max_clipboard_bytes should be at least as big as the largest possible editable file */
 #define max_clipboard_bytes    0x4000000    /* 64 Mib */
+
+/* max_edit_bytes should be at least as big as the largest possible editable file */
 #define max_edit_bytes         0x4000000    /* 64 Mib */
-#define max_frame_bytes        0x10000      /* 64 Kib */
+
+/* max_frame_bytes should be at least as big as your screen resolution / 64 */
+#define max_frame_bytes        0x20000      /* 128 Kib */
+
+/* max_search_bytes should be at least as big as the longest string you would ever search for in the file */
 #define max_search_bytes       0x1000       /* 4 Kib */
+
+
+/*
+  max_input_bytes can be at most 0xff because of Linux pasting weirdenss.
+  (Note: pasting in more then 4 Kib is supported.)
+*/
 #define max_input_bytes        0xfff        /* 4 Kib - 1 */
 
+/* Maximum possible edit history count, per selection. */
 #define max_edit_count        1024 * 1024
+
+/* Maximum possible selection count. */
 #define max_selection_count   1024
 
+/*
+  What will happend at the start/end of a selection/cursor.
+  Full list in lute.c.
+  If you dont know what you are doing, it is recomended to only change the color.
+  (red, green, blue, yellow, magenta, cyan)
+*/
 #define primary_cursor_highlight_start ( ansi_inverse_start )
 #define primary_cursor_highlight_end ( ansi_inverse_end )
-
-#define cursor_highlight_start ( ansi_foreground_cyan ansi_inverse_start )
-#define cursor_highlight_end ( ansi_inverse_end ansi_foreground_default )
-
 #define primary_selection_highlight_start ( ansi_background_red )
 #define primary_selection_highlight_end ( ansi_background_default )
 
+#define cursor_highlight_start ( ansi_foreground_cyan ansi_inverse_start )
+#define cursor_highlight_end ( ansi_inverse_end ansi_foreground_default )
 #define selection_highlight_start ( ansi_background_green )
 #define selection_highlight_end ( ansi_background_default )
 
+/* what is input when pressing the tab key. */
 char* tab_chars = "\t";
+
+/* length of '\t' in the file. */
 i32 tab_width = 8;
 
+/* options for displaying line numbers. */
 #define no_line_numbers 0
 #define regular_line_numbers 1
 #define relitive_line_numbers 2
 
 i8 draw_line_numbers = no_line_numbers;
 
+/* options for displaying the status bar. */
 #define no_bar 0
 #define bottom_bar 1
 #define top_bar 2
 
 i8 bar_possition = top_bar;
 
+/*
+  The order bar items will be drawn.
+  TODO: options for left / center / right alignment.
+*/
 bar_item bar[] = {
 /*	{ function }, */
 	{ bar_file_name },
@@ -47,6 +86,13 @@ bar_item bar[] = {
 	{ bar_search_string },
 };
 
+/*
+  What keys map to what function.
+  All command functions start with 'command_'.
+  See key_*key* #defines in lute.c for more advanced options.
+  Use keybind.c for keybinds not provided in lute.c or unicode keybinds.
+  (Note: some terminals have different codes then the defaults provided in lute.c, when in doubt, use keybind.c)
+*/
 keybind command[] = {
 /*	{ key, function }, */
 	{ "Q", command_quit },
@@ -97,6 +143,8 @@ keybind command[] = {
 	{ "V", command_move_pinned_find_prev },
 	{ "x", command_move_line_end },
 	{ "z", command_move_line_start },
+	{ "x", command_move_pinned_line_end },
+	{ "z", command_move_pinned_line_start },
 	{ "T", command_move_file_end },
 	{ "t", command_move_file_start },
 	{ "(", command_select_inside_paren },
@@ -106,6 +154,7 @@ keybind command[] = {
 	{ "{", command_select_inside_curly },
 	{ "}", command_select_inside_curly },
 	{ "\"", command_select_inside_double_quote },
+	{ "'", command_select_inside_single_quote },
 	{ "a", command_swap_anchor_cursor },
 	{ "A", command_select_entire_file },
 	{ "g", command_count_goto },
