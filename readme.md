@@ -3,17 +3,17 @@
 
 **Lu**ddite **T**ext **E**ditor
 
-*Lute is in early developement, expect bugs*
+*Lute is in early developement, expect bugs.*
 
-This file has information about using Lute.
-For information about configuring Lute, see config.h.
-For information about the source code, see lute.c.
+This file has information about using Lute.  
+For information about configuring Lute, see config.h.  
+For information about the source code, see lute.c.  
 
 Lute is a tui text editor built arround a modal multiple selection model with a vim-like but sane default keymap.
 Lute is inspired by vim and kakoune, thoes who have worked with them or another modal editor (neovim, helix) will find may concepts in lute familiar.
 Lute's source code configuration design is inspired by suckless.org software.
 
-What makes lute special:
+**What makes lute special:**
 - Build from the ground up for user customization via config.h and patches.
 - Provides user feedback on every keystroke.
 - Edit with multiple selections.
@@ -28,8 +28,8 @@ Lute currently only supports Linux, I will start working on Windows support soon
 I dont have a Mac to test Lute with.
 If you are having issues compiling Lute on *any* os, please open an issue.
 
-Before compiling, see 'makefile' and change 'COMPILER' and 'DESTINATION' to fit your system.
-The default compiler is 'gcc' and the default destination is '/usr/local/bin'.
+Before compiling, see `makefile` and change `COMPILER` and `DESTINATION` to fit your system.
+The default compiler is `gcc` and the default destination is `/usr/local/bin`.
 
 To compile: `make build`
 
@@ -54,6 +54,7 @@ For More Information see config.h and lute.c.
 [*] Lowercase moves the selection, Uppercase appends to the selection.
 [^] Lowercase acts on the selection, Uppercase acts on the selection's cursor's line.
 
+```
 +---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+-------------+
 |         |         |         |         |         |         |         |         |         |Inside ()|Inside ()|         |         |             |
 |         |         |         |         |         |         |         |         |         |         |         |         |         |             |
@@ -75,4 +76,5 @@ For More Information see config.h and lute.c.
 |          |         |         |         |                                                 |         |           |         |         |          |
 |          |         |         |         |                                                 |         |           |         |         |          |
 +----------+---------+---------+---------+-------------------------------------------------+---------+-----------+---------+---------+----------+
+```
 
