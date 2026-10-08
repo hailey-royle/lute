@@ -5,12 +5,13 @@
 #include <stdint.h>
 
 typedef int32_t i32;
+typedef uint8_t u8;
 
 #define input_count 16
 
 i32 main( i32 argc, char* argv[] ){
 	struct termios init_termios;
-	char input[ input_count ];
+	u8 input[ input_count ];
 	tcgetattr( STDIN_FILENO, &init_termios );
 	struct termios raw_termios = init_termios;
 	raw_termios.c_iflag &= ~( IGNBRK | BRKINT | PARMRK | ISTRIP | IXON );
