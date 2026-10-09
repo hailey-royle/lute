@@ -2813,7 +2813,7 @@ i32 main( i32 argc, char* argv[] ){
 						} else if( input_buffer[ loop_index ] == 0x1b /* escape */ ){
 							mode = command_mode;
 							break;
-						} else if( input_buffer[ loop_index ] == 0x7f /* delete */ ){
+						} else if(( input_buffer[ loop_index ] == 0x7f /* delete */ ) || ( input_buffer[ loop_index ] == 0x08 /* shift delete */ )){
 							if( insert_bytes > 0 ){
 								selection_insert( &input_buffer[ start_index ], insert_bytes );
 							}
