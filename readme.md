@@ -20,7 +20,7 @@ Lute's source code configuration design is inspired by suckless.org software.
 - The primary selection is always centered.
 - Full utf8 keybind support.
 
-![screenshot](./default_screenshot.png)
+![screenshot](screenshot.png)
 
 
 ### Compiling / Installing

@@ -5,6 +5,6 @@
 !config.h
 !readme.md
 !makefile
-!default_screenshot.png
+!screenshot.png
 !test_files
 !test_files/*

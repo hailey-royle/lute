@@ -61,7 +61,7 @@ i32 tab_width = 8;
 #define regular_line_numbers 1
 #define relitive_line_numbers 2
 
-i8 draw_line_numbers = no_line_numbers;
+i8 draw_line_numbers = relitive_line_numbers;
 
 /* options for displaying the status bar. */
 #define no_bar 0
