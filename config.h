@@ -72,7 +72,7 @@ i8 bar_possition = top_bar;
 
 /*
   The order bar items will be drawn.
-  TODO: options for left / center / right alignment.
+  If 'bar_possition' is 'no_bar', this is ignored.
   The bar starts aligning items to the left.
   After calling 'bar_mode_center', items will be aligned to the center.
   After calling 'bar_mode_right', items will be aligned to the right.
