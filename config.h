@@ -73,17 +73,23 @@ i8 bar_possition = top_bar;
 /*
   The order bar items will be drawn.
   TODO: options for left / center / right alignment.
+  The bar starts aligning items to the left.
+  After calling 'bar_mode_center', items will be aligned to the center.
+  After calling 'bar_mode_right', items will be aligned to the right.
+  'bar_mode_center' must come before 'bar_mode_right', unless there is nothing to be centered, then 'bar_mode_center' can be skipped.
 */
 bar_item bar[] = {
 /*	{ function }, */
-	{ bar_file_name },
 	{ bar_warning },
-	{ bar_mode },
+	{ bar_editor_mode },
+	{ bar_command_count },
+	{ bar_search_string },
+	{ bar_draw_mode_center },
+	{ bar_file_name },
+	{ bar_draw_mode_right },
 	{ bar_selection },
 	{ bar_line_number },
 	{ bar_line_depth },
-	{ bar_command_count },
-	{ bar_search_string },
 };
 
 /*

@@ -372,6 +372,10 @@ typedef double f64;
 #define append_find_next_mode 6
 #define append_find_prev_mode 7
 
+#define bar_draw_left 0
+#define bar_draw_center 1
+#define bar_draw_right 2
+
 typedef struct {
 	i64 cursor;
 	i64 anchor;
@@ -391,12 +395,24 @@ typedef struct {
 } keybind;
 
 typedef struct {
-	void (*function)( void );
+	i32 left_cols;
+	i32 left_bytes;
+	i32 center_cols;
+	i32 center_bytes;
+	i32 right_cols;
+	i32 right_bytes;
+	i8 mode;
+} bar_internal_data;
+
+typedef struct {
+	void (*function)( bar_internal_data* );
 } bar_item;
 
+void bar_draw_mode_center();
+void bar_draw_mode_right();
 void bar_file_name();
 void bar_warning();
-void bar_mode();
+void bar_editor_mode();
 void bar_selection();
 void bar_line_number();
 void bar_line_depth();
@@ -2073,72 +2089,250 @@ void frame_append( char* src, i64 src_count ){
 	buffer_append( frame_buffer, &frame_count, src, src_count );
 }
 
-void bar_file_name(){
-	frame_append( file_name, strlen( file_name ));
-	if( file_modified ){
-		frame_append( "*", 1 );
+void bar_update_alignment( bar_internal_data* bar_internal, i64 bytes, i64 cols ){
+	assert( bar_internal != NULL );
+	assert( bytes >= 0 );
+	assert( cols >= 0 );
+	if( bar_internal->mode == bar_draw_left ){
+		bar_internal->left_bytes += bytes;
+		bar_internal->left_cols += cols;
+	} else if( bar_internal->mode == bar_draw_center ){
+		bar_internal->center_bytes += bytes;
+		bar_internal->center_cols += cols;
+	} else if( bar_internal->mode == bar_draw_right ){
+		bar_internal->right_bytes += bytes;
+		bar_internal->right_cols += cols;
+	} else {
+		error( "invalid bar mode" );
 	}
-	frame_append( "  ", 2 );
 }
 
-void bar_warning(){
+void bar_spacing_pre( bar_internal_data* bar_internal ){
+	if( bar_internal->mode == bar_draw_right ){
+		bar_internal->right_cols += 2;
+		bar_internal->right_bytes += 2;
+		frame_append( "  ", 2 );
+	} else if( bar_internal->mode == bar_draw_center ){
+		bar_internal->center_cols += 1;
+		bar_internal->center_bytes += 1;
+		frame_append( " ", 1 );
+	}
+}
+
+void bar_spacing_post( bar_internal_data* bar_internal ){
+	if( bar_internal->mode == bar_draw_left ){
+		bar_internal->left_cols += 2;
+		bar_internal->left_bytes += 2;
+		frame_append( "  ", 2 );
+	} else if( bar_internal->mode == bar_draw_center ){
+		bar_internal->center_cols += 1;
+		bar_internal->center_bytes += 1;
+		frame_append( " ", 1 );
+	}
+}
+
+void bar_draw_mode_center( bar_internal_data* bar_internal ){
+	assert( bar_internal != NULL );
+	assert( bar_internal->mode == bar_draw_left );
+	bar_internal->mode = bar_draw_center;
+}
+
+void bar_draw_mode_right( bar_internal_data* bar_internal ){
+	assert( bar_internal != NULL );
+	assert( bar_internal->mode < bar_draw_right );
+	bar_internal->mode = bar_draw_right;
+}
+
+void bar_file_name( bar_internal_data* bar_internal ){
+	assert( bar_internal != NULL );
+	bar_spacing_pre( bar_internal );
+	i64 bytes = strlen( file_name );
+	i64 cols = 0;
+	i64 i = 0;
+	while( i < bytes ){
+		if(( file_name[ i ] & 0x80 ) == 0 ){  /* ascii */
+			i += 1;
+		} else if(( file_name[ i ] & 0xe0 ) == 0xc0 ){  /* two byte unicode */
+			i += 2;
+		} else if(( file_name[ i ] & 0xf0 ) == 0xe0 ){  /* three byte unicode */
+			i += 3;
+		} else if(( file_name[ i ] & 0xf8 ) == 0xf0 ){  /* four byte unicode */
+			i += 4;
+		} else {
+			error( "Invalid Encoding" );
+		}
+		cols += 1;
+	}
+	frame_append( file_name, strlen( file_name ));
+	if( file_modified ){
+		bytes += 1;
+		cols += 1;
+		frame_append( "*", 1 );
+	}
+	bar_update_alignment( bar_internal, bytes, cols );
+	bar_spacing_post( bar_internal );
+}
+
+void bar_warning( bar_internal_data* bar_internal ){
+	assert( bar_internal != NULL );
 	if( warning != NULL ){
+		bar_spacing_pre( bar_internal );
 		frame_append( ansi_background_red, strlen( ansi_background_red ));
 		frame_append( warning, strlen( warning ));
 		frame_append( ansi_background_default, strlen( ansi_background_default ));
-		frame_append( "  ", 2 );
+		i64 bytes = strlen( warning ) + strlen( ansi_background_red ) + strlen( ansi_background_default );
+		i64 cols = 0;
+		i64 i = 0;
+		while( i < (i64) strlen( warning )){
+			if(( warning[ i ] & 0x80 ) == 0 ){  /* ascii */
+				i += 1;
+			} else if(( warning[ i ] & 0xe0 ) == 0xc0 ){  /* two byte unicode */
+				i += 2;
+			} else if(( warning[ i ] & 0xf0 ) == 0xe0 ){  /* three byte unicode */
+				i += 3;
+			} else if(( warning[ i ] & 0xf8 ) == 0xf0 ){  /* four byte unicode */
+				i += 4;
+			} else {
+				error( "Invalid Encoding" );
+			}
+			cols += 1;
+		}
+		bar_update_alignment( bar_internal, bytes, cols );
+		bar_spacing_post( bar_internal );
 	}
 }
 
-void bar_mode(){
+void bar_editor_mode( bar_internal_data* bar_internal ){
+	assert( bar_internal != NULL );
+	bar_spacing_pre( bar_internal );
+	i64 count;
 	if( mode == command_mode ){
-		frame_append( "Command  ", 9 );
+		count = 7;
+		frame_append( "Command", count );
 	} else if( mode == edit_mode ){
-		frame_append( "Edit  ", 6 );
+		count = 4;
+		frame_append( "Edit", count );
 	} else if( mode == search_mode ){
-		frame_append( "Search  ", 8 );
+		count = 6;
+		frame_append( "Search", count );
 	} else if( mode == find_next_mode ){
-		frame_append( "Find Next  ", 11 );
+		count = 9;
+		frame_append( "Find Next", count );
 	} else if( mode == find_prev_mode ){
-		frame_append( "Find Prev  ", 11 );
+		count = 9;
+		frame_append( "Find Prev", count );
 	} else if( mode == append_find_next_mode ){
-		frame_append( "Append Find Next  ", 18 );
+		count = 16;
+		frame_append( "Append Find Next", 16 );
 	} else if( mode == append_find_prev_mode ){
-		frame_append( "Append Find Prev  ", 18 );
+		count = 16;
+		frame_append( "Append Find Prev", 16 );
+	} else {
+		error( "Invalid editor mode." );
 	}
+	bar_update_alignment( bar_internal, count, count );
+	bar_spacing_post( bar_internal );
 }
 
-void bar_selection(){
+void bar_selection( bar_internal_data* bar_internal ){
+	assert( bar_internal != NULL );
+	bar_spacing_pre( bar_internal );
 	char buffer[ 128 ];
-	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld  ", primary_selection_index + 1, selection_count );
+	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld", primary_selection_index + 1, selection_count );
 	frame_append( buffer, buffer_count );
+	bar_update_alignment( bar_internal, buffer_count, buffer_count );
+	bar_spacing_post( bar_internal );
 }
 
-void bar_line_number(){
+void bar_line_number( bar_internal_data* bar_internal ){
+	assert( bar_internal != NULL );
+	bar_spacing_pre( bar_internal );
 	char buffer[ 128 ];
-	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld  ", line_number( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_number( file_buffer, file_count, file_count - 1 ));
+	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld", line_number( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_number( file_buffer, file_count, file_count - 1 ));
 	frame_append( buffer, buffer_count );
+	bar_update_alignment( bar_internal, buffer_count, buffer_count );
+	bar_spacing_post( bar_internal );
 }
 
-void bar_line_depth(){
+void bar_line_depth( bar_internal_data* bar_internal ){
+	assert( bar_internal != NULL );
+	bar_spacing_pre( bar_internal );
 	char buffer[ 128 ];
-	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld  ", line_depth( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_length( file_buffer, file_count, selection[ primary_selection_index ].cursor ));
+	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld", line_depth( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_length( file_buffer, file_count, selection[ primary_selection_index ].cursor ));
 	frame_append( buffer, buffer_count );
+	bar_update_alignment( bar_internal, buffer_count, buffer_count );
+	bar_spacing_post( bar_internal );
 }
 
-void bar_command_count(){
+void bar_command_count( bar_internal_data* bar_internal ){
+	assert( bar_internal != NULL );
 	if( command_count > 0 ){
-		char buffer[ 128 ] = { '\0' };
-		i64 buffer_count = snprintf( buffer, 128, "%ld  ", command_count );
+		bar_spacing_pre( bar_internal );
+		char buffer[ 128 ];
+		i64 buffer_count = snprintf( buffer, 128, "%ld", command_count );
 		frame_append( buffer, buffer_count );
+		bar_update_alignment( bar_internal, buffer_count, buffer_count );
+		bar_spacing_post( bar_internal );
 	}
 }
 
-void bar_search_string(){
+void bar_search_string( bar_internal_data* bar_internal ){
+	assert( bar_internal != NULL );
 	if( search_count > 0 ){
-		char buffer[ 128 ] = { '\0' };
-		i64 buffer_count = snprintf( buffer, 128, "\"%.*s\"  ", (i32) search_count, search_buffer );
+		bar_spacing_pre( bar_internal );
+		char buffer[ 128 ];
+		i64 buffer_count = snprintf( buffer, 128, "\"%.*s\"", (i32) search_count, search_buffer );
 		frame_append( buffer, buffer_count );
+		i64 cols = 0;
+		i64 i = 0;
+		while( i < buffer_count ){
+			if(( file_name[ i ] & 0x80 ) == 0 ){  /* ascii */
+				i += 1;
+			} else if(( file_name[ i ] & 0xe0 ) == 0xc0 ){  /* two byte unicode */
+				i += 2;
+			} else if(( file_name[ i ] & 0xf0 ) == 0xe0 ){  /* three byte unicode */
+				i += 3;
+			} else if(( file_name[ i ] & 0xf8 ) == 0xf0 ){  /* four byte unicode */
+				i += 4;
+			} else {
+				error( "Invalid Encoding" );
+			}
+			cols += 1;
+		}
+		bar_update_alignment( bar_internal, buffer_count, cols );
+		bar_spacing_post( bar_internal );
+	}
+}
+
+void bar_draw(){
+	i64 bar_buffer_start = frame_count;
+	bar_internal_data bar_internal = { 0 };
+	i32 i = 0;
+	while( i < (i32)( sizeof( bar ) / sizeof( bar_item ))){
+		bar[ i ].function( &bar_internal );
+		i += 1;
+	}
+	if( bar_internal.left_cols + bar_internal.center_cols + bar_internal.right_cols > screen_cols ){
+		i64 delete_bytes = bar_internal.left_cols + bar_internal.center_cols + bar_internal.right_cols - screen_cols;
+		assert( delete_bytes > 0 );
+		buffer_delete( frame_buffer, &frame_count, bar_buffer_start + screen_cols, delete_bytes );
+	} else if(( bar_internal.right_cols > 0 ) || ( bar_internal.left_cols > 0 )){
+		i64 insert_spaces_left = ( screen_cols / 2 ) + ( screen_cols % 2 ) - ( bar_internal.center_cols / 2 ) - ( bar_internal.center_cols % 2 ) - bar_internal.left_cols;
+		i64 insert_spaces_right = ( screen_cols / 2 ) - ( bar_internal.center_cols / 2 ) - bar_internal.right_cols;
+		assert( insert_spaces_left >= 0 );
+		assert( insert_spaces_right >= 0 );
+		i64 insert_spaces = insert_spaces_left + insert_spaces_right;
+		if( max_frame_bytes <= frame_count + insert_spaces ){
+			error( "Frame buffer overflow, increase max_frame_bytes" );
+		}
+		i64 insert_left_start = bar_buffer_start + bar_internal.left_bytes;
+		memmove( &frame_buffer[ insert_left_start + insert_spaces_left ], &frame_buffer[ insert_left_start ], frame_count - insert_left_start );
+		memset( &frame_buffer[ insert_left_start ], ' ', insert_spaces_left );
+		frame_count += insert_spaces_left;
+		i64 insert_right_start = insert_left_start + insert_spaces_left + bar_internal.center_bytes;
+		memmove( &frame_buffer[ insert_right_start + insert_spaces_right ], &frame_buffer[ insert_right_start ], frame_count - insert_right_start );
+		memset( &frame_buffer[ insert_right_start ], ' ', insert_spaces_right );
+		frame_count += insert_spaces_right;
 	}
 }
 
@@ -2366,11 +2560,7 @@ i32 main( i32 argc, char* argv[] ){
 				}
 			}
 			if( bar_possition == top_bar ){
-				i32 i = 0;
-				while( i < (i32)( sizeof( bar ) / sizeof( bar_item ))){
-					bar[ i ].function();
-					i += 1;
-				}
+				bar_draw();
 				frame_append( "\n", 1 );
 			}
 			i8 highlight = 0;
@@ -2570,11 +2760,7 @@ i32 main( i32 argc, char* argv[] ){
 			}
 			if( bar_possition == bottom_bar ){
 				frame_append( "\n", 1 );
-				i32 i = 0;
-				while( i < (i32)( sizeof( bar ) / sizeof( bar_item ))){
-					bar[ i ].function();
-					i += 1;
-				}
+				bar_draw();
 			}
 			terminal_draw_frame();
 			frame_count = 0;
