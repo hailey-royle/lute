@@ -53,7 +53,7 @@
 /* what is input when pressing the tab key. */
 char* tab_chars = "\t";
 
-/* length of '\t' in the file. */
+/* length of '\t' in the file. (Max 16)*/
 i32 tab_width = 8;
 
 /* options for displaying line numbers. */
