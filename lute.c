@@ -761,22 +761,22 @@ void buffer_delete( char* dst, i64* dst_count, i64 index, i64 count ){
 }
 
 i64 selection_min( i64 index ){
-	assert( idndex >= 0 );
+	assert( index >= 0 );
 	return (selection[ index ].cursor > selection[ index ].anchor) ? selection[ index ].anchor : selection[ index ].cursor;
 }
 
 i64 selection_max( i64 index ){
-	assert( idndex >= 0 );
+	assert( index >= 0 );
 	return (selection[ index ].cursor > selection[ index ].anchor) ? selection[ index ].cursor : selection[ index ].anchor;
 }
 
 i64 selection_bytes( i64 index ){
-	assert( idndex >= 0 );
+	assert( index >= 0 );
 	return (selection[ index ].cursor > selection[ index ].anchor) ? selection[ index ].cursor - selection[ index ].anchor : selection[ index ].anchor - selection[ index ].cursor;
 }
 
 i64 selection_length( i64 index ){
-	assert( idndex >= 0 );
+	assert( index >= 0 );
 	i64 length = 0;
 	i64 i = selection_min( index );
 	while( i < selection_max( index )){
