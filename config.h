@@ -68,11 +68,11 @@ i8 draw_line_numbers = no_line_numbers;
 #define bottom_bar 1
 #define top_bar 2
 
-i8 bar_possition = top_bar;
+i8 bar_position = top_bar;
 
 /*
   The order bar items will be drawn.
-  If 'bar_possition' is 'no_bar', this is ignored.
+  If 'bar_position' is 'no_bar', this is ignored.
   The bar starts aligning items to the left.
   After calling 'bar_mode_center', items will be aligned to the center.
   After calling 'bar_mode_right', items will be aligned to the right.

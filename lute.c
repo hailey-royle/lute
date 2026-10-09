@@ -113,7 +113,7 @@
 #define ansi_move_rigth( count ) "\x1b[" count "C"
 #define ansi_move_to_line_column( line, column ) "\x1b[" line ";" column "H"
 #define ansi_move_up( count ) "\x1b[" count "A"
-#define ansi_request_cursor_possition "\x1b[6n"
+#define ansi_request_cursor_position "\x1b[6n"
 #define ansi_reset_graphics "\x1b[0m"
 #define ansi_restore_cursor_position "\x1b 8"
 #define ansi_restore_screen "\x1b[?47l"
@@ -2559,7 +2559,7 @@ i32 main( i32 argc, char* argv[] ){
 					i += 1;
 				}
 			}
-			if( bar_possition == top_bar ){
+			if( bar_position == top_bar ){
 				bar_draw();
 				frame_append( "\n", 1 );
 			}
@@ -2587,7 +2587,7 @@ i32 main( i32 argc, char* argv[] ){
 				}
 			}
 			i32 i = 0;
-			while( i < (( bar_possition == no_bar ) ? screen_rows : screen_rows - 1 ) ){
+			while( i < (( bar_position == no_bar ) ? screen_rows : screen_rows - 1 ) ){
 				if( i != 0 ){
 					frame_append( "\n", 1 );
 				}
@@ -2758,7 +2758,7 @@ i32 main( i32 argc, char* argv[] ){
 				}
 				i += 1;
 			}
-			if( bar_possition == bottom_bar ){
+			if( bar_position == bottom_bar ){
 				frame_append( "\n", 1 );
 				bar_draw();
 			}
