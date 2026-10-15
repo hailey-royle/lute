@@ -21,7 +21,6 @@
 /* max_search_bytes should be at least as big as the longest string you would ever search for in the file */
 #define max_search_bytes       0x1000       /* 4 Kib */
 
-
 /*
   max_input_bytes can be at most 0xff because of Linux pasting weirdenss.
   (Note: pasting in more then 4 Kib is supported.)

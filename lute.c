@@ -678,6 +678,7 @@ i32 utf8_prev_length( char* src ){
 	i32 length = 1;
 	src -= 1;
 	while(( *src & 0xc0 ) == 0x80 ){  /* while is utf8 continuation byte */
+		assert( length < 4 );
 		length += 1;
 		src -= 1;
 	}
