@@ -2247,8 +2247,8 @@ void bar_editor_mode( bar_internal_data* bar_internal ){
 void bar_selection( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
 	bar_spacing_pre( bar_internal );
-	char buffer[ 128 ];
-	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld", primary_selection_index + 1, selection_count );
+	char buffer[ 1024 ];
+	i64 buffer_count = snprintf( buffer, 1024, "%ld/%ld", primary_selection_index + 1, selection_count );
 	frame_append( buffer, buffer_count );
 	bar_update_alignment( bar_internal, buffer_count, buffer_count );
 	bar_spacing_post( bar_internal );
@@ -2257,8 +2257,8 @@ void bar_selection( bar_internal_data* bar_internal ){
 void bar_line_number( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
 	bar_spacing_pre( bar_internal );
-	char buffer[ 128 ];
-	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld", line_number( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_number( file_buffer, file_count, file_count - 1 ));
+	char buffer[ 1024 ];
+	i64 buffer_count = snprintf( buffer, 1024, "%ld/%ld", line_number( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_number( file_buffer, file_count, file_count - 1 ));
 	frame_append( buffer, buffer_count );
 	bar_update_alignment( bar_internal, buffer_count, buffer_count );
 	bar_spacing_post( bar_internal );
@@ -2267,8 +2267,8 @@ void bar_line_number( bar_internal_data* bar_internal ){
 void bar_line_depth( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
 	bar_spacing_pre( bar_internal );
-	char buffer[ 128 ];
-	i64 buffer_count = snprintf( buffer, 128, "%ld/%ld", line_depth( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_length( file_buffer, file_count, selection[ primary_selection_index ].cursor ));
+	char buffer[ 1024 ];
+	i64 buffer_count = snprintf( buffer, 1024, "%ld/%ld", line_depth( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_length( file_buffer, file_count, selection[ primary_selection_index ].cursor ));
 	frame_append( buffer, buffer_count );
 	bar_update_alignment( bar_internal, buffer_count, buffer_count );
 	bar_spacing_post( bar_internal );
@@ -2278,8 +2278,8 @@ void bar_command_count( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
 	if( command_count > 0 ){
 		bar_spacing_pre( bar_internal );
-		char buffer[ 128 ];
-		i64 buffer_count = snprintf( buffer, 128, "%ld", command_count );
+		char buffer[ 1024 ];
+		i64 buffer_count = snprintf( buffer, 1024, "%ld", command_count );
 		frame_append( buffer, buffer_count );
 		bar_update_alignment( bar_internal, buffer_count, buffer_count );
 		bar_spacing_post( bar_internal );
@@ -2290,19 +2290,30 @@ void bar_search_string( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
 	if( search_count > 0 ){
 		bar_spacing_pre( bar_internal );
-		char buffer[ 128 ];
+		char buffer[ 1024 ];
 		i64 buffer_count = snprintf( buffer, 128, "\"%.*s\"", (i32) search_count, search_buffer );
-		frame_append( buffer, buffer_count );
-		i64 cols = 0;
 		i64 i = 0;
 		while( i < buffer_count ){
-			if(( file_name[ i ] & 0x80 ) == 0 ){  /* ascii */
+			if( buffer[ i ] == '\t' ){
+				buffer[ i ] = ' ';
+				buffer_insert( buffer, &buffer_count, i, "                ", tab_width - 1 );
+				i += tab_width;
+			} else {
 				i += 1;
-			} else if(( file_name[ i ] & 0xe0 ) == 0xc0 ){  /* two byte unicode */
+			}
+		}
+		frame_append( buffer, buffer_count );
+		i64 cols = 0;
+		i = 0;
+		while( i < buffer_count ){
+			assert( buffer[ i ] != '\t' );
+			if(( buffer[ i ] & 0x80 ) == 0 ){  /* ascii */
+				i += 1;
+			} else if(( buffer[ i ] & 0xe0 ) == 0xc0 ){  /* two byte unicode */
 				i += 2;
-			} else if(( file_name[ i ] & 0xf0 ) == 0xe0 ){  /* three byte unicode */
+			} else if(( buffer[ i ] & 0xf0 ) == 0xe0 ){  /* three byte unicode */
 				i += 3;
-			} else if(( file_name[ i ] & 0xf8 ) == 0xf0 ){  /* four byte unicode */
+			} else if(( buffer[ i ] & 0xf8 ) == 0xf0 ){  /* four byte unicode */
 				i += 4;
 			} else {
 				error( "Invalid Encoding" );
@@ -2617,7 +2628,7 @@ i32 main( i32 argc, char* argv[] ){
 							line_number_cols += 1;
 							j /= 10;
 						}
-						char buffer[ 128 ] = { '\0' };
+						char buffer[ 1024 ] = { '\0' };
 						line_print = primary_line_number - screen_rows / 2 + i;
 						sprintf( buffer, " %*ld  ", (i32) line_number_cols - 3, line_print );
 						frame_append( buffer, line_number_cols );
@@ -2630,7 +2641,7 @@ i32 main( i32 argc, char* argv[] ){
 							line_number_cols += 1;
 							j /= 10;
 						}
-						char buffer[ 128 ] = { '\0' };
+						char buffer[ 1024 ] = { '\0' };
 						line_print = ( i == screen_rows / 2 ) ? primary_line_number : abs( (i32)( screen_rows / 2 - i ));
 						sprintf( buffer, " %*ld  ", (i32) line_number_cols - 2, line_print );
 						frame_append( buffer, line_number_cols );
