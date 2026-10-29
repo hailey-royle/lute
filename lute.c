@@ -2796,12 +2796,17 @@ i32 main( i32 argc, char* argv[] ){
 					i64 key_bytes = input_index - start_index;
 					assert( key_bytes > 0 );
 					i32 i = 0;
+					i8 command_found = 0;
 					while( i < (i32)( sizeof( command ) / sizeof( keybind )) ){
 						if(( key_bytes == (i64) strlen( command[ i ].key )) && ( memcmp( &input_buffer[ start_index ], command[ i ].key, key_bytes ) == 0 )){
+							command_found = 1;
 							command[ i ].function();
 							clip_selection_overlap();
 						}
 						i += 1;
+					}
+					if( command_found == 0 ){
+						warning = "Command keybind not found";
 					}
 					if(( key_bytes == 1 ) && ( input_buffer[ start_index ] == 0x1b )){
 						command_count = 0;
