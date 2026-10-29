@@ -1109,8 +1109,10 @@ void selection_split( char* select, i64 select_bytes ){
 			selection[ new_selection_count ].cursor = min;
 			selection[ new_selection_count ].anchor = selection[ new_selection_count ].cursor + select_bytes;
 			new_selection_count += 1;
+			min += select_bytes;
+		} else {
+			min += 1;
 		}
-		min += 1;
 	}
 	assert( new_selection_count >= 0 );
 	if(( new_selection_count > 0 ) && ( new_selection_count != selection_count )){
