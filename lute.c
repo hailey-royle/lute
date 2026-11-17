@@ -2615,7 +2615,7 @@ i32 main( i32 argc, char* argv[] ){
 					frame_append( "\n", 1 );
 				}
 				if( empty_lines_above > 0 || draw_index >= file_count ){
-					frame_append( "~", 1 );
+					frame_append( blank_line, strlen( blank_line ));
 					empty_lines_above -= 1;
 				} else {
 					i64 filled_cols = 0;

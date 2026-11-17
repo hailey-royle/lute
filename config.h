@@ -3,6 +3,7 @@
   Can be as large as you have avalible memory.
   Lute will exit if any max is reached.
 */
+
 /* max_file_bytes should be at least as big as the largest possible readable file */
 #define max_file_bytes         0x4000000    /* 64 Mib */
 
@@ -30,10 +31,12 @@
 /* Maximum possible selection count. */
 #define max_selection_count   1024
 
+
+
 /*
   What will happend at the start/end of a selection/cursor.
-  Full list in lute.c.
-  If you dont know what you are doing, it is recomended to only change the color.
+  Full list of options in lute.c.
+  If you dont know how ansi escape sequences work, it is recomended to only change the color.
   (red, green, blue, yellow, magenta, cyan)
 */
 #define primary_cursor_highlight_start ( ansi_inverse_start )
@@ -46,23 +49,29 @@
 #define selection_highlight_start ( ansi_background_green )
 #define selection_highlight_end ( ansi_background_default )
 
+
+
 /* what is input when pressing the tab key. */
 char* tab_chars = "\t";
 
 /* length of '\t' in the file. (Max 16)*/
 i32 tab_width = 8;
 
+char* blank_line = "||";
+
 /* options for displaying line numbers. */
 #define no_line_numbers 0
 #define regular_line_numbers 1
 #define relitive_line_numbers 2
 
-i8 draw_line_numbers = relitive_line_numbers;
+i8 draw_line_numbers = no_line_numbers;
 
 /* options for displaying the status bar. */
 #define no_bar 0
 #define bottom_bar 1
 #define top_bar 2
+
+
 
 i8 bar_position = top_bar;
 
@@ -87,6 +96,8 @@ bar_item bar[] = {
 	{ bar_line_number },
 	{ bar_line_depth },
 };
+
+
 
 /*
   What keys map to what function.
