@@ -2872,7 +2872,7 @@ i32 main( i32 argc, char* argv[] ){
 					} else if( input_buffer[ start_index ] == 0x1b /* escape */ ){
 						mode = command_mode;
 						search_count = 0;
-					} else if( input_buffer[ start_index ] == 0x7f /* delete */ ){
+					} else if(( input_buffer[ start_index ] == 0x7f /* delete */ ) || ( input_buffer[ start_index ] == 0x08 /* shift delete */ )){
 						if( search_count > 0 ){
 							search_count -= 1;
 						}
