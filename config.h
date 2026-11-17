@@ -1,8 +1,5 @@
 /*
-*/
-
-/*
-  Maximum usable memory per catagorie.
+  Maximum usable memory per catagory.
   Can be as large as you have avalible memory.
   Lute will exit if any max is reached.
 */
