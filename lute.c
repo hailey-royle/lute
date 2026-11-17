@@ -657,6 +657,10 @@ void terminal_draw_frame(){
 	assert( write_bytes == frame_count );
 }
 
+i32 tab_fill_columns( i32 column ){
+	return tab_width - (( column + tab_width ) % tab_width );
+}
+
 i32 utf8_next_length( char* src ){
 	assert( src != NULL );
 	if(( *src & 0x80 ) == 0 ){  /* ascii */
@@ -2297,9 +2301,9 @@ void bar_search_string( bar_internal_data* bar_internal ){
 		i64 i = 0;
 		while( i < buffer_count ){
 			if( buffer[ i ] == '\t' ){
-				buffer[ i ] = ' ';
-				buffer_insert( buffer, &buffer_count, i, "                ", tab_width - 1 );
-				i += tab_width;
+				i32 tab_length = tab_fill_columns( buffer_count );
+				buffer_insert( buffer, &buffer_count, i, "                ", tab_length );
+				i += tab_length;
 			} else {
 				i += 1;
 			}
@@ -2715,7 +2719,7 @@ i32 main( i32 argc, char* argv[] ){
 							}
 							break;
 						} else if( file_buffer[ draw_index ] == '\t' ){
-							i32 tab_cols = tab_width - (( filled_cols + tab_width ) % tab_width );
+							i32 tab_cols = tab_fill_columns( filled_cols );
 							frame_append( "                ", tab_cols );
 							if( cursor_end == 2 ){
 								frame_append( primary_cursor_highlight_end, strlen( primary_cursor_highlight_end ));

@@ -57,7 +57,8 @@ char* tab_chars = "\t";
 /* length of '\t' in the file. (Max 16)*/
 i32 tab_width = 8;
 
-char* blank_line = "||";
+/* what, if anything, is printed on a line before the start or after the end of the file */
+char* blank_line = "";
 
 /* options for displaying line numbers. */
 #define no_line_numbers 0
