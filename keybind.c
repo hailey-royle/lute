@@ -25,7 +25,7 @@ i32 main( i32 argc, char* argv[] ){
 		i32 i = 0;
 		while( i < bytes_read ){
 			if( input[ i ] < 32 || input[ i ] >= 127 ){
-				printf( "\\x%x", input[ i ]);
+				printf( "\\x%0*x", 2, input[ i ]);
 			} else {
 				printf( "%c", input[ i ]);
 			}
