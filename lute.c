@@ -2339,7 +2339,7 @@ void bar_warning( bar_internal_data* bar_internal ){
 void bar_editor_mode( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
 	bar_spacing_pre( bar_internal );
-	i32 count;
+	i32 count = 0;
 	if( mode == command_mode ){
 		count = 7;
 		frame_append( "Command", count );
@@ -2357,10 +2357,10 @@ void bar_editor_mode( bar_internal_data* bar_internal ){
 		frame_append( "Find Prev", count );
 	} else if( mode == append_find_next_mode ){
 		count = 16;
-		frame_append( "Append Find Next", 16 );
+		frame_append( "Append Find Next", count );
 	} else if( mode == append_find_prev_mode ){
 		count = 16;
-		frame_append( "Append Find Prev", 16 );
+		frame_append( "Append Find Prev", count );
 	} else {
 		error( "Invalid editor mode." );
 	}
