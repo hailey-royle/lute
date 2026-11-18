@@ -1056,7 +1056,7 @@ void selection_paste(){
 		}
 		buffer_insert( edit_buffer, &edit_count, edit_index, &clipboard_buffer[ clipboard_index ], selection[ i ].clipboard_count );
 		history[ history_index ].insert_count += selection[ i ].clipboard_count;
-		edit_index += history[ history_index ].delete_count;
+		edit_index += history[ history_index ].insert_count;
 /* selection */
 		selection[ i ].cursor += clipboard_index;
 		selection[ i ].anchor = selection[ i ].cursor + selection[ i ].clipboard_count;
