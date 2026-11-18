@@ -2312,23 +2312,7 @@ void bar_file_name( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
 	bar_spacing_pre( bar_internal );
 	i32 bytes = strlen( file_name );
-	i32 cols = 0;
-	i32 i = 0;
-	while( i < bytes ){
-		if(( file_name[ i ] & 0x80 ) == 0 ){  /* ascii */
-			i += 1;
-		} else if(( file_name[ i ] & 0xe0 ) == 0xc0 ){  /* two byte unicode */
-			i += 2;
-		} else if(( file_name[ i ] & 0xf0 ) == 0xe0 ){  /* three byte unicode */
-			i += 3;
-		} else if(( file_name[ i ] & 0xf8 ) == 0xf0 ){  /* four byte unicode */
-			i += 4;
-		} else {
-			error( "Invalid Encoding" );
-		}
-		cols += 1;
-	}
-	frame_append( file_name, strlen( file_name ));
+	i32 cols = format_print_string( frame_buffer, max_frame_bytes - frame_count, &frame_count, file_name, bytes, screen_cols );
 	if( file_modified ){
 		bytes += 1;
 		cols += 1;
@@ -2342,26 +2326,11 @@ void bar_warning( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
 	if( warning != NULL ){
 		bar_spacing_pre( bar_internal );
+		i32 cols = strlen( warning );
+		i32 bytes = cols + strlen( ansi_background_red ) + strlen( ansi_background_default );
 		frame_append( ansi_background_red, strlen( ansi_background_red ));
-		frame_append( warning, strlen( warning ));
+		frame_append( warning, cols );
 		frame_append( ansi_background_default, strlen( ansi_background_default ));
-		i32 bytes = strlen( warning ) + strlen( ansi_background_red ) + strlen( ansi_background_default );
-		i32 cols = 0;
-		i32 i = 0;
-		while( i < (i32) strlen( warning )){
-			if(( warning[ i ] & 0x80 ) == 0 ){  /* ascii */
-				i += 1;
-			} else if(( warning[ i ] & 0xe0 ) == 0xc0 ){  /* two byte unicode */
-				i += 2;
-			} else if(( warning[ i ] & 0xf0 ) == 0xe0 ){  /* three byte unicode */
-				i += 3;
-			} else if(( warning[ i ] & 0xf8 ) == 0xf0 ){  /* four byte unicode */
-				i += 4;
-			} else {
-				error( "Invalid Encoding" );
-			}
-			cols += 1;
-		}
 		bar_update_alignment( bar_internal, bytes, cols );
 		bar_spacing_post( bar_internal );
 	}
