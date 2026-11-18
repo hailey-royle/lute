@@ -51,13 +51,15 @@
 #define _XOPEN_SOURCE 500 /* snprintf */
 
 #include <fcntl.h>
+#include <poll.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -377,16 +379,16 @@ typedef double f64;
 #define bar_draw_right 2
 
 typedef struct {
-	i64 cursor;
-	i64 anchor;
-	i64 clipboard_count;
+	i32 cursor;
+	i32 anchor;
+	i32 clipboard_count;
 } selection_struct;
 
 typedef struct {
-	i64 index;
-	i64 insert_count;
-	i64 delete_count;
-	i64 selection_index;
+	i32 index;
+	i32 insert_count;
+	i32 delete_count;
+	i32 selection_index;
 } edit;
 
 typedef struct {
@@ -496,33 +498,33 @@ void command_count_0();
 
 char* file_name = NULL;
 char file_buffer[ max_file_bytes ];
-i64 file_count = 0;
+i32 file_count = 0;
 
 i32 screen_cols = 0;
 i32 screen_rows = 0;
 char frame_buffer[ max_frame_bytes ];
-i64 frame_count = 0;
+i32 frame_count = 0;
 
 char input_buffer[ max_input_bytes ];
-i64 input_count = 0;
+i32 input_count = 0;
 
 char search_buffer[ max_search_bytes ];
-i64 search_count = 0;
+i32 search_count = 0;
 
 char clipboard_buffer[ max_clipboard_bytes ];
-i64 clipboard_count = 0;
+i32 clipboard_count = 0;
 selection_struct selection[ max_selection_count ];
-i64 selection_count = 1;  /* first selection is initalized to all zeros */
-i64 primary_selection_index = 0;
+i32 selection_count = 1;  /* first selection is initalized to all zeros */
+i32 primary_selection_index = 0;
 
 char edit_buffer[ max_edit_bytes ];
-i64 edit_count = 0;
+i32 edit_count = 0;
 edit history[ max_edit_count ];
-i64 undo_count = 0;
-i64 redo_count = 0;
+i32 undo_count = 0;
+i32 redo_count = 0;
 
 i8 mode = command_mode;
-i64 command_count = 0;
+i32 command_count = 0;
 i8 file_modified = 0;
 char* warning = NULL;
 
@@ -564,34 +566,9 @@ void error( char* format, ... ){
 	exit( 1 );
 }
 
-void terminal_setup(){
-/*
-  Set up the terminal state for the rest of the program.
-  Sets terminal_state_modified to 1 so 'terminal_reset' does not erroneously modify the terminal.
-  Enables most of 'raw mode' as defined by cfmakeraw in man 3 termios.
-  Then start the alt screen and hide the cursor.
-*/
-        i32 failed = tcgetattr( STDIN_FILENO, &cache_termios );
-        if( failed == -1 ){
-		error( "This terminal is not supported. (Unable to enter raw mode)" );
-        }
-        struct termios raw_termios = cache_termios;
-        raw_termios.c_iflag &= ~( IGNBRK | BRKINT | PARMRK | ISTRIP | IXON );
-        raw_termios.c_lflag &= ~( ECHO | ECHONL | ICANON | ISIG | IEXTEN );
-        raw_termios.c_cflag &= ~( CSIZE | PARENB );
-        raw_termios.c_cflag |= CS8;
-        failed = tcsetattr( STDIN_FILENO, TCSAFLUSH, &raw_termios );
-        if( failed == -1 ){
-		error( "This terminal is not supported. (Unable to enter raw mode)" );
-        }
-        write( STDOUT_FILENO, ansi_start_alt_screen ansi_cursor_hidden, strlen( ansi_start_alt_screen ansi_cursor_hidden ));
-	terminal_state_modified = 1;
-}
-
 void terminal_get_dimensions(){
 /*
   Get the dimensions of the terminal window.
-  TODO: potentialy use the ansi escape sequences for position movement and reporting to remove the need for <sys/ioctl.h>.
 */
         struct winsize ws;
         i32 failed = ioctl( STDOUT_FILENO, TIOCGWINSZ, &ws );
@@ -600,6 +577,44 @@ void terminal_get_dimensions(){
         }
         screen_cols = ws.ws_col;
         screen_rows = ws.ws_row;
+}
+
+void terminal_signal_handler( i32 sig ){
+/*
+  Called when the dimentions of the window change.
+*/
+	assert( sig == SIGWINCH );
+	terminal_get_dimensions();
+}
+
+void terminal_setup(){
+/*
+  Set up the terminal state for the rest of the program.
+  Sets terminal_state_modified to 1 so 'terminal_reset' does not erroneously modify the terminal.
+  Enables most of 'raw mode' as defined by cfmakeraw in man 3 termios.
+  Then start the alt screen and hide the cursor.
+*/
+	struct sigaction sigwinch = { 0 };
+	sigwinch.sa_handler = terminal_signal_handler;
+	i32 err = sigaction( SIGWINCH, &sigwinch, NULL );
+	if( err != 0 ){
+		error( "This terminal is not supported. (Unable to set window resize signal handler)" );
+	}
+        err = tcgetattr( STDIN_FILENO, &cache_termios );
+	if( err != 0 ){
+		error( "This terminal is not supported. (Unable to enter raw mode)" );
+        }
+        struct termios raw_termios = cache_termios;
+        raw_termios.c_iflag &= ~( IGNBRK | BRKINT | PARMRK | ISTRIP | IXON );
+        raw_termios.c_lflag &= ~( ECHO | ECHONL | ICANON | ISIG | IEXTEN );
+        raw_termios.c_cflag &= ~( CSIZE | PARENB );
+        raw_termios.c_cflag |= CS8;
+        err = tcsetattr( STDIN_FILENO, TCSAFLUSH, &raw_termios );
+	if( err != 0 ){
+		error( "This terminal is not supported. (Unable to enter raw mode)" );
+        }
+        write( STDOUT_FILENO, ansi_start_alt_screen ansi_cursor_hidden, strlen( ansi_start_alt_screen ansi_cursor_hidden ));
+	terminal_state_modified = 1;
 }
 
 void terminal_read_file(){
@@ -652,6 +667,16 @@ void terminal_write_file(){
 	close( fd );
 }
 
+void terminal_get_input(){
+	assert( input_count == 0 );
+	struct pollfd pfd = { .fd = STDIN_FILENO, .events = POLLIN, .revents = POLLIN };
+	do {
+		input_count += read( STDIN_FILENO, &input_buffer[ input_count ], max_input_bytes );  /* will block until input */
+		i32 error = poll( &pfd, 1, 2 );
+		assert( error >= 0 );
+	} while( pfd.revents & POLLIN );
+}
+
 void terminal_draw_frame(){
 	i64 write_bytes = write( STDOUT_FILENO, frame_buffer, frame_count );
 	assert( write_bytes == frame_count );
@@ -661,41 +686,60 @@ i32 tab_fill_columns( i32 column ){
 	return tab_width - (( column + tab_width ) % tab_width );
 }
 
-i32 utf8_next_length( char* src ){
+i32 utf8_next_length( char* src, i32 count, i32 index ){
 	assert( src != NULL );
-	if(( *src & 0x80 ) == 0 ){  /* ascii */
-		return 1;
-	} else if(( *src & 0xe0 ) == 0xc0 ){  /* two byte unicode */
-		return 2;
-	} else if(( *src & 0xf0 ) == 0xe0 ){  /* three byte unicode */
-		return 3;
-	} else if(( *src & 0xf8 ) == 0xf0 ){  /* four byte unicode */
-		return 4;
-	} else {
-		error( "Invalid Encoding" );
+	assert( count > index );
+	if( count == index + 1 ){
 		return 0;
 	}
-}
-
-i32 utf8_prev_length( char* src ){
-	assert( src != NULL );
-	i32 length = 1;
-	src -= 1;
-	while(( *src & 0xc0 ) == 0x80 ){  /* while is utf8 continuation byte */
-		assert( length < 4 );
-		length += 1;
-		src -= 1;
+	if( (u8) src[ index ] <= 127 ){
+		return 1;
+	} else if( count > index + 1 && ( src[ index ] & 0xe0 ) == 0xc0 && ( src[ index + 1 ] & 0xc0 ) == 0x80 ){
+		return 2;
+	} else if( count > index + 2 && ( src[ index ] & 0xf0 ) == 0xe0 && ( src[ index + 1 ] & 0xc0 ) == 0x80 && ( src[ index + 2 ] & 0xc0 ) == 0x80 ){
+		return 3;
+	} else if( count > index + 3 && ( src[ index ] & 0xf8 ) == 0xf0 && ( src[ index + 1 ] & 0xc0 ) == 0x80 && ( src[ index + 2 ] & 0xc0 ) == 0x80 && ( src[ index + 3 ] & 0xc0 ) == 0x80 ){
+		return 4;
+	} else {
+		return 1;
 	}
-	assert( length < 5 );
-	return length;
 }
 
-i64 line_number( char* buffer, i64 buffer_count, i64 index ){
+i32 utf8_prev_length( char* src, i32 count, i32 index ){
+	assert( src != NULL );
+	assert( count > index );
+	if( index == 0 ){
+		return 0;
+	}
+	index -= 1;
+	if( (u8) src[ index ] <= 127 || ( (u8) src[ index ] & 0xc0 ) != 0x80 ){
+		return 1;
+	}
+	index -= 1;
+	if(( index >= 0 ) && ((u8) src[ index ] & 0xe0 ) == 0xc0 ){
+		return 2;
+	} else if(( (u8) src[ index ] & 0xc0 ) != 0x80 ){
+		return 1;
+	}
+	index -= 1;
+	if(( index >= 0 ) && ((u8) src[ index ] & 0xf0 ) == 0xe0 ){
+		return 3;
+	} else if(( (u8) src[ index ] & 0xc0 ) != 0x80 ){
+		return 1;
+	}
+	index -= 1;
+	if(( index >= 0 ) && ((u8) src[ index ] & 0xf8 ) == 0xf0 ){
+		return 4;
+	}
+	return 1;
+}
+
+i32 line_number( char* buffer, i32 buffer_count, i32 index ){
 	assert( buffer != NULL );
 	assert( buffer_count >= 0 );
 	assert( index >= 0 );
 	assert( buffer_count > index );
-	i64 line = 1;
+	i32 line = 1;
 	i32 i = 0;
 	while( i < index ){
 		if( buffer[ i ] == '\n' ){
@@ -706,20 +750,20 @@ i64 line_number( char* buffer, i64 buffer_count, i64 index ){
 	return line;
 }
 
-i64 line_depth( char* buffer, i64 buffer_count, i64 index ){
+i32 line_depth( char* buffer, i32 buffer_count, i32 index ){
 	assert( buffer != NULL );
 	assert( buffer_count >= 0 );
 	assert( index >= 0 );
 	assert( buffer_count > index );
-	i64 depth = 1;
+	i32 depth = 1;
 	while( index > 0 && buffer[ index - 1 ] != '\n' ){
-		index -= utf8_prev_length( &buffer[ index ] );
+		index -= utf8_prev_length( buffer, buffer_count, index );
 		depth += 1;
 	}
 	return depth;
 }
 
-i64 line_length( char* buffer, i64 buffer_count, i64 index ){
+i32 line_length( char* buffer, i32 buffer_count, i32 index ){
 	assert( buffer != NULL );
 	assert( buffer_count >= 0 );
 	assert( index >= 0 );
@@ -727,15 +771,15 @@ i64 line_length( char* buffer, i64 buffer_count, i64 index ){
 	while(( index > 0 ) && ( buffer[ index - 1 ] != '\n' )){
 		index -= 1;
 	}
-	i64 length = 1;
+	i32 length = 1;
 	while(( index < file_count - 1 ) && ( buffer[ index ] != '\n' )){
-		index += utf8_next_length( &buffer[ index ] );
+		index += utf8_next_length( buffer, buffer_count, index );
 		length += 1;
 	}
 	return length;
 }
 
-void buffer_append( char* dst, i64* dst_count, char* src, i64 src_count ){
+void buffer_append( char* dst, i32* dst_count, char* src, i32 src_count ){
 	assert( dst != NULL );
 	assert( *dst_count >= 0 );
 	assert( src != NULL );
@@ -744,7 +788,7 @@ void buffer_append( char* dst, i64* dst_count, char* src, i64 src_count ){
 	*dst_count += src_count;
 }
 
-void buffer_insert( char* dst, i64* dst_count, i64 index, char* src, i64 src_count ){
+void buffer_insert( char* dst, i32* dst_count, i32 index, char* src, i32 src_count ){
 	assert( dst != NULL );
 	assert( *dst_count >= 0 );
 	assert( index >= 0 );
@@ -755,7 +799,7 @@ void buffer_insert( char* dst, i64* dst_count, i64 index, char* src, i64 src_cou
 	*dst_count += src_count;
 }
 
-void buffer_delete( char* dst, i64* dst_count, i64 index, i64 count ){
+void buffer_delete( char* dst, i32* dst_count, i32 index, i32 count ){
 	assert( dst != NULL );
 	assert( *dst_count >= 0 );
 	assert( index >= 0 );
@@ -765,28 +809,28 @@ void buffer_delete( char* dst, i64* dst_count, i64 index, i64 count ){
 	*dst_count -= count;
 }
 
-i64 selection_min( i64 index ){
+i32 selection_min( i32 index ){
 	assert( index >= 0 );
 	return (selection[ index ].cursor > selection[ index ].anchor) ? selection[ index ].anchor : selection[ index ].cursor;
 }
 
-i64 selection_max( i64 index ){
+i32 selection_max( i32 index ){
 	assert( index >= 0 );
 	return (selection[ index ].cursor > selection[ index ].anchor) ? selection[ index ].cursor : selection[ index ].anchor;
 }
 
-i64 selection_bytes( i64 index ){
+i32 selection_bytes( i32 index ){
 	assert( index >= 0 );
 	return (selection[ index ].cursor > selection[ index ].anchor) ? selection[ index ].cursor - selection[ index ].anchor : selection[ index ].anchor - selection[ index ].cursor;
 }
 
-i64 selection_length( i64 index ){
+i32 selection_length( i32 index ){
 	assert( index >= 0 );
-	i64 length = 0;
-	i64 i = selection_min( index );
+	i32 length = 0;
+	i32 i = selection_min( index );
 	while( i < selection_max( index )){
 		length += 1;
-		i += utf8_next_length( &file_buffer[ i ]);
+		i += utf8_next_length( file_buffer, file_count, i );
 	}
 	return length;
 }
@@ -800,7 +844,7 @@ void delete_all_non_primary_selections(){
 	}
 	if( primary_selection_index != 0 ){
 		i32 i = 0;
-		i64 clipboard_index = 0;
+		i32 clipboard_index = 0;
 		while( i < primary_selection_index ){
 			clipboard_index += selection[ i ].clipboard_count;
 			i += 1;
@@ -816,7 +860,7 @@ void delete_all_non_primary_selections(){
 void set_all_selection_clipboards_to_primary(){
 	if( primary_selection_index != 0 ){
 		i32 i = 0;
-		i64 clipboard_index = 0;
+		i32 clipboard_index = 0;
 		while( i < primary_selection_index ){
 			clipboard_index += selection[ i ].clipboard_count;
 			i += 1;
@@ -853,22 +897,22 @@ void new_undo(){
 	}
 }
 
-void selection_insert( char* insert, i64 insert_bytes ){
+void selection_insert( char* insert, i32 insert_bytes ){
 	assert( insert != NULL );
 	assert( insert_bytes > 0 );
 	file_modified = 1;
-	i64 edit_index = 0;
+	i32 edit_index = 0;
 	i32 i = 0;
 	while( i < undo_count - selection_count ){
 		edit_index += history[ i ].insert_count;
 		edit_index += history[ i ].delete_count;
 		i += 1;
 	}
-	i64 clipboard_index = 0;
+	i32 clipboard_index = 0;
 	i = 0;
 	while( i < selection_count ){
 /* edit history */
-		i64 history_index = undo_count - selection_count + i;
+		i32 history_index = undo_count - selection_count + i;
 		if( max_edit_bytes <= edit_count + insert_bytes ){
 			error( "Edit buffer overflow, increase max_edit_bytes" );
 		}
@@ -897,8 +941,8 @@ void selection_insert( char* insert, i64 insert_bytes ){
 
 void selection_delete(){
 	file_modified = 1;
-	i64 total_deleted = 0;
-	i64 edit_index = 0;
+	i32 total_deleted = 0;
+	i32 edit_index = 0;
 	i32 i = 0;
 	while( i < undo_count - selection_count ){
 		edit_index += history[ i ].insert_count;
@@ -907,11 +951,11 @@ void selection_delete(){
 	}
 	i = 0;
 	while( i < selection_count ){
-		i64 delete_bytes = selection_bytes( i );
-		i64 selection_delete_index = selection_min( i ) - total_deleted;
+		i32 delete_bytes = selection_bytes( i );
+		i32 selection_delete_index = selection_min( i ) - total_deleted;
 		total_deleted += delete_bytes;
 /* edit history */
-		i64 history_index = undo_count - selection_count + i;
+		i32 history_index = undo_count - selection_count + i;
 		assert( i == history[ history_index ].selection_index );
 		edit_index += history[ history_index ].insert_count;
 		if( max_edit_bytes <= edit_count + delete_bytes ){
@@ -931,22 +975,22 @@ void selection_delete(){
 
 void selection_delete_backspace(){
 	file_modified = 1;
-	i64 total_deleted = 0;
-	i64 edit_index = 0;
+	i32 total_deleted = 0;
+	i32 edit_index = 0;
 	i32 i = 0;
 	while( i < undo_count - selection_count ){
 		edit_index += history[ i ].insert_count;
 		edit_index += history[ i ].delete_count;
 		i += 1;
 	}
-	i64 clipboard_index = 0;
+	i32 clipboard_index = 0;
 	i = 0;
 	while( i < selection_count ){
 		if( selection[ i ].cursor > 0 ){
-			i64 delete_bytes = utf8_prev_length( &file_buffer[ selection[ i ].cursor - total_deleted ]); 
+			i32 delete_bytes = utf8_prev_length( file_buffer, file_count, selection[ i ].cursor - total_deleted );
 			total_deleted += delete_bytes;
 /* edit history */
-			i64 history_index = undo_count - selection_count + i;
+			i32 history_index = undo_count - selection_count + i;
 			if( history[ history_index ].insert_count >= delete_bytes ){
 				history[ history_index ].insert_count -= delete_bytes;
 				buffer_delete( edit_buffer, &edit_count, edit_index + history[ history_index ].insert_count, delete_bytes );
@@ -993,18 +1037,18 @@ void selection_copy(){
 
 void selection_paste(){
 	file_modified = 1;
-	i64 edit_index = 0;
+	i32 edit_index = 0;
 	i32 i = 0;
 	while( i < undo_count - selection_count ){
 		edit_index += history[ i ].insert_count;
 		edit_index += history[ i ].delete_count;
 		i += 1;
 	}
-	i64 clipboard_index = 0;
+	i32 clipboard_index = 0;
 	i = 0;
 	while( i < selection_count ){
 /* history */
-		i64 history_index = undo_count - selection_count + i;
+		i32 history_index = undo_count - selection_count + i;
 		assert( i == history[ history_index ].selection_index );
 		edit_index += history[ history_index ].insert_count;
 		if( max_edit_bytes <= edit_count + selection[ i ].clipboard_count ){
@@ -1042,19 +1086,19 @@ void select_cursor_line(){
 	}
 }
 
-void select_inside( char* left, i64 left_count, char* right, i64 right_count ){
+void select_inside( char* left, i32 left_count, char* right, i32 right_count ){
 	assert( left != NULL );
 	assert( right != NULL );
 	assert( left_count > 0 );
 	assert( right_count > 0 );
 	i32 i = 0;
 	while( i < selection_count ){
-		i64 min = selection[ i ].cursor;
-		i64 max = selection[ i ].cursor;
-		i64 min_nest = ( strncmp( &file_buffer[ min ], right, right_count ) == 0 ) ? 1 : 0;
-		i64 max_nest = ( strncmp( &file_buffer[ max ], left, left_count ) == 0 ) ? 1 : 0;
+		i32 min = selection[ i ].cursor;
+		i32 max = selection[ i ].cursor;
+		i32 min_nest = ( strncmp( &file_buffer[ min ], right, right_count ) == 0 ) ? 1 : 0;
+		i32 max_nest = ( strncmp( &file_buffer[ max ], left, left_count ) == 0 ) ? 1 : 0;
 		if(( selection[ i ].cursor > 0 ) && 
-		   ( strncmp( &file_buffer[ selection[ i ].cursor - utf8_prev_length( &file_buffer[ selection[ i ].cursor ])], left, left_count ) == 0 ) && 
+		   ( strncmp( &file_buffer[ selection[ i ].cursor - utf8_prev_length( file_buffer, file_count, selection[ i ].cursor )], left, left_count ) == 0 ) &&
 		   ( selection[ i ].anchor < file_count - 1 ) && 
 		   ( strncmp( &file_buffer[ selection[ i ].anchor ], right, right_count ) == 0 )){
 			min_nest += 1;
@@ -1095,16 +1139,16 @@ void select_inside( char* left, i64 left_count, char* right, i64 right_count ){
 	}
 }
 
-void selection_split( char* select, i64 select_bytes ){
+void selection_split( char* select, i32 select_bytes ){
 	assert( select != NULL );
 	assert( select_bytes >= 0 );
 	if( select_bytes == 0 ){
 		return;
 	}
 	delete_all_non_primary_selections();
-	i64 min = selection_min( primary_selection_index );
-	i64 max = selection_max( primary_selection_index );
-	i64 new_selection_count = 0;
+	i32 min = selection_min( primary_selection_index );
+	i32 max = selection_max( primary_selection_index );
+	i32 new_selection_count = 0;
 	while( min <= max - select_bytes ){
 		if( strncmp( &file_buffer[ min ], select, select_bytes ) == 0 ){
 			if( max_selection_count <= new_selection_count + 1 ){
@@ -1128,8 +1172,8 @@ void selection_split( char* select, i64 select_bytes ){
 void clip_selection_overlap(){
 	i32 i = 0;
 	while( i < selection_count ){
-		i64 selection_min = ( selection[ i ].cursor < selection[ i ].anchor ) ? selection[ i ].cursor : selection[ i ].anchor;
-		i64 selection_max = ( selection[ i ].cursor > selection[ i ].anchor ) ? selection[ i ].cursor : selection[ i ].anchor;
+		i32 selection_min = ( selection[ i ].cursor < selection[ i ].anchor ) ? selection[ i ].cursor : selection[ i ].anchor;
+		i32 selection_max = ( selection[ i ].cursor > selection[ i ].anchor ) ? selection[ i ].cursor : selection[ i ].anchor;
 		i32 j = selection_count - 1;
 		while( j >= 0 ){
 			if( i != j ){
@@ -1141,7 +1185,7 @@ void clip_selection_overlap(){
 					} else if( j == primary_selection_index ){
 						primary_selection_index = ( i < j ) ? i : j;
 					}
-					i64 clipboard_index = 0;
+					i32 clipboard_index = 0;
 					i32 h = 0;
 					while( h < j ){
 						clipboard_index += selection[ h ].clipboard_count;
@@ -1247,12 +1291,12 @@ void command_undo(){
 		return;
 	}
 	file_modified = 1;
-	i64 new_selection_count = history[ undo_count - 1 ].selection_index + 1;
+	i32 new_selection_count = history[ undo_count - 1 ].selection_index + 1;
 	assert( new_selection_count > 0 );
 	undo_count -= new_selection_count;
 	redo_count += new_selection_count;
 	assert( undo_count >= 0 );
-	i64 edit_index = 0;
+	i32 edit_index = 0;
 	i32 i = 0;
 	while( i < undo_count ){
 		edit_index += history[ i ].insert_count;
@@ -1261,7 +1305,7 @@ void command_undo(){
 	}
 	i = 0;
 	while( i < new_selection_count ){
-		i64 history_index = undo_count + i;
+		i32 history_index = undo_count + i;
 		buffer_delete( file_buffer, &file_count, history[ history_index ].index, history[ history_index ].insert_count );
 		edit_index += history[ history_index ].insert_count;
 		if( max_edit_bytes <= edit_count + history[ history_index ].delete_count ){
@@ -1285,21 +1329,21 @@ void command_redo(){
 		return;
 	}
 	file_modified = 1;
-	i64 new_selection_count = 0;
+	i32 new_selection_count = 0;
 	while( new_selection_count == history[ undo_count + new_selection_count ].selection_index ){
 		new_selection_count += 1;
 	}
-	i64 edit_index = 0;
+	i32 edit_index = 0;
 	i32 i = 0;
 	while( i < undo_count ){
 		edit_index += history[ i ].insert_count;
 		edit_index += history[ i ].delete_count;
 		i += 1;
 	}
-	i64 file_edit_offset = 0;
+	i32 file_edit_offset = 0;
 	i = 0;
 	while( i < new_selection_count ){
-		i64 history_index = undo_count + i;
+		i32 history_index = undo_count + i;
 		buffer_delete( file_buffer, &file_count, history[ history_index ].index + file_edit_offset, history[ history_index ].delete_count );
 		if( max_edit_bytes <= edit_count + history[ history_index ].delete_count ){
 			error( "File buffer overflow, increase max_file_bytes" );
@@ -1411,13 +1455,13 @@ void command_search_input(){
 }
 
 void command_search_next_primary(){
-	i64 search_bytes = selection_bytes( primary_selection_index );
-	i64 index = selection_max( selection_count - 1 );
+	i32 search_bytes = selection_bytes( primary_selection_index );
+	i32 index = selection_max( selection_count - 1 );
 	assert( search_bytes >= 0 );
 	if( search_bytes == 0 ){
 		return;
 	}
-	i64 clipboard_index = 0;
+	i32 clipboard_index = 0;
 	i32 i = 0;
 	while( i < primary_selection_index ){
 		clipboard_index += selection[ i ].clipboard_count;
@@ -1448,13 +1492,13 @@ void command_search_next_primary(){
 }
 
 void command_search_prev_primary(){
-	i64 search_bytes = selection_bytes( primary_selection_index );
-	i64 index = selection_min( 0 ) - search_bytes;
+	i32 search_bytes = selection_bytes( primary_selection_index );
+	i32 index = selection_min( 0 ) - search_bytes;
 	assert( search_bytes >= 0 );
 	if( search_bytes == 0 ){
 		return;
 	}
-	i64 clipboard_index = 0;
+	i32 clipboard_index = 0;
 	i32 i = 0;
 	while( i < primary_selection_index ){
 		clipboard_index += selection[ i ].clipboard_count;
@@ -1492,15 +1536,15 @@ void command_search_prev_primary(){
 
 void command_search_file_primary(){
 	delete_all_non_primary_selections();
-	i64 search_bytes = selection_bytes( primary_selection_index );
-	i64 primary_index = selection_min( primary_selection_index );
+	i32 search_bytes = selection_bytes( primary_selection_index );
+	i32 primary_index = selection_min( primary_selection_index );
 	char* search = &file_buffer[ primary_index ];
 	assert( search_bytes >= 0 );
 	if( search_bytes == 0 ){
 		return;
 	}
 	selection_count = 0;
-	i64 index = 0;
+	i32 index = 0;
 	while( index < file_count - 1 - search_bytes ){
 		if( strncmp( &file_buffer[ index ], search, search_bytes ) == 0 ){
 			if( index == primary_index ){
@@ -1561,9 +1605,7 @@ void command_move_char_next(){
 		i32 i = 0;
 		while( i < selection_count ){
 			selection[ i ].anchor = selection[ i ].cursor;
-			if( selection[ i ].cursor < file_count - 1 ){
-				selection[ i ].cursor += utf8_next_length( &file_buffer[ selection[ i ].cursor ]);
-			}
+			selection[ i ].cursor += utf8_next_length( file_buffer, file_count, selection[ i ].cursor );
 			i += 1;
 		}
 		command_count -= 1;
@@ -1576,11 +1618,7 @@ void command_move_char_prev(){
 		i32 i = 0;
 		while( i < selection_count ){
 			selection[ i ].anchor = selection[ i ].cursor;
-			do {
-				if( selection[ i ].cursor > 0 ){
-					selection[ i ].cursor -= 1;
-				}
-			} while(( file_buffer[ selection[ i ].cursor ] & 0xc0 ) == 0x80 ); /* while is utf8_continuation_byte */
+			selection[ i ].cursor -= utf8_prev_length( file_buffer, file_count, selection[ i ].cursor );
 			i += 1;
 		}
 		command_count -= 1;
@@ -1721,9 +1759,7 @@ void command_move_pinned_char_next(){
 	do {
 		i32 i = 0;
 		while( i < selection_count ){
-			if( selection[ i ].cursor < file_count - 1 ){
-				selection[ i ].cursor += utf8_next_length( &file_buffer[ selection[ i ].cursor ]);
-			}
+			selection[ i ].cursor += utf8_next_length( file_buffer, file_count, selection[ i ].cursor );
 			i += 1;
 		}
 		command_count -= 1;
@@ -1735,11 +1771,7 @@ void command_move_pinned_char_prev(){
 	do {
 		i32 i = 0;
 		while( i < selection_count ){
-			do {
-				if( selection[ i ].cursor > 0 ){
-					selection[ i ].cursor -= 1;
-				}
-			} while(( file_buffer[ selection[ i ].cursor ] & 0xc0 ) == 0x80 ); /* while is utf8_continuation_byte */
+			selection[ i ].cursor -= utf8_prev_length( file_buffer, file_count, selection[ i ].cursor );
 			i += 1;
 		}
 		command_count -= 1;
@@ -2025,7 +2057,7 @@ void command_count_goto(){
   If command_count is 0, goto the first line.
   If command_count is greater then the number of lines in the file, goto the last character.
 */
-	i64 index = 0;
+	i32 index = 0;
 	while(( index < file_count - 1 ) && ( command_count > 1 )){
 		if( file_buffer[ index ] == '\n' ){
 			command_count -= 1;
@@ -2098,14 +2130,131 @@ void command_count_0(){
 	command_count += 0;
 }
 
-void frame_append( char* src, i64 src_count ){
+i32 format_print_string( char* dst, i32 dst_count, i32* dst_index, char* src, i32 src_count, i32 max_cols ){
+	assert( dst != NULL );
+	assert( src != NULL );
+	i32 filled_cols = 0;
+	i32 src_index = 0;
+	while( filled_cols < max_cols && src_index < src_count && *dst_index < dst_count ){
+		u8 raw = src[ src_index ];
+		src_index += 1;
+		if( raw == '\t' ){
+			i32 tab_cols = tab_fill_columns( filled_cols );
+			tab_cols = (max_cols <= filled_cols + tab_cols) ? max_cols - filled_cols : tab_cols;
+			tab_cols = (dst_count <= *dst_index + tab_cols) ? dst_count - *dst_index : tab_cols;
+			buffer_append( dst, dst_index, "                ", tab_cols );
+			filled_cols += tab_cols;
+		} else if( raw == 127 || raw < 0x20 ){
+			goto unprintable;
+		} else if( raw < 0x80 ){
+			dst[ *dst_index ] = raw;
+			*dst_index += 1;
+			filled_cols += 1;
+		} else if( raw < 0xc0 ){
+			goto unprintable;
+		} else if( raw < 0xe0 ){
+			if( *dst_index + 2 >= dst_count ){
+				break;
+			}
+			dst[ *dst_index ] = raw;
+			*dst_index += 1;
+			raw = src[ src_index ];
+			src_index += 1;
+			if(( raw & 0xc0 ) == 0x80 ){
+				dst[ *dst_index ] = raw;
+				*dst_index += 1;
+			} else {
+				*dst_index -= 1;
+				goto unprintable;
+			}
+			filled_cols += 1;
+		} else if( raw < 0xf0 ){
+			if( *dst_index + 2 >= dst_count ){
+				break;
+			}
+			dst[ *dst_index ] = raw;
+			*dst_index += 1;
+			raw = src[ src_index ];
+			src_index += 1;
+			if(( raw & 0xc0 ) == 0x80 ){
+				dst[ *dst_index ] = raw;
+				*dst_index += 1;
+			} else {
+				*dst_index -= 1;
+				goto unprintable;
+			}
+			raw = src[ src_index ];
+			src_index += 1;
+			if(( raw & 0xc0 ) == 0x80 ){
+				dst[ *dst_index ] = raw;
+				*dst_index += 1;
+			} else {
+				*dst_index -= 2;
+				goto unprintable;
+			}
+			filled_cols += 1;
+		} else if( raw < 0xf8 ){
+			if( *dst_index + 2 >= dst_count ){
+				break;
+			}
+			dst[ *dst_index ] = raw;
+			*dst_index += 1;
+			raw = src[ src_index ];
+			src_index += 1;
+			if(( raw & 0xc0 ) == 0x80 ){
+				dst[ *dst_index ] = raw;
+				*dst_index += 1;
+			} else {
+				*dst_index -= 1;
+				goto unprintable;
+			}
+			raw = src[ src_index ];
+			src_index += 1;
+			if(( raw & 0xc0 ) == 0x80 ){
+				dst[ *dst_index ] = raw;
+				*dst_index += 1;
+			} else {
+				*dst_index -= 2;
+				goto unprintable;
+			}
+			raw = src[ src_index ];
+			src_index += 1;
+			if(( raw & 0xc0 ) == 0x80 ){
+				dst[ *dst_index ] = raw;
+				*dst_index += 1;
+			} else {
+				*dst_index -= 3;
+				goto unprintable;
+			}
+			filled_cols += 1;
+		} else {
+			goto unprintable;
+		}
+		continue;
+		unprintable: {
+			if( *dst_index + 3 >= dst_count ){
+				break;
+			}
+			dst[ *dst_index ] = 0xef;
+			*dst_index += 1;
+			dst[ *dst_index ] = 0xbf;
+			*dst_index += 1;
+			dst[ *dst_index ] = 0xbd;
+			*dst_index += 1;
+			filled_cols += 1;
+		}
+	}
+	return filled_cols;
+}
+
+void frame_append( char* src, i32 src_count ){
 	if( max_frame_bytes <= frame_count + src_count ){
 		error( "Frame buffer overflow, increase max_frame_bytes" );
 	}
 	buffer_append( frame_buffer, &frame_count, src, src_count );
 }
 
-void bar_update_alignment( bar_internal_data* bar_internal, i64 bytes, i64 cols ){
+void bar_update_alignment( bar_internal_data* bar_internal, i32 bytes, i32 cols ){
 	assert( bar_internal != NULL );
 	assert( bytes >= 0 );
 	assert( cols >= 0 );
@@ -2162,9 +2311,9 @@ void bar_draw_mode_right( bar_internal_data* bar_internal ){
 void bar_file_name( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
 	bar_spacing_pre( bar_internal );
-	i64 bytes = strlen( file_name );
-	i64 cols = 0;
-	i64 i = 0;
+	i32 bytes = strlen( file_name );
+	i32 cols = 0;
+	i32 i = 0;
 	while( i < bytes ){
 		if(( file_name[ i ] & 0x80 ) == 0 ){  /* ascii */
 			i += 1;
@@ -2196,10 +2345,10 @@ void bar_warning( bar_internal_data* bar_internal ){
 		frame_append( ansi_background_red, strlen( ansi_background_red ));
 		frame_append( warning, strlen( warning ));
 		frame_append( ansi_background_default, strlen( ansi_background_default ));
-		i64 bytes = strlen( warning ) + strlen( ansi_background_red ) + strlen( ansi_background_default );
-		i64 cols = 0;
-		i64 i = 0;
-		while( i < (i64) strlen( warning )){
+		i32 bytes = strlen( warning ) + strlen( ansi_background_red ) + strlen( ansi_background_default );
+		i32 cols = 0;
+		i32 i = 0;
+		while( i < (i32) strlen( warning )){
 			if(( warning[ i ] & 0x80 ) == 0 ){  /* ascii */
 				i += 1;
 			} else if(( warning[ i ] & 0xe0 ) == 0xc0 ){  /* two byte unicode */
@@ -2221,7 +2370,7 @@ void bar_warning( bar_internal_data* bar_internal ){
 void bar_editor_mode( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
 	bar_spacing_pre( bar_internal );
-	i64 count;
+	i32 count;
 	if( mode == command_mode ){
 		count = 7;
 		frame_append( "Command", count );
@@ -2254,7 +2403,7 @@ void bar_selection( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
 	bar_spacing_pre( bar_internal );
 	char buffer[ 1024 ];
-	i64 buffer_count = snprintf( buffer, 1024, "%ld/%ld", primary_selection_index + 1, selection_count );
+	i32 buffer_count = snprintf( buffer, 1024, "%d/%d", primary_selection_index + 1, selection_count );
 	frame_append( buffer, buffer_count );
 	bar_update_alignment( bar_internal, buffer_count, buffer_count );
 	bar_spacing_post( bar_internal );
@@ -2264,7 +2413,7 @@ void bar_line_number( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
 	bar_spacing_pre( bar_internal );
 	char buffer[ 1024 ];
-	i64 buffer_count = snprintf( buffer, 1024, "%ld/%ld", line_number( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_number( file_buffer, file_count, file_count - 1 ));
+	i32 buffer_count = snprintf( buffer, 1024, "%d/%d", line_number( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_number( file_buffer, file_count, file_count - 1 ));
 	frame_append( buffer, buffer_count );
 	bar_update_alignment( bar_internal, buffer_count, buffer_count );
 	bar_spacing_post( bar_internal );
@@ -2274,7 +2423,7 @@ void bar_line_depth( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
 	bar_spacing_pre( bar_internal );
 	char buffer[ 1024 ];
-	i64 buffer_count = snprintf( buffer, 1024, "%ld/%ld", line_depth( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_length( file_buffer, file_count, selection[ primary_selection_index ].cursor ));
+	i32 buffer_count = snprintf( buffer, 1024, "%d/%d", line_depth( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_length( file_buffer, file_count, selection[ primary_selection_index ].cursor ));
 	frame_append( buffer, buffer_count );
 	bar_update_alignment( bar_internal, buffer_count, buffer_count );
 	bar_spacing_post( bar_internal );
@@ -2285,7 +2434,7 @@ void bar_command_count( bar_internal_data* bar_internal ){
 	if( command_count > 0 ){
 		bar_spacing_pre( bar_internal );
 		char buffer[ 1024 ];
-		i64 buffer_count = snprintf( buffer, 1024, "%ld", command_count );
+		i32 buffer_count = snprintf( buffer, 1024, "%d", command_count );
 		frame_append( buffer, buffer_count );
 		bar_update_alignment( bar_internal, buffer_count, buffer_count );
 		bar_spacing_post( bar_internal );
@@ -2296,43 +2445,20 @@ void bar_search_string( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
 	if( search_count > 0 ){
 		bar_spacing_pre( bar_internal );
-		char buffer[ 1024 ];
-		i64 buffer_count = snprintf( buffer, 128, "\"%.*s\"", (i32) search_count, search_buffer );
-		i64 i = 0;
-		while( i < buffer_count ){
-			if( buffer[ i ] == '\t' ){
-				i32 tab_length = tab_fill_columns( buffer_count );
-				buffer_insert( buffer, &buffer_count, i, "                ", tab_length );
-				i += tab_length;
-			} else {
-				i += 1;
-			}
-		}
+		char buffer[ 1024 ] = { '"' };
+		i32 buffer_count = 1;
+		i32 cols = format_print_string( buffer, 1024, &buffer_count, search_buffer, search_count, screen_cols );
+		buffer[ buffer_count ] = '"';
+		buffer_count += 1;
+		cols += 2;
 		frame_append( buffer, buffer_count );
-		i64 cols = 0;
-		i = 0;
-		while( i < buffer_count ){
-			assert( buffer[ i ] != '\t' );
-			if(( buffer[ i ] & 0x80 ) == 0 ){  /* ascii */
-				i += 1;
-			} else if(( buffer[ i ] & 0xe0 ) == 0xc0 ){  /* two byte unicode */
-				i += 2;
-			} else if(( buffer[ i ] & 0xf0 ) == 0xe0 ){  /* three byte unicode */
-				i += 3;
-			} else if(( buffer[ i ] & 0xf8 ) == 0xf0 ){  /* four byte unicode */
-				i += 4;
-			} else {
-				error( "Invalid Encoding" );
-			}
-			cols += 1;
-		}
 		bar_update_alignment( bar_internal, buffer_count, cols );
 		bar_spacing_post( bar_internal );
 	}
 }
 
 void bar_draw(){
-	i64 bar_buffer_start = frame_count;
+	i32 bar_buffer_start = frame_count;
 	bar_internal_data bar_internal = { 0 };
 	i32 i = 0;
 	while( i < (i32)( sizeof( bar ) / sizeof( bar_item ))){
@@ -2340,258 +2466,150 @@ void bar_draw(){
 		i += 1;
 	}
 	if( bar_internal.left_cols + bar_internal.center_cols + bar_internal.right_cols > screen_cols ){
-		i64 delete_bytes = bar_internal.left_cols + bar_internal.center_cols + bar_internal.right_cols - screen_cols;
+		i32 delete_bytes = bar_internal.left_cols + bar_internal.center_cols + bar_internal.right_cols - screen_cols;
 		assert( delete_bytes > 0 );
 		buffer_delete( frame_buffer, &frame_count, bar_buffer_start + screen_cols, delete_bytes );
 	} else if(( bar_internal.right_cols > 0 ) || ( bar_internal.left_cols > 0 )){
-		i64 insert_spaces_left = ( screen_cols / 2 ) + ( screen_cols % 2 ) - ( bar_internal.center_cols / 2 ) - ( bar_internal.center_cols % 2 ) - bar_internal.left_cols;
-		i64 insert_spaces_right = ( screen_cols / 2 ) - ( bar_internal.center_cols / 2 ) - bar_internal.right_cols;
+		i32 insert_spaces_left = ( screen_cols / 2 ) + ( screen_cols % 2 ) - ( bar_internal.center_cols / 2 ) - ( bar_internal.center_cols % 2 ) - bar_internal.left_cols;
+		i32 insert_spaces_right = ( screen_cols / 2 ) - ( bar_internal.center_cols / 2 ) - bar_internal.right_cols;
 		assert( insert_spaces_left >= 0 );
 		assert( insert_spaces_right >= 0 );
-		i64 insert_spaces = insert_spaces_left + insert_spaces_right;
+		i32 insert_spaces = insert_spaces_left + insert_spaces_right;
 		if( max_frame_bytes <= frame_count + insert_spaces ){
 			error( "Frame buffer overflow, increase max_frame_bytes" );
 		}
-		i64 insert_left_start = bar_buffer_start + bar_internal.left_bytes;
+		i32 insert_left_start = bar_buffer_start + bar_internal.left_bytes;
 		memmove( &frame_buffer[ insert_left_start + insert_spaces_left ], &frame_buffer[ insert_left_start ], frame_count - insert_left_start );
 		memset( &frame_buffer[ insert_left_start ], ' ', insert_spaces_left );
 		frame_count += insert_spaces_left;
-		i64 insert_right_start = insert_left_start + insert_spaces_left + bar_internal.center_bytes;
+		i32 insert_right_start = insert_left_start + insert_spaces_left + bar_internal.center_bytes;
 		memmove( &frame_buffer[ insert_right_start + insert_spaces_right ], &frame_buffer[ insert_right_start ], frame_count - insert_right_start );
 		memset( &frame_buffer[ insert_right_start ], ' ', insert_spaces_right );
 		frame_count += insert_spaces_right;
 	}
 }
 
-i64 input_validate_next( u8* buffer, i64 count, i64* index ){
+i32 ansi_utf8_length( u8* buffer, i32 count, i32 index ){
 /*
-  Move foward one utf8 codepoint, or ansi escape sequence.
-  If the codepoint is cut in half, return how many bytes of this codepoint are at the end of the buffer.
-  This function must handle any input that is valid in any part of the program, further culling should be done outside this function.
-  This does not cull all invalid utf8, it culls all input Lute can not handle.
+  Return the number of bytes in the ansi escape sequence or the utf8 encoding.
+  If the escape sequence or the utf8 encoding is invalid, return 1.
 */
 	assert( buffer != NULL );
-	assert( index != NULL );
-	assert( count > *index );
-	assert( count > 0 );
-	assert( *index >= 0 );
-	i64 clip = 0;
-	u8 c = buffer[ *index ];
-	if( c == 0x1b /* escape */ ){
-		if( *index + 1 < count ){
-			u8 c = buffer[ *index + 1 ];
-			if(( *index + 2 < count ) && ( c == '[' )){
-				u8 c = buffer[ *index + 2 ];
-				if(( c >= 'A' ) && ( c <= 'H' )){
-/* arrows / home / end */
-					*index += 3;
-				} else if(( *index + 3 < count ) && (( c == '3' ) || ( c == '5' ) || ( c == '6' ))){
-/* page up / page down / delete */
-					u8 c = buffer[ *index + 3 ];
-					if(( *index + 3 < count ) && ( c == ';' )){
-						u8 c = buffer[ *index + 4 ];
-						if(( *index + 4 < count ) && ( c >= '2') && ( c <= '8' )){
-							u8 c = buffer[ *index + 5 ];
-							if(( *index + 5 < count ) && ( c == '~' )){
-								*index += 6;
-							} else {
-								*index += 2;
-							}
-						} else {
-							*index += 2;
-						}
-					} else if(( *index + 3 < count ) && ( c == '~' )){
-						*index += 4;
-					} else {
-						*index += 2;
-					}
-				} else if(( *index + 3 < count ) && ( c == '1' )){
-/* mod arrows / home / end */
-					u8 c = buffer[ *index + 3 ];
-					if(( *index + 3 < count ) && ( c == ';' )){
-						u8 c = buffer[ *index + 4 ];
-						if(( *index + 4 < count ) && ( c >= '2') && ( c <= '8' )){
-							u8 c = buffer[ *index + 5 ];
-							if(( *index + 5 < count ) && ( c >= 'A' ) && ( c <= 'H' )){
-								*index += 6;
-							} else {
-								*index += 2;
-							}
-						} else {
-							*index += 2;
-						}
-					} else {
-						*index += 2;
-					}
-				} else {
-					*index += 2;
-				}
-			} else {
-				*index += 2;
-			}
-		} else {
-			*index += 1;
-		}
-	} else if( c < 0x80 ){
-/* ascii */
-		*index += 1;
-	} else if(( c >= 0xc0 ) && ( c < 0xe0 )){
-/* two byte unicode */
-		if( *index + 1 < count ){
-			u8 c = buffer[ *index + 1 ];
-			if( c >= 0x80 ){
-				*index += 2;
-			} else {
-				error( "Input invalid utf8" );
-			}
-		} else {
-			clip = 1;
-		}
-	} else if(( c >= 0xe0 ) && ( c < 0xf0 )){
-/* three byte unicode */
-		if( *index + 1 < count ){
-			u8 c = buffer[ *index + 1 ];
-			if( c >= 0x80 ){
-				if( *index + 2 < count ){
-					u8 c = buffer[ *index + 2 ];
-					if( c >= 0x80 ){
-						*index += 3;
-					} else {
-						error( "Input invalid utf8" );
-					}
-				} else {
-					clip = 2;
-				}
-			} else {
-				error( "Input invalid utf8" );
-			}
-		} else {
-			clip = 1;
-		}
-	} else if(( c >= 0xf0 ) && ( c < 0xf8 )){
-/* four byte unicode */
-		if( *index + 1 < count ){
-			u8 c = buffer[ *index + 1 ];
-			if( c >= 0x80 ){
-				if( *index + 2 < count ){
-					u8 c = buffer[ *index + 2 ];
-					if( c >= 0x80 ){
-						if( *index + 3 < count ){
-							u8 c = buffer[ *index + 3 ];
-							if( c >= 0x80 ){
-								*index += 4;
-							} else {
-								error( "Input invalid utf8" );
-							}
-						} else {
-							clip = 3;
-						}
-					} else {
-						error( "Input invalid utf8" );
-					}
-				} else {
-					clip = 2;
-				}
-			} else {
-				error( "Input invalid utf8" );
-			}
-		} else {
-			clip = 1;
-		}
-	} else {
-		error( "Input invalid utf8" );
-	}
-	return clip;
-}
-
-i8 is_ascii_unprintable( char* buffer, i64 index, i64 bytes ){
-	assert( buffer != NULL );
+	assert( count > index );
 	assert( index >= 0 );
-	assert( bytes > 0 );
-	if(( bytes == 1 ) && (( buffer[ index ] >= 127 || buffer[ index ] < 32 )) && ( buffer[ index ] != '\n' ) && ( buffer[ index ] != '\t' )){
+	if(( index + 1 < count ) && ( buffer[ index ] == 0x1b /* escape */ )){
+		if( buffer[ index + 1 ] == '[' ){
+			if(( buffer[ index ] >= 'A' ) && ( buffer[ index ] <= 'H' )){  /* arrows / home / end */
+				return 3;
+			} else if(( index + 5 < count ) && ( buffer[ index + 2 ] == '1' ) && ( buffer[ index + 3 ] == ';' ) &&
+			          ( buffer[ index + 4 ] >= '2' ) && ( buffer[ index + 4 ] <= '8' ) &&
+			          ( buffer[ index + 5 ] >= 'A' ) && ( buffer[ index + 5 ] <= 'H' )){  /* mod arrows / home / end */
+				return 6;
+			} else if(( index + 3 < count ) && (( buffer[ index + 2 ] == '3' ) || ( buffer[ index + 2 ] == '5' ) || ( buffer[ index + 2 ] == '6' ))){
+				if( buffer[ index + 3 ] == '~' ){  /* page up / page down / delete */
+					return 4;
+				} else if(( index + 5 < count ) && ( buffer[ index + 3 ] == ';' ) &&
+				          ( buffer[ index + 4 ] >= '2') && ( buffer[ index + 4 ] <= '8' ) &&
+				          ( buffer[ index + 5 ] == '~' )){  /* mod page up / page down / delete */
+					return 6;
+				} else {
+					return 2;
+				}
+			} else {
+				return 2;
+			}
+		} else {
+			return 2;
+		}
+	} else if( buffer[ index ] < 0x80 ){  /* ascii */
 		return 1;
+	} else if(( index + 1 < count ) && ( buffer[ index ] >= 0xc0 ) && ( buffer[ index ] < 0xe0 ) &&
+		( buffer[ index + 1 ] & 0xc0 ) == 0x80 ){  /* two byte unicode */
+		return 2;
+	} else if(( index + 2 < count ) && ( buffer[ index ] >= 0xe0 ) && ( buffer[ index ] < 0xf0 ) &&
+                  ( buffer[ index + 1 ] & 0xc0 ) == 0x80 &&
+                  ( buffer[ index + 2 ] & 0xc0 ) == 0x80 ){  /* three byte unicode */
+		return 3;
+	} else if(( index + 3 < count ) && ( buffer[ index ] >= 0xf0 ) && ( buffer[ index ] < 0xf8 ) &&
+	          ( buffer[ index + 1 ] & 0xc0 ) == 0x80 &&
+                  ( buffer[ index + 2 ] & 0xc0 ) == 0x80 &&
+                  ( buffer[ index + 3 ] & 0xc0 ) == 0x80 ){  /* four byte unicode */
+		return 4;
 	}
-	return 0;
+	return 1;
 }
 
-i8 is_ansi_escape( char* buffer, i64 index, i64 bytes ){
-	assert( buffer != NULL );
-	assert( index >= 0 );
-	assert( bytes > 0 );
-	if(( bytes > 1 ) && ( buffer[ index ] == 0x1b )){
-		return 1;
+i32 main( i32 argc, char* argv[] ){
+	if( argc != 2 ){
+		error( "Usage: lute <filename>" );
 	}
-	return 0;
-}
-
-void main_loop(){
-/*
-  Main program loop
-   +-> draw frame
-   |    + draw lines
-   |    v
-   |   get input
-   +----+ process input
-*/
+	file_name = argv[ 1 ];
+	terminal_setup();
+	terminal_read_file();
 	terminal_get_dimensions();
-	{
-/*
-  Draw the frame
-*/
+	while( 1 ){
+/*** Draw Frame ***/
 		assert( frame_count == 0 );
 		assert( selection_count > 0 );
 		frame_append( ansi_cursor_home ansi_reset_graphics ansi_erase_screen, strlen( ansi_cursor_home ansi_reset_graphics ansi_erase_screen ));
-		i64 primary_line_number = line_number( file_buffer, file_count, selection[ primary_selection_index ].cursor );
-		i64 draw_index = selection[ primary_selection_index ].cursor;
-		i32 empty_lines_above = 0;
-		{
-/*
-  Find where in the file to start drawing from and how many empty columns to draw before it.
-*/
-			while(( draw_index > 0 ) && ( file_buffer[ draw_index - 1 ] != '\n' )){
-				draw_index -= 1;
-			}
-			i32 i = 0;
-			while( i < screen_rows / 2 ){
-				if( draw_index == 0 ){
-					empty_lines_above = ( screen_rows / 2 ) - i;
-					break;
-				}
-				draw_index -= 1;
-				while(( draw_index > 0 ) && ( file_buffer[ draw_index - 1 ] != '\n' )){
-					draw_index -= 1;
-				}
-				i += 1;
-			}
-		}
+		i32 primary_line_number = line_number( file_buffer, file_count, selection[ primary_selection_index ].cursor );
 		if( bar_position == top_bar ){
 			bar_draw();
 			frame_append( "\n", 1 );
 		}
+/* Find where in the file to start drawing from and how many empty rows to draw before it. */
+		i32 draw_index = selection[ primary_selection_index ].cursor;
+		i32 empty_lines_above = screen_rows / 2;
+		while( draw_index > 0 && empty_lines_above > 0 ){
+			if( file_buffer[ draw_index - 1 ] == '\n' ){
+				empty_lines_above -= 1;
+			}
+			draw_index -= 1;
+		}
+/* Find if the printed portion of the file starts in the middle a selection. */
 		i8 highlight = 0;
-		{
-/*
-  Find if the printed portion of the file starts in the middle a selection.
-*/
-			if( selection[ primary_selection_index ].anchor < draw_index ){
-				highlight = 2;
-			} else {
-				i32 i = 0;
-				while( i < selection_count ){
-					if( selection[ i ].cursor < draw_index ){
-						highlight = !highlight;
-					}
-					if( selection[ i ].anchor < draw_index ){
-						highlight = !highlight;
-					}
-					if( selection[ i ].anchor >= draw_index || selection[ i ].cursor >= draw_index ){
-						break;
-					}
-					i += 1;
+		i32 check_selection_index = 0;
+		if( selection[ primary_selection_index ].anchor < draw_index ){
+			highlight = 2;
+			check_selection_index = primary_selection_index;
+		} else {
+			i32 i = 0;
+			while( i < selection_count ){
+				if( selection[ i ].cursor < draw_index ){
+					highlight = !highlight;
 				}
+				if( selection[ i ].anchor < draw_index ){
+					highlight = !highlight;
+				}
+				if( selection[ i ].anchor >= draw_index || selection[ i ].cursor >= draw_index ){
+					check_selection_index = i;
+					break;
+				}
+				i += 1;
+			}
+		}
+/* Find the number of columns take up by the line numbers. */
+		i32 line_number_cols = 0;
+		if( draw_line_numbers == regular_line_numbers ){
+			line_number_cols += 2;
+			assert( primary_line_number > 0 );
+			i32 j = primary_line_number + screen_rows / 2 + screen_rows % 2 - 2;
+			assert( j > 0 );
+			while( j > 0 ){
+				line_number_cols += 1;
+				j /= 10;
+			}
+		} else if( draw_line_numbers == relitive_line_numbers ){
+			line_number_cols += 4;
+			assert( primary_line_number > 0 );
+			i32 j = primary_line_number;
+			while( j >= 100 ){
+				line_number_cols += 1;
+				j /= 10;
 			}
 		}
 		i32 i = 0;
+/* draw line loop */
 		while( i < (( bar_position == no_bar ) ? screen_rows : screen_rows - 1 ) ){
 			if( i != 0 ){
 				frame_append( "\n", 1 );
@@ -2600,93 +2618,83 @@ void main_loop(){
 				frame_append( blank_line, strlen( blank_line ));
 				empty_lines_above -= 1;
 			} else {
-				i64 filled_cols = 0;
-				i64 line_number_cols = 0;
 				if( draw_line_numbers == regular_line_numbers ){
-					line_number_cols += 2;
-					i64 line_print = 0;
-					assert( primary_line_number > 0 );
-					i32 j = primary_line_number + screen_rows / 2 - 1;
-					assert( j > 0 );
-					while( j > 0 ){
-						line_number_cols += 1;
-						j /= 10;
-					}
-					char buffer[ 1024 ] = { '\0' };
-					line_print = primary_line_number - screen_rows / 2 + i;
-					sprintf( buffer, " %*ld  ", (i32) line_number_cols - 3, line_print );
+					char buffer[ 256 ] = { '\0' };
+					sprintf( buffer, " %*d  ", (i8) line_number_cols - 3, primary_line_number - screen_rows / 2 + i );
 					frame_append( buffer, line_number_cols );
 				} else if( draw_line_numbers == relitive_line_numbers ){
-					line_number_cols += 4;
-					i64 line_print = 0;
-					assert( primary_line_number > 0 );
-					i32 j = primary_line_number;
-					while( j >= 100 ){
-						line_number_cols += 1;
-						j /= 10;
-					}
-					char buffer[ 1024 ] = { '\0' };
-					line_print = ( i == screen_rows / 2 ) ? primary_line_number : abs( (i32)( screen_rows / 2 - i ));
-					sprintf( buffer, " %*ld  ", (i32) line_number_cols - 2, line_print );
+					char buffer[ 256 ] = { '\0' };
+					sprintf( buffer, " %*d  ", (i8) line_number_cols - 2, ( i == screen_rows / 2 ) ? primary_line_number : abs( screen_rows / 2 - i ));
 					frame_append( buffer, line_number_cols );
 				}
+				i32 filled_cols = line_number_cols;
 				if( highlight == 1 ){
 					frame_append( selection_highlight_start, strlen( selection_highlight_start ));
 				} else if( highlight == 2 ){
 					frame_append( primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
 				}
 				while( filled_cols + line_number_cols < screen_cols ){
-					i32 col_bytes = 0;
+/* If this column starts or end a highlight, add the sequence. */
 					i8 cursor_end = 0;
-					i32 i = 0;
-					while( i < selection_count ){
-/*
-  If this column is the start or end of a highlight, insert that.
-*/
-						if( selection[ i ].anchor == draw_index ){
-							if( selection[ i ].anchor < selection[ i ].cursor ){
-								if( i == primary_selection_index ){
-									highlight = 2;
-									frame_append( primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
-								} else {
-									highlight = 1;
-									frame_append( selection_highlight_start, strlen( selection_highlight_start ));
-								}
-							} else if( selection[ i ].anchor > selection[ i ].cursor ){
-								highlight = 0;
-								if( i == primary_selection_index ){
-									frame_append( primary_selection_highlight_end, strlen( primary_selection_highlight_end ));
-								} else {
-									frame_append( selection_highlight_end, strlen( selection_highlight_end ));
-								}
-							}
-						}
-						if( selection[ i ].cursor == draw_index ){
-							if( selection[ i ].cursor < selection[ i ].anchor ){
-								if( i == primary_selection_index ){
-									highlight = 2;
-									frame_append( primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
-								} else {
-									highlight = 1;
-									frame_append( selection_highlight_start, strlen( selection_highlight_start ));
-								}
-							} else if( selection[ i ].cursor > selection[ i ].anchor ){
-								highlight = 0;
-								if( i == primary_selection_index ){
-									frame_append( primary_selection_highlight_end, strlen( primary_selection_highlight_end ));
-								} else {
-									frame_append( selection_highlight_end, strlen( selection_highlight_end ));
-								}
-							}
-							if( i == primary_selection_index ){
-								cursor_end = 2;
+check_draw_highlight:
+					if( check_selection_index < selection_count ){
+						if( check_selection_index == primary_selection_index ){
+							if( selection[ check_selection_index ].cursor == draw_index ){
 								frame_append( primary_cursor_highlight_start, strlen( primary_cursor_highlight_start ));
-							} else {
-								cursor_end = 1;
+								cursor_end = 2;
+								if( selection[ check_selection_index ].cursor < selection[ check_selection_index ].anchor ){
+									frame_append( primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
+									highlight = 2;
+								} else if( selection[ check_selection_index ].cursor > selection[ check_selection_index ].anchor ){
+									frame_append( primary_selection_highlight_end, strlen( primary_selection_highlight_end ));
+									highlight = 0;
+								}
+								if( selection[ check_selection_index ].cursor >= selection[ check_selection_index ].anchor ){
+									check_selection_index += 1;
+									goto check_draw_highlight;
+								}
+							} else if( selection[ check_selection_index ].anchor == draw_index ){
+								if( selection[ check_selection_index ].anchor < selection[ check_selection_index ].cursor ){
+									frame_append( primary_selection_highlight_start, strlen( primary_selection_highlight_start ));
+									highlight = 2;
+								} else if( selection[ check_selection_index ].anchor > selection[ check_selection_index ].cursor ){
+									frame_append( primary_selection_highlight_end, strlen( primary_selection_highlight_end ));
+									highlight = 0;
+								}
+								if( selection[ check_selection_index ].anchor >= selection[ check_selection_index ].cursor ){
+									check_selection_index += 1;
+									goto check_draw_highlight;
+								}
+							}
+						} else {
+							if( selection[ check_selection_index ].cursor == draw_index ){
 								frame_append( cursor_highlight_start, strlen( cursor_highlight_start ));
+								cursor_end = 1;
+								if( selection[ check_selection_index ].cursor < selection[ check_selection_index ].anchor ){
+									frame_append( selection_highlight_start, strlen( selection_highlight_start ));
+									highlight = 1;
+								} else if( selection[ check_selection_index ].cursor > selection[ check_selection_index ].anchor ){
+									frame_append( selection_highlight_end, strlen( selection_highlight_end ));
+									highlight = 0;
+								}
+								if( selection[ check_selection_index ].cursor >= selection[ check_selection_index ].anchor ){
+									check_selection_index += 1;
+									goto check_draw_highlight;
+								}
+							} else if( selection[ check_selection_index ].anchor == draw_index ){
+								if( selection[ check_selection_index ].anchor < selection[ check_selection_index ].cursor ){
+									frame_append( selection_highlight_start, strlen( selection_highlight_start ));
+									highlight = 1;
+								} else if( selection[ check_selection_index ].anchor > selection[ check_selection_index ].cursor ){
+									frame_append( selection_highlight_end, strlen( selection_highlight_end ));
+									highlight = 0;
+								}
+								if( selection[ check_selection_index ].anchor >= selection[ check_selection_index ].cursor ){
+									check_selection_index += 1;
+									goto check_draw_highlight;
+								}
 							}
 						}
-						i += 1;
 					}
 					if( file_buffer[ draw_index ] == '\n' ){
 						frame_append( " ", 1 );
@@ -2697,45 +2705,70 @@ void main_loop(){
 						}
 						break;
 					} else if( file_buffer[ draw_index ] == '\t' ){
-						i32 tab_cols = tab_fill_columns( filled_cols );
+						i32 tab_cols = tab_fill_columns( filled_cols - line_number_cols );
+						tab_cols = (screen_cols <= filled_cols + tab_cols) ? screen_cols - filled_cols : tab_cols;
 						frame_append( "                ", tab_cols );
-						if( cursor_end == 2 ){
-							frame_append( primary_cursor_highlight_end, strlen( primary_cursor_highlight_end ));
-						} else if( cursor_end == 1 ){
-							frame_append( cursor_highlight_end, strlen( cursor_highlight_end ));
-						}
-						filled_cols += tab_cols;
 						draw_index += 1;
-						continue;
-					} else if(( file_buffer[ draw_index ] & 0x80 ) == 0 ){  /* ascii */
+						filled_cols += tab_cols;
+					} else if( (u8) file_buffer[ draw_index ] == 127 || (u8) file_buffer[ draw_index ] < 0x20 ){ /* unprintable ascii */
+						frame_append( "\xef\xbf\xbd", 3 );
+						draw_index += 1;
 						filled_cols += 1;
-						col_bytes = 1;
-					} else if(( file_buffer[ draw_index ] & 0xe0 ) == 0xc0 ){  /* two byte unicode */
+					} else if( (u8) file_buffer[ draw_index ] < 0x80 ){  /* ascii */
+						frame_append( &file_buffer[ draw_index ], 1 );
+						draw_index += 1;
 						filled_cols += 1;
-						col_bytes = 2;
-					} else if(( file_buffer[ draw_index ] & 0xf0 ) == 0xe0 ){  /* three byte unicode */
+					} else if( (u8) file_buffer[ draw_index ] < 0xc0 ){  /* stray continuation */
+						frame_append( "\xef\xbf\xbd", 3 );
+						draw_index += 1;
 						filled_cols += 1;
-						col_bytes = 3;
-					} else if(( file_buffer[ draw_index ] & 0xf8 ) == 0xf0 ){  /* four byte unicode */
+					} else if( (u8) file_buffer[ draw_index ] < 0xe0 ){  /* two byte unicode */
+						if(( file_buffer[ draw_index + 1 ] & 0xc0 ) != 0x80 ){
+							frame_append( "\xef\xbf\xbd", 3 );
+							draw_index += 1;
+						} else {
+							frame_append( &file_buffer[ draw_index ], 2 );
+							draw_index += 2;
+						}
 						filled_cols += 1;
-						col_bytes = 4;
+					} else if( (u8) file_buffer[ draw_index ] < 0xf0 ){  /* three byte unicode */
+						if((( file_buffer[ draw_index + 1 ] & 0xc0 ) != 0x80 ) &&
+						   (( file_buffer[ draw_index + 2 ] & 0xc0 ) != 0x80 )){
+							frame_append( "\xef\xbf\xbd", 3 );
+							draw_index += 1;
+						} else {
+							frame_append( &file_buffer[ draw_index ], 3 );
+							draw_index += 3;
+						}
+						filled_cols += 1;
+					} else if( (u8) file_buffer[ draw_index ] < 0xf8 ){  /* four byte unicode */
+						if((( file_buffer[ draw_index + 1 ] & 0xc0 ) != 0x80 ) &&
+						   (( file_buffer[ draw_index + 2 ] & 0xc0 ) != 0x80 ) &&
+						   (( file_buffer[ draw_index + 3 ] & 0xc0 ) != 0x80 )){
+							frame_append( "\xef\xbf\xbd", 3 );
+							draw_index += 1;
+						} else {
+							frame_append( &file_buffer[ draw_index ], 4 );
+							draw_index += 4;
+						}
+						filled_cols += 1;
 					} else {
-						error( "Trying to print and invalid utf8 encoding." );
+						frame_append( "\xef\xbf\xbd", 3 );
+						draw_index += 1;
+						filled_cols += 1;
 					}
-					frame_append( &file_buffer[ draw_index ], col_bytes );
 					if( cursor_end == 2 ){
 						frame_append( primary_cursor_highlight_end, strlen( primary_cursor_highlight_end ));
 					} else if( cursor_end == 1 ){
 						frame_append( cursor_highlight_end, strlen( cursor_highlight_end ));
 					}
-					draw_index += col_bytes;
 				}
 				if( highlight == 1 ){
 					frame_append( selection_highlight_end, strlen( selection_highlight_end ));
 				} else if( highlight == 2 ){
 					frame_append( primary_selection_highlight_end, strlen( primary_selection_highlight_end ));
 				}
-				i64 line_end_index = draw_index;
+				i32 line_end_index = draw_index;
 				while( draw_index < file_count - 1 && file_buffer[ draw_index ] != '\n' ){
 					draw_index += 1;
 				}
@@ -2769,129 +2802,96 @@ void main_loop(){
 		}
 		terminal_draw_frame();
 		frame_count = 0;
-	}
-	{
-/*
-  Wait for input then process it
-*/
-		i64 input_index = 0;
-		i64 input_clip = 0;
-		assert( input_count >= 0 );
-		input_count = read( STDIN_FILENO, &input_buffer[ input_count ], max_input_bytes - input_count ) + input_count;  /* will block until input */
-		assert( input_count > 0 );
-		assert( input_count <= max_input_bytes );
+/*** Get Input ***/
+		assert( input_count == 0 );
+		terminal_get_input();
+		i32 input_index = 0;
+		assert( input_count < max_input_bytes );
 		while( input_index < input_count ){
+			i32 key_bytes = ansi_utf8_length( (u8*) &input_buffer[ input_index ], input_count, input_index );
+			assert( key_bytes > 0 );
 			if( mode == command_mode ){
-				i64 start_index = input_index;
-				input_clip = input_validate_next( (u8*) input_buffer, input_count, &input_index );
-				if( input_clip != 0 ){
-					break;
-				}
-				assert( start_index < input_index );
-				i64 key_bytes = input_index - start_index;
-				assert( key_bytes > 0 );
-				i32 i = 0;
-				i8 command_found = 0;
-				while( i < (i32)( sizeof( command ) / sizeof( keybind )) ){
-					if(( key_bytes == (i64) strlen( command[ i ].key )) && ( memcmp( &input_buffer[ start_index ], command[ i ].key, key_bytes ) == 0 )){
-						command_found = 1;
-						command[ i ].function();
-						clip_selection_overlap();
-					}
-					i += 1;
-				}
-				if( command_found == 0 ){
-					warning = "Command keybind not found";
-				}
-				if(( key_bytes == 1 ) && ( input_buffer[ start_index ] == 0x1b )){
+				if(( key_bytes == 1 ) && ( input_buffer[ input_index ] == 0x1b )){
 					command_count = 0;
 					warning = NULL;
-				}
-			} else if( mode == edit_mode ){
-				i64 start_index = input_index;
-				i64 insert_bytes = 0;
-				do {
-					assert( start_index + insert_bytes == input_index );
-					i64 loop_index = input_index;
-					input_clip = input_validate_next( (u8*) input_buffer, input_count, &input_index );
-					if( input_clip != 0 ){
-						break;
+				} else {
+					i32 i = 0;
+					i8 command_found = 0;
+					while( i < (i32)( sizeof( command ) / sizeof( keybind )) ){
+						if(( key_bytes == (i32) strlen( command[ i ].key )) && ( memcmp( &input_buffer[ input_index ], command[ i ].key, key_bytes ) == 0 )){
+							command_found = 1;
+							command[ i ].function();
+							clip_selection_overlap();
+						}
+						i += 1;
 					}
-					if( is_ansi_escape( input_buffer, loop_index, input_index - loop_index )){
-						warning = "Can only input text";
-						break;
-					} else if( input_buffer[ loop_index ] == 0x1b /* escape */ ){
+					if( command_found == 0 ){
+						warning = "Command keybind not found";
+					}
+				}
+				input_index += key_bytes;
+			} else if( mode == edit_mode ){
+				i32 start_index = input_index;
+				assert( input_index < input_count );
+				while( 1 ){
+					assert( key_bytes > 0 );
+					if( key_bytes == 1 && input_buffer[ input_index ] == 0x1b ){  /* escape */
+						if( input_index != start_index ){
+							selection_insert( &input_buffer[ start_index ], input_index - start_index );
+						}
+						input_index += key_bytes;
+						start_index = input_index;
 						mode = command_mode;
 						break;
-					} else if(( input_buffer[ loop_index ] == 0x7f /* delete */ ) || ( input_buffer[ loop_index ] == 0x08 /* shift delete */ )){
-						if( insert_bytes > 0 ){
-							selection_insert( &input_buffer[ start_index ], insert_bytes );
+					} else if(( key_bytes == 1 ) && (( input_buffer[ input_index ] == 0x7f ) || ( input_buffer[ input_index ] == 0x08 ))){  /* backspace */
+						if( input_index != start_index ){
+							selection_insert( &input_buffer[ start_index ], input_index - start_index );
 						}
 						selection_delete_backspace();
-						insert_bytes = 0;
-						break;
-					} else if( is_ascii_unprintable( input_buffer, loop_index, input_index - loop_index )){
-						warning = "Can only input text";
+						input_index += key_bytes;
+						start_index = input_index;
+					} else {
+						input_index += key_bytes;
+					}
+					assert( input_index <= input_count );
+					if( input_index == input_count ){
+						if( input_index != start_index ){
+							selection_insert( &input_buffer[ start_index ], input_index - start_index );
+						}
 						break;
 					}
-					insert_bytes += input_index - loop_index;
-				} while( input_index < input_count );
-				if( insert_bytes > 0 ){
-					selection_insert( &input_buffer[ start_index ], insert_bytes );
-				}
-				if( input_clip != 0 ){
-					break;
+					key_bytes = ansi_utf8_length( (u8*) &input_buffer[ input_index ], input_count, input_index );
+					assert( key_bytes > 0 );
 				}
 			} else if( mode == search_mode ){
-				i64 start_index = input_index;
-				input_clip = input_validate_next( (u8*) input_buffer, input_count, &input_index );
-				if( input_clip != 0 ){
-					break;
-				}
-				assert( input_index > start_index );
-				if( !is_ansi_escape( input_buffer, start_index, input_index - start_index ) && input_buffer[ start_index ] == 0x1b /* escape */ ){
+				if( key_bytes == 1 && input_buffer[ input_index ] == 0x1b ){  /* escape */
 					mode = command_mode;
 					search_count = 0;
-				} else if(( input_buffer[ start_index ] == 0x7f /* delete */ ) || ( input_buffer[ start_index ] == 0x08 /* shift delete */ )){
+				} else if(( key_bytes == 1 ) && (( input_buffer[ input_index ] == 0x7f ) || ( input_buffer[ input_index ] == 0x08 ))){  /* backspace */
 					if( search_count > 0 ){
-						search_count -= 1;
+						search_count -= utf8_prev_length( search_buffer, search_count, search_count );
 					}
-				} else if( input_buffer[ start_index ] == '\n' ){
+					assert( search_count >= 0 );
+				} else if( key_bytes == 1 && input_buffer[ input_index ] == '\n' ){
 					if( search_count > 0 ){
 						selection_split( search_buffer, search_count );
 					}
 					mode = command_mode;
 					search_count = 0;
 				} else {
-					i32 i = 0;
-					while( i < input_index - start_index ){
-						search_buffer[ search_count ] = input_buffer[ start_index + i ];
-						search_count += 1;
-						i += 1;
-					}
+					search_buffer[ search_count ] = input_buffer[ input_index ];
+					search_count += key_bytes;
 				}
+				input_index += key_bytes;
 			} else if(( mode == find_next_mode ) || ( mode == find_prev_mode ) || ( mode == append_find_next_mode ) || ( mode == append_find_prev_mode )){
-				i64 start_index = input_index;
-				input_clip = input_validate_next( (u8*) input_buffer, input_count, &input_index );
-				if( input_clip != 0 ){
-					break;
-				}
-				assert( input_index > start_index );
-				i64 key_bytes = input_index - start_index;
-				if( is_ansi_escape( input_buffer, start_index, key_bytes )){
-					warning = "Can only input text";
-				} else if( input_buffer[ start_index ] == 0x1b /* escape */ ){
-					/* do nothing */
-				} else if( is_ascii_unprintable( input_buffer, start_index, key_bytes )){
-					warning = "Can only input text";
-				} else {
+				if( key_bytes != 1 || input_buffer[ input_index ] != 0x1b /* escape */ ){
 					do {
 						i32 i = 0;
 						while( i < selection_count ){
 							if( mode == find_next_mode ){
-								i64 j = selection[ i ].cursor + 1;
+								i32 j = selection[ i ].cursor + 1;
 								while( j < file_count - 1 ){
-									if( strncmp( &file_buffer[ j ], &input_buffer[ start_index ], key_bytes ) == 0 ){
+									if( memcmp( &file_buffer[ j ], &input_buffer[ input_index ], key_bytes ) == 0 ){
 										selection[ i ].anchor = selection[ i ].cursor;
 										selection[ i ].cursor = j;
 										break;
@@ -2899,9 +2899,9 @@ void main_loop(){
 									j += 1;
 								}
 							} else if( mode == find_prev_mode ){
-								i64 j = selection[ i ].cursor - 1;
+								i32 j = selection[ i ].cursor - 1;
 								while( j >= 0 ){
-									if( strncmp( &file_buffer[ j ], &input_buffer[ start_index ], key_bytes ) == 0 ){
+									if( memcmp( &file_buffer[ j ], &input_buffer[ input_index ], key_bytes ) == 0 ){
 										selection[ i ].anchor = selection[ i ].cursor;
 										selection[ i ].cursor = j;
 										break;
@@ -2909,18 +2909,18 @@ void main_loop(){
 									j -= 1;
 								}
 							} else if( mode == append_find_next_mode ){
-								i64 j = selection[ i ].cursor + 1;
+								i32 j = selection[ i ].cursor + 1;
 								while( j < file_count - 1 ){
-									if( strncmp( &file_buffer[ j ], &input_buffer[ start_index ], key_bytes ) == 0 ){
+									if( memcmp( &file_buffer[ j ], &input_buffer[ input_index ], key_bytes ) == 0 ){
 										selection[ i ].cursor = j;
 										break;
 									};
 									j += 1;
 								}
 							} else if( mode == append_find_prev_mode ){
-								i64 j = selection[ i ].cursor - 1;
+								i32 j = selection[ i ].cursor - 1;
 								while( j >= 0 ){
-									if( strncmp( &file_buffer[ j ], &input_buffer[ start_index ], key_bytes ) == 0 ){
+									if( memcmp( &file_buffer[ j ], &input_buffer[ input_index ], key_bytes ) == 0 ){
 										selection[ i ].cursor = j;
 										break;
 									};
@@ -2933,28 +2933,17 @@ void main_loop(){
 					} while( command_count > 0 );
 					command_count = 0;
 				}
+				input_index += key_bytes;
 				mode = command_mode;
 			} else {
-				assert( 0 && "invalid mode" );
+				error( "Invalid mode." );
+				input_index += key_bytes;
+				mode = command_mode;
 			}
 		}
-		assert( input_index == input_count );
-		assert( input_index - input_clip > 0 );
-		memmove( input_buffer, &input_buffer[ input_count - input_clip ], input_clip );
-		input_count = input_clip;
-	}
-	clip_selection_overlap();
-}
-
-i32 main( i32 argc, char* argv[] ){
-	if( argc != 2 ){
-		error( "Usage: lute <filename>" );
-	}
-	file_name = argv[ 1 ];
-	terminal_read_file();
-	terminal_setup();
-	while( 1 ){
-		main_loop();
+		input_count = 0;
+		clip_selection_overlap();
 	}
 	error( "Somehow broke out of main loop" );
 }
+
