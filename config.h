@@ -4,32 +4,29 @@
   Lute will exit if any max is reached.
 */
 
-/* max_file_bytes should be at least as big as the largest possible readable file */
-#define max_file_bytes         0x4000000    /* 64 Mib */
+#define max_file_bytes       0x10000000    /* 256 Mib */
+/* should be at least as big as the largest possible readable file */
 
-/* max_clipboard_bytes should be at least as big as the largest possible editable file */
-#define max_clipboard_bytes    0x4000000    /* 64 Mib */
+#define max_clipboard_bytes  0x4000000    /* 64 Mib */
+/* should be at least as big as the largest possible editable file */
 
-/* max_edit_bytes should be at least as big as the largest possible editable file */
-#define max_edit_bytes         0x4000000    /* 64 Mib */
+#define max_edit_bytes       0x4000000    /* 64 Mib */
+/* should be at least as big as the largest possible editable file */
 
-/* max_frame_bytes should be at least as big as your screen resolution / 64 */
-#define max_frame_bytes        0x20000      /* 128 Kib */
+#define max_frame_bytes      0x40000      /* 256 Kib */
+/* should be at least as big as the screen_cols * screen_rows * 4 */
 
-/* max_search_bytes should be at least as big as the longest string you would ever search for in the file */
-#define max_search_bytes       0x1000       /* 4 Kib */
+#define max_search_bytes     0x40000      /* 256 Kib */
+/* should be at least as big as the longest string you would ever search for in the file */
 
-/*
-  max_input_bytes can be at most 0xff because of Linux pasting weirdenss.
-  (Note: pasting in more then 4 Kib is supported.)
-*/
-#define max_input_bytes        0xfff        /* 4 Kib - 1 */
+#define max_input_bytes      0x4000000    /* 64 Mib */
+/* should be at least as big as the longest string you would ever paste in the file */
 
 /* Maximum possible edit history count, per selection. */
-#define max_edit_count        1024 * 1024
+#define max_edit_count       1024 * 1024
 
 /* Maximum possible selection count. */
-#define max_selection_count   1024
+#define max_selection_count  1024
 
 
 
