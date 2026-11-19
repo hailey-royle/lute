@@ -2922,7 +2922,6 @@ check_draw_highlight:
 				input_index += key_bytes;
 				mode = command_mode;
 			} else {
-				input_index += key_bytes;
 				mode = command_mode;
 				warning = "Internal Error: Unknown mode, switched to Command mode.";
 			}
