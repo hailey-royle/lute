@@ -11,9 +11,6 @@ install: build
 uninstall:
 	rm -f ${DESTINATION}/lute
 
-clean:
-	rm lute keybind
-
 keybind:
 	${COMPILER} keybind.c -o keybind -std=c89 -O3
 	./keybind
@@ -21,5 +18,5 @@ keybind:
 debug:
 	${COMPILER} lute.c -o lute -Wall -Wextra -std=c89 -Og -ggdb
 
-.PHONY: build install uninstall clean keybind debug
+.PHONY: build install uninstall keybind debug
 
