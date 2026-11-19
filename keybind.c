@@ -7,18 +7,24 @@
 typedef int32_t i32;
 typedef uint8_t u8;
 
-#define input_count 16
-
 i32 main( i32 argc, char* argv[] ){
 	struct termios init_termios;
-	u8 input[ input_count ];
-	tcgetattr( STDIN_FILENO, &init_termios );
+	i32 err = tcgetattr( STDIN_FILENO, &init_termios );
+	if( err != 0 ){
+		error( "This terminal is not supported. (Unable to enter raw mode)" );
+	}
 	struct termios raw_termios = init_termios;
 	raw_termios.c_iflag &= ~( IGNBRK | BRKINT | PARMRK | ISTRIP | IXON );
 	raw_termios.c_lflag &= ~( ECHO | ECHONL | ICANON | IEXTEN | ISIG );
 	raw_termios.c_cflag &= ~( CSIZE | PARENB );
 	raw_termios.c_cflag |= ( CS8 );
-	tcsetattr( STDIN_FILENO, TCSAFLUSH, &raw_termios );
+	err = tcsetattr( STDIN_FILENO, TCSAFLUSH, &raw_termios );
+	if( err != 0 ){
+		error( "This terminal is not supported. (Unable to enter raw mode)" );
+	}
+	printf( "Type 'q' to quit.\n" );
+	i32 input_count = 16;
+	u8 input[ input_count ];
 	while( 1 ){
 		i32 bytes_read = read( STDIN_FILENO, input, input_count );
 		printf( "\"" );
