@@ -658,11 +658,13 @@ void terminal_read_file(){
 void terminal_write_file(){
 	i32 fd = open( file_name, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH );
 	if( fd < 0 ){
-		error( "The file '%s' could not be opened." );
+		warning = "Unable to write file.";
+		close( fd );
+		return;
 	}
 	i64 write_bytes = write( fd, file_buffer, file_count );
 	if( write_bytes < 0 ){
-		error( "The file '%s' could not be written.", file_name );
+		warning = "Unable to write file.";
 	}
 	close( fd );
 }
