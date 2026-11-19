@@ -2254,175 +2254,176 @@ void frame_append( char* src, i32 src_count ){
 	buffer_append( frame_buffer, &frame_count, src, src_count );
 }
 
-void bar_update_alignment( bar_internal_data* bar_internal, i32 bytes, i32 cols ){
+void bar_update_alignment( bar_internal_data* bar_internal, char* src, i32 bytes, i32 cols ){
 	assert( bar_internal != NULL );
+	assert( src != NULL );
 	assert( bytes >= 0 );
 	assert( cols >= 0 );
-	if( bar_internal->mode == bar_draw_left ){
-		bar_internal->left_bytes += bytes;
-		bar_internal->left_cols += cols;
-	} else if( bar_internal->mode == bar_draw_center ){
-		bar_internal->center_bytes += bytes;
-		bar_internal->center_cols += cols;
-	} else if( bar_internal->mode == bar_draw_right ){
-		bar_internal->right_bytes += bytes;
-		bar_internal->right_cols += cols;
-	} else {
-		error( "invalid bar mode" );
+	if( screen_cols >= cols + bar_internal->left_cols + bar_internal->center_cols + bar_internal->right_cols ){
+		frame_append( src, bytes );
+		if( bar_internal->mode == bar_draw_left ){
+			bar_internal->left_bytes += bytes;
+			bar_internal->left_cols += cols;
+		} else if( bar_internal->mode == bar_draw_center ){
+			bar_internal->center_bytes += bytes;
+			bar_internal->center_cols += cols;
+		} else if( bar_internal->mode == bar_draw_right ){
+			bar_internal->right_bytes += bytes;
+			bar_internal->right_cols += cols;
+		} else {
+			error( "invalid bar mode" );
+		}
 	}
 }
 
-void bar_spacing_pre( bar_internal_data* bar_internal ){
+i32 bar_spacing_pre( bar_internal_data* bar_internal, char* dst ){
 	if( bar_internal->mode == bar_draw_right ){
-		bar_internal->right_cols += 2;
-		bar_internal->right_bytes += 2;
-		frame_append( "  ", 2 );
+		dst[ 0 ] = ' ';
+		dst[ 1 ] = ' ';
+		return 2;
 	} else if( bar_internal->mode == bar_draw_center ){
-		bar_internal->center_cols += 1;
-		bar_internal->center_bytes += 1;
-		frame_append( " ", 1 );
+		dst[ 0 ] = ' ';
+		return 1;
 	}
+	return 0;
 }
 
-void bar_spacing_post( bar_internal_data* bar_internal ){
+i32 bar_spacing_post( bar_internal_data* bar_internal, char* dst ){
 	if( bar_internal->mode == bar_draw_left ){
-		bar_internal->left_cols += 2;
-		bar_internal->left_bytes += 2;
-		frame_append( "  ", 2 );
+		dst[ 0 ] = ' ';
+		dst[ 1 ] = ' ';
+		return 2;
 	} else if( bar_internal->mode == bar_draw_center ){
-		bar_internal->center_cols += 1;
-		bar_internal->center_bytes += 1;
-		frame_append( " ", 1 );
+		dst[ 0 ] = ' ';
+		return 1;
 	}
+	return 0;
 }
 
 void bar_draw_mode_center( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
-	assert( bar_internal->mode == bar_draw_left );
+	if( bar_internal->mode != bar_draw_left ){
+		error( "Bar modes can only go left to right." );
+	}
 	bar_internal->mode = bar_draw_center;
 }
 
 void bar_draw_mode_right( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
-	assert( bar_internal->mode < bar_draw_right );
+	if( bar_internal->mode != bar_draw_left && bar_internal->mode != bar_draw_center ){
+		error( "Bar modes can only go left to right." );
+	}
 	bar_internal->mode = bar_draw_right;
 }
 
 void bar_file_name( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
-	bar_spacing_pre( bar_internal );
-	i32 bytes = strlen( file_name );
-	i32 cols = format_print_string( frame_buffer, max_frame_bytes - frame_count, &frame_count, file_name, bytes, screen_cols );
+	char buffer[ 1024 ];
+	i32 buffer_count = bar_spacing_pre( bar_internal, buffer );
+	i32 cols = 2;
+	cols += format_print_string( buffer, 1020, &buffer_count, file_name, strlen( file_name ), 1020 );
 	if( file_modified ){
-		bytes += 1;
+		buffer[ buffer_count ] = '*';
+		buffer_count += 1;
 		cols += 1;
-		frame_append( "*", 1 );
 	}
-	bar_update_alignment( bar_internal, bytes, cols );
-	bar_spacing_post( bar_internal );
+	buffer_count += bar_spacing_post( bar_internal, &buffer[ buffer_count ]);
+	bar_update_alignment( bar_internal, buffer, buffer_count, cols );
 }
 
 void bar_warning( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
 	if( warning != NULL ){
-		bar_spacing_pre( bar_internal );
-		i32 cols = strlen( warning );
-		i32 bytes = cols + strlen( ansi_background_red ) + strlen( ansi_background_default );
-		frame_append( ansi_background_red, strlen( ansi_background_red ));
-		frame_append( warning, cols );
-		frame_append( ansi_background_default, strlen( ansi_background_default ));
-		bar_update_alignment( bar_internal, bytes, cols );
-		bar_spacing_post( bar_internal );
+		char buffer[ 1024 ];
+		i32 buffer_count = bar_spacing_pre( bar_internal, buffer );
+		i32 cols = strlen( warning ) + 2;
+		assert( cols < 1000 );
+		buffer_append( buffer, &buffer_count, ansi_background_red, strlen( ansi_background_red ));
+		buffer_append( buffer, &buffer_count, warning, cols );
+		buffer_append( buffer, &buffer_count, ansi_background_default, strlen( ansi_background_default ));
+		buffer_count += bar_spacing_post( bar_internal, &buffer[ buffer_count ]);
+		bar_update_alignment( bar_internal, buffer, buffer_count, cols );
 	}
 }
 
 void bar_editor_mode( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
-	bar_spacing_pre( bar_internal );
-	i32 count = 0;
+	char buffer[ 1024 ];
+	i32 buffer_count = bar_spacing_pre( bar_internal, buffer );
 	if( mode == command_mode ){
-		count = 7;
-		frame_append( "Command", count );
+		buffer_append( buffer, &buffer_count, "Command", 7 );
 	} else if( mode == edit_mode ){
-		count = 4;
-		frame_append( "Edit", count );
+		buffer_append( buffer, &buffer_count, "Edit", 4 );
 	} else if( mode == search_mode ){
-		count = 6;
-		frame_append( "Search", count );
+		buffer_append( buffer, &buffer_count, "Search", 6 );
 	} else if( mode == find_next_mode ){
-		count = 9;
-		frame_append( "Find Next", count );
+		buffer_append( buffer, &buffer_count, "Find Next", 9 );
 	} else if( mode == find_prev_mode ){
-		count = 9;
-		frame_append( "Find Prev", count );
+		buffer_append( buffer, &buffer_count, "Find Prev", 9 );
 	} else if( mode == append_find_next_mode ){
-		count = 16;
-		frame_append( "Append Find Next", count );
+		buffer_append( buffer, &buffer_count, "Append Find Next", 16 );
 	} else if( mode == append_find_prev_mode ){
-		count = 16;
-		frame_append( "Append Find Prev", count );
+		buffer_append( buffer, &buffer_count, "Append Find Prev", 16 );
 	} else {
-		error( "Invalid editor mode." );
+		mode = command_mode;
+		buffer_append( buffer, &buffer_count, "Command", 7 );
+		warning = "Internal Error: Unknown mode, switched to Command mode.";
 	}
-	bar_update_alignment( bar_internal, count, count );
-	bar_spacing_post( bar_internal );
+	buffer_count += bar_spacing_post( bar_internal, &buffer[ buffer_count ]);
+	bar_update_alignment( bar_internal, buffer, buffer_count, buffer_count );
 }
 
 void bar_selection( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
-	bar_spacing_pre( bar_internal );
 	char buffer[ 1024 ];
-	i32 buffer_count = snprintf( buffer, 1024, "%d/%d", primary_selection_index + 1, selection_count );
-	frame_append( buffer, buffer_count );
-	bar_update_alignment( bar_internal, buffer_count, buffer_count );
-	bar_spacing_post( bar_internal );
+	i32 buffer_count = bar_spacing_pre( bar_internal, buffer );
+	buffer_count += snprintf( &buffer[ buffer_count ], 1020, "%d/%d", primary_selection_index + 1, selection_count );
+	buffer_count += bar_spacing_post( bar_internal, &buffer[ buffer_count ]);
+	bar_update_alignment( bar_internal, buffer, buffer_count, buffer_count );
 }
 
 void bar_line_number( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
-	bar_spacing_pre( bar_internal );
 	char buffer[ 1024 ];
-	i32 buffer_count = snprintf( buffer, 1024, "%d/%d", line_number( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_number( file_buffer, file_count, file_count - 1 ));
-	frame_append( buffer, buffer_count );
-	bar_update_alignment( bar_internal, buffer_count, buffer_count );
-	bar_spacing_post( bar_internal );
+	i32 buffer_count = bar_spacing_pre( bar_internal, buffer );
+	buffer_count += snprintf( &buffer[ buffer_count ], 1020, "%d/%d", line_number( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_number( file_buffer, file_count, file_count - 1 ));
+	buffer_count += bar_spacing_post( bar_internal, &buffer[ buffer_count ]);
+	bar_update_alignment( bar_internal, buffer, buffer_count, buffer_count );
 }
 
 void bar_line_depth( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
-	bar_spacing_pre( bar_internal );
 	char buffer[ 1024 ];
-	i32 buffer_count = snprintf( buffer, 1024, "%d/%d", line_depth( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_length( file_buffer, file_count, selection[ primary_selection_index ].cursor ));
-	frame_append( buffer, buffer_count );
-	bar_update_alignment( bar_internal, buffer_count, buffer_count );
-	bar_spacing_post( bar_internal );
+	i32 buffer_count = bar_spacing_pre( bar_internal, buffer );
+	buffer_count += snprintf( &buffer[ buffer_count ], 1020, "%d/%d", line_depth( file_buffer, file_count, selection[ primary_selection_index ].cursor ), line_length( file_buffer, file_count, selection[ primary_selection_index ].cursor ));
+	buffer_count += bar_spacing_post( bar_internal, &buffer[ buffer_count ]);
+	bar_update_alignment( bar_internal, buffer, buffer_count, buffer_count );
 }
 
 void bar_command_count( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
 	if( command_count > 0 ){
-		bar_spacing_pre( bar_internal );
 		char buffer[ 1024 ];
-		i32 buffer_count = snprintf( buffer, 1024, "%d", command_count );
-		frame_append( buffer, buffer_count );
-		bar_update_alignment( bar_internal, buffer_count, buffer_count );
-		bar_spacing_post( bar_internal );
+		i32 buffer_count = bar_spacing_pre( bar_internal, buffer );
+		buffer_count = snprintf( &buffer[ buffer_count ], 1020, "%d", command_count );
+		buffer_count += bar_spacing_post( bar_internal, &buffer[ buffer_count ]);
+		bar_update_alignment( bar_internal, buffer, buffer_count, buffer_count );
 	}
 }
 
 void bar_search_string( bar_internal_data* bar_internal ){
 	assert( bar_internal != NULL );
-	if( search_count > 0 ){
-		bar_spacing_pre( bar_internal );
-		char buffer[ 1024 ] = { '"' };
-		i32 buffer_count = 1;
-		i32 cols = format_print_string( buffer, 1024, &buffer_count, search_buffer, search_count, screen_cols );
+	if( mode == search_mode ){
+		char buffer[ 1024 ];
+		i32 buffer_count = bar_spacing_pre( bar_internal, buffer );
 		buffer[ buffer_count ] = '"';
 		buffer_count += 1;
-		cols += 2;
-		frame_append( buffer, buffer_count );
-		bar_update_alignment( bar_internal, buffer_count, cols );
-		bar_spacing_post( bar_internal );
+		i32 cols = 2;
+		cols += format_print_string( &buffer[ buffer_count ], 1000, &buffer_count, search_buffer, search_count, 1000 );
+		buffer[ buffer_count ] = '"';
+		buffer_count += 1;
+		buffer_count += bar_spacing_post( bar_internal, &buffer[ buffer_count ]);
+		bar_update_alignment( bar_internal, buffer, buffer_count, cols );
 	}
 }
 
