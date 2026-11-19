@@ -2526,6 +2526,11 @@ i32 main( i32 argc, char* argv[] ){
 	terminal_read_file();
 	terminal_get_dimensions();
 	while( 1 ){
+start_of_main_loop:
+/*
+  start_of_main_loop should never be used, only if the main loop is broken out of.
+  The main loop should never be broken out of.
+*/
 /*** Draw Frame ***/
 		assert( frame_count == 0 );
 		assert( selection_count > 0 );
@@ -2922,6 +2927,7 @@ check_draw_highlight:
 		input_count = 0;
 		clip_selection_overlap();
 	}
-	error( "Somehow broke out of main loop" );
+/* The main loop should never be broken out of. */
+	goto start_of_main_loop;
 }
 
