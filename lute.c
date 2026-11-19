@@ -2336,13 +2336,13 @@ void bar_warning( bar_internal_data* bar_internal ){
 	if( warning != NULL ){
 		char buffer[ 1024 ];
 		i32 buffer_count = bar_spacing_pre( bar_internal, buffer );
-		i32 cols = strlen( warning ) + 2;
+		i32 cols = strlen( warning );
 		assert( cols < 1000 );
 		buffer_append( buffer, &buffer_count, ansi_background_red, strlen( ansi_background_red ));
 		buffer_append( buffer, &buffer_count, warning, cols );
 		buffer_append( buffer, &buffer_count, ansi_background_default, strlen( ansi_background_default ));
 		buffer_count += bar_spacing_post( bar_internal, &buffer[ buffer_count ]);
-		bar_update_alignment( bar_internal, buffer, buffer_count, cols );
+		bar_update_alignment( bar_internal, buffer, buffer_count, cols + 2 );
 	}
 }
 
@@ -2435,24 +2435,36 @@ void bar_draw(){
 		bar[ i ].function( &bar_internal );
 		i += 1;
 	}
-	i32 insert_spaces_left = ( screen_cols / 2 ) + ( screen_cols % 2 ) - ( bar_internal.center_cols / 2 ) - ( bar_internal.center_cols % 2 ) - bar_internal.left_cols;
-	i32 insert_spaces_right = ( screen_cols / 2 ) - ( bar_internal.center_cols / 2 ) - bar_internal.right_cols;
-	i32 insert_spaces = insert_spaces_left + insert_spaces_right;
-	i32 insert_left_start = bar_buffer_start + bar_internal.left_bytes;
-	i32 insert_right_start = insert_left_start + insert_spaces_left + bar_internal.center_bytes;
+	i32 insert_spaces = screen_cols - bar_internal.left_cols - bar_internal.center_cols - bar_internal.right_cols;
+/*
+  bar_update_alignment should cut off anything longer then screen_col.
+*/
+	assert( insert_spaces >= 0 );
 	if( max_frame_bytes <= frame_count + insert_spaces ){
 		error( "Frame buffer overflow, increase max_frame_bytes" );
 	}
-	if( bar_internal.left_cols > 0 ){
-		memmove( &frame_buffer[ insert_left_start + insert_spaces_left ], &frame_buffer[ insert_left_start ], frame_count - insert_left_start );
-		memset( &frame_buffer[ insert_left_start ], ' ', insert_spaces_left );
-		frame_count += insert_spaces_left;
+	i32 insert_left = 0;
+	i32 insert_right = 0;
+/*
+  If the cented elementes of the bar can be aligned to the center of the screen put them there.
+  Otherwise align them to the center of the gap between the right and left elements.
+*/
+	if(( screen_cols / 2 + screen_cols % 2 >= bar_internal.left_cols + bar_internal.center_cols / 2 + bar_internal.center_cols % 2 ) &&
+	   ( screen_cols / 2 >= bar_internal.right_cols + bar_internal.center_cols / 2 )){
+		insert_left = screen_cols / 2 + screen_cols % 2 - bar_internal.left_cols - bar_internal.center_cols / 2 - bar_internal.center_cols % 2;
+		insert_right = screen_cols / 2 - bar_internal.right_cols - bar_internal.center_cols / 2;
+	} else {
+		insert_left = insert_spaces / 2 + insert_spaces % 2;
+		insert_right = insert_spaces / 2;
 	}
-	if( bar_internal.right_cols > 0 ){
-		memmove( &frame_buffer[ insert_right_start + insert_spaces_right ], &frame_buffer[ insert_right_start ], frame_count - insert_right_start );
-		memset( &frame_buffer[ insert_right_start ], ' ', insert_spaces_right );
-		frame_count += insert_spaces_right;
-	}
+	i32 insert_left_index = bar_buffer_start + bar_internal.left_bytes;
+	memmove( &frame_buffer[ insert_left_index + insert_left ], &frame_buffer[ insert_left_index ], frame_count - insert_left_index );
+	memset( &frame_buffer[ insert_left_index ], ' ', insert_left );
+	frame_count += insert_left;
+	i32 insert_right_index = insert_left_index + insert_left + bar_internal.center_bytes;
+	memmove( &frame_buffer[ insert_right_index + insert_right ], &frame_buffer[ insert_right_index ], frame_count - insert_right_index );
+	memset( &frame_buffer[ insert_right_index ], ' ', insert_right );
+	frame_count += insert_right;
 }
 
 i32 ansi_utf8_length( u8* buffer, i32 count, i32 index ){
