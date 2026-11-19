@@ -2928,6 +2928,7 @@ check_draw_highlight:
 		clip_selection_overlap();
 	}
 /* The main loop should never be broken out of. */
+	warning = "Internal Error: Main loop was broken out of.";
 	goto start_of_main_loop;
 }
 
