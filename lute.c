@@ -2338,13 +2338,11 @@ void bar_warning( bar_internal_data* bar_internal ){
 	if( warning != NULL ){
 		char buffer[ 1024 ];
 		i32 buffer_count = bar_spacing_pre( bar_internal, buffer );
-		i32 cols = strlen( warning );
-		assert( cols < 1000 );
 		buffer_append( buffer, &buffer_count, ansi_background_red, strlen( ansi_background_red ));
-		buffer_append( buffer, &buffer_count, warning, cols );
+		buffer_append( buffer, &buffer_count, warning, strlen( warning ));
 		buffer_append( buffer, &buffer_count, ansi_background_default, strlen( ansi_background_default ));
 		buffer_count += bar_spacing_post( bar_internal, &buffer[ buffer_count ]);
-		bar_update_alignment( bar_internal, buffer, buffer_count, cols + 2 );
+		bar_update_alignment( bar_internal, buffer, buffer_count, strlen( warning ) + 2 );
 	}
 }
 
@@ -2420,8 +2418,8 @@ void bar_search_string( bar_internal_data* bar_internal ){
 		i32 buffer_count = bar_spacing_pre( bar_internal, buffer );
 		buffer[ buffer_count ] = '"';
 		buffer_count += 1;
-		i32 cols = 2;
-		cols += format_print_string( &buffer[ buffer_count ], 1000, &buffer_count, search_buffer, search_count, 1000 );
+		i32 cols = 4;
+		cols += format_print_string( buffer, 1000, &buffer_count, search_buffer, search_count, 1000 );
 		buffer[ buffer_count ] = '"';
 		buffer_count += 1;
 		buffer_count += bar_spacing_post( bar_internal, &buffer[ buffer_count ]);
