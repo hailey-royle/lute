@@ -2434,24 +2434,20 @@ void bar_draw(){
 		bar[ i ].function( &bar_internal );
 		i += 1;
 	}
-	if( bar_internal.left_cols + bar_internal.center_cols + bar_internal.right_cols > screen_cols ){
-		i32 delete_bytes = bar_internal.left_cols + bar_internal.center_cols + bar_internal.right_cols - screen_cols;
-		assert( delete_bytes > 0 );
-		buffer_delete( frame_buffer, &frame_count, bar_buffer_start + screen_cols, delete_bytes );
-	} else if(( bar_internal.right_cols > 0 ) || ( bar_internal.left_cols > 0 )){
-		i32 insert_spaces_left = ( screen_cols / 2 ) + ( screen_cols % 2 ) - ( bar_internal.center_cols / 2 ) - ( bar_internal.center_cols % 2 ) - bar_internal.left_cols;
-		i32 insert_spaces_right = ( screen_cols / 2 ) - ( bar_internal.center_cols / 2 ) - bar_internal.right_cols;
-		assert( insert_spaces_left >= 0 );
-		assert( insert_spaces_right >= 0 );
-		i32 insert_spaces = insert_spaces_left + insert_spaces_right;
-		if( max_frame_bytes <= frame_count + insert_spaces ){
-			error( "Frame buffer overflow, increase max_frame_bytes" );
-		}
-		i32 insert_left_start = bar_buffer_start + bar_internal.left_bytes;
+	i32 insert_spaces_left = ( screen_cols / 2 ) + ( screen_cols % 2 ) - ( bar_internal.center_cols / 2 ) - ( bar_internal.center_cols % 2 ) - bar_internal.left_cols;
+	i32 insert_spaces_right = ( screen_cols / 2 ) - ( bar_internal.center_cols / 2 ) - bar_internal.right_cols;
+	i32 insert_spaces = insert_spaces_left + insert_spaces_right;
+	i32 insert_left_start = bar_buffer_start + bar_internal.left_bytes;
+	i32 insert_right_start = insert_left_start + insert_spaces_left + bar_internal.center_bytes;
+	if( max_frame_bytes <= frame_count + insert_spaces ){
+		error( "Frame buffer overflow, increase max_frame_bytes" );
+	}
+	if( bar_internal.left_cols > 0 ){
 		memmove( &frame_buffer[ insert_left_start + insert_spaces_left ], &frame_buffer[ insert_left_start ], frame_count - insert_left_start );
 		memset( &frame_buffer[ insert_left_start ], ' ', insert_spaces_left );
 		frame_count += insert_spaces_left;
-		i32 insert_right_start = insert_left_start + insert_spaces_left + bar_internal.center_bytes;
+	}
+	if( bar_internal.right_cols > 0 ){
 		memmove( &frame_buffer[ insert_right_start + insert_spaces_right ], &frame_buffer[ insert_right_start ], frame_count - insert_right_start );
 		memset( &frame_buffer[ insert_right_start ], ' ', insert_spaces_right );
 		frame_count += insert_spaces_right;

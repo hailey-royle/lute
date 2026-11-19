@@ -69,9 +69,9 @@ i8 draw_line_numbers = no_line_numbers;
 #define bottom_bar 1
 #define top_bar 2
 
+i8 bar_position = bottom_bar;
 
 
-i8 bar_position = top_bar;
 
 /*
   The order bar items will be drawn.
