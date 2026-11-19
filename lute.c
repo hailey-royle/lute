@@ -2791,9 +2791,9 @@ check_draw_highlight:
 		i32 input_index = 0;
 		assert( input_count < max_input_bytes );
 		while( input_index < input_count ){
-			i32 key_bytes = ansi_utf8_length( (u8*) &input_buffer[ input_index ], input_count, input_index );
-			assert( key_bytes > 0 );
 			if( mode == command_mode ){
+				i32 key_bytes = ansi_utf8_length( (u8*) &input_buffer[ input_index ], input_count, input_index );
+				assert( key_bytes > 0 );
 				if(( key_bytes == 1 ) && ( input_buffer[ input_index ] == 0x1b )){
 					command_count = 0;
 					warning = NULL;
@@ -2817,6 +2817,7 @@ check_draw_highlight:
 				i32 start_index = input_index;
 				assert( input_index < input_count );
 				while( 1 ){
+					i32 key_bytes = ansi_utf8_length( (u8*) &input_buffer[ input_index ], input_count, input_index );
 					assert( key_bytes > 0 );
 					if( key_bytes == 1 && input_buffer[ input_index ] == 0x1b ){  /* escape */
 						if( input_index != start_index ){
@@ -2843,10 +2844,10 @@ check_draw_highlight:
 						}
 						break;
 					}
-					key_bytes = ansi_utf8_length( (u8*) &input_buffer[ input_index ], input_count, input_index );
-					assert( key_bytes > 0 );
 				}
 			} else if( mode == search_mode ){
+				i32 key_bytes = ansi_utf8_length( (u8*) &input_buffer[ input_index ], input_count, input_index );
+				assert( key_bytes > 0 );
 				if( key_bytes == 1 && input_buffer[ input_index ] == 0x1b ){  /* escape */
 					mode = command_mode;
 					search_count = 0;
@@ -2867,6 +2868,8 @@ check_draw_highlight:
 				}
 				input_index += key_bytes;
 			} else if(( mode == find_next_mode ) || ( mode == find_prev_mode ) || ( mode == append_find_next_mode ) || ( mode == append_find_prev_mode )){
+				i32 key_bytes = ansi_utf8_length( (u8*) &input_buffer[ input_index ], input_count, input_index );
+				assert( key_bytes > 0 );
 				if( key_bytes != 1 || input_buffer[ input_index ] != 0x1b /* escape */ ){
 					do {
 						i32 i = 0;
@@ -2919,9 +2922,9 @@ check_draw_highlight:
 				input_index += key_bytes;
 				mode = command_mode;
 			} else {
-				error( "Invalid mode." );
 				input_index += key_bytes;
 				mode = command_mode;
+				warning = "Internal Error: Unknown mode, switched to Command mode.";
 			}
 		}
 		input_count = 0;
