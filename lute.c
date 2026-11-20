@@ -709,7 +709,7 @@ i32 utf8_next_length( char* src, i32 count, i32 index ){
 
 i32 utf8_prev_length( char* src, i32 count, i32 index ){
 	assert( src != NULL );
-	assert( count > index );
+	assert( count >= index );
 	if( index == 0 ){
 		return 0;
 	}
